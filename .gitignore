@@ -1,0 +1,2 @@
+# don't track (large) data files
+data/*

@@ -1,0 +1,8 @@
+#filtering by a label in column 3 after family and ind. ID
+plink --file CALI_Harpur_SNPs --filter bee_filter.txt M --freq
+
+#filter by M and by chromosome, label output
+plink --file CALI_Harpur_SNPs --filter bee_filter.txt M --chr 1 --recode-bimbam --out M_1
+
+#filter by all individuals in bee_filter.txt
+plink --file data --keep bee_filter.txt

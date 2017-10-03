@@ -1,0 +1,10 @@
+#trying to run just chromosome 1 for local ancestry of placerita individuals
+#likely a problem that m_morgan is .293122 when honeybee recomb. map says its
+elai-mac -g A_1.recode.geno.txt -p 10 -g M_1.recode.geno.txt -p 11 -g C_1.recode.geno.txt -p 12 -g Pla_1.recode.geno.txt -p 1 -pos Pla_1.recode.pos.txt -o Pla_gen58_chr1 -s 50 -C 3 -c 15 --exclude-nopos --exclude-maf 0.01 --exclude-miss1 -mg 5 -R 5
+
+
+# switched to writing “physical position” as a translation from physical bp -> Morgans using Beye 2006 mean recombination rate per chromosome -> a bp scale using average human recombination rate (1cM/Mb) because this is the ELAI assumption (e.g. command):
+## COMMAND: elai-mac -g A_1.recode.geno.txt -p 10 -g M_1.recode.geno.txt -p 11 -g C_1.recode.geno.txt -p 12 -g Pla_1.recode.geno.txt -p 1 -pos morgan_pos_chr_1.txt -o Pla_gen58_morgans_chr1 -s 30 -C 3 -c 15 --exclude-nopos --exclude-maf 0.01 --exclude-miss1 -mg 58 -R 5  
+
+# note that Julie sent me new SNPs, so these analyses need to be re-run if used. Also more fine-scale recombination maps are available than the chromosome averages.
+
