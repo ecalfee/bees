@@ -1,0 +1,30 @@
+# This file describes the bioinformatics pipeline for the honeybee data I use.
+
+# Bee_bam are BAM files created by Julie Cridland from the Ramirez Lab CA bee sequencing.
+# Her pipeline will be published soon, but I try to reproduce it for the other files.
+# I will only be using the modern (not historical) bees which have generally good coverage
+
+# Downloaded Apis mellifera genome v4.5 from beebase.org on 10.12.17, saved in honeybee_genome
+
+# Downloaded Harpur 2014 A, C and M bees. To get NCBI data, first downloaded SRA Toolkit.
+wget https://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/2.8.2-1/sratoolkit.2.8.2-1-ubuntu64.tar.gz
+tar xzvf sratoolkit.2.8.2-1-ubuntu64.tar.gz
+# Downloaded sratoolkit version 2.8.2-1 on 10.12.17
+
+
+# Dowloaded alignment software - Bowtie2 v 2.3.3.1 release Oct 5 2017
+# Had trouble downloading preferred threading software, Threading Building Blocks library,
+# so compiled with option to use pthread instead (hence "-legacy") 
+make NO_TBB=1
+# Please cite: Langmead B, Salzberg S. Fast gapped-read alignment with Bowtie 2. Nature Methods. 2012, 9:357-359.
+# Used Bowtie 2 to align Harpur reads to honey bee genome with very-sensitive-local alignment parameters
+
+# To do: 1) Possibly apply filter based on heterozygosity calls in haploid males, 
+# e.g. Wallberg data, to filter out regions with genome (multiple) alignment errors
+# 
+
+# Dowloaded recombination genetic map from Liu 2015 supplement and saved in recomb_map
+# I will use Liu 2015's high-density map from sequenced haploid workers (used to phase queens)
+# 2177 recombination events were logged in S5_rates.txt downloaded (and renamed) from Liu 2015
+# (emailed authors - doesn't include recombination in bee genome gaps)
+

@@ -11,6 +11,19 @@ r$CO_counts <- round(r$rate/min(r[r$rate != 0, "rate"]))
 r$CO_counts <- round(r$rate*43/10000) #equivalent. Need to round because of shortened decimal places when file was converted to .csv
 
 
-sum(r$CO_counts) #2177 not expected 3505 -- are some missing?
+sum(r$CO_counts) #2177 not expected 3505 -- are some missing? 
+# Yes, emailed authors about the discrepancy and some are omitted because they fall in genome assembly gaps of unknown size.
+# these gaps are not included in the genetic length either, but increase uncertainty about local recomb. rate in those regions.
 unique(r$linkage_group)
-# Emailed authors about the problem.
+# I could make a map based on the posterior probability based on # of crossovers observed:
+# prior on local recombination rate (lambda) centered around mean for the whole genome -- gamma? not sure.
+# calculate posterior
+genome_length = dim(r)[1] #in .01 Mb units, this is the total length included in Liu 2015 (skips gaps)
+mean_r = sum(r$CO_counts)/genome_length
+#dpois(x = unique(r$CO_counts), lambda = mean_r)
+plot(unique(r$CO_counts), 
+     log(dpois(x = unique(r$CO_counts), lambda = mean_r)),
+     main = paste("Prob. observations under a fixed genomewide rate ", round(mean_r, digits = 2)/.01, "r/Mb"),
+     ylab = "log probability",
+     xlab = "counted recombination events in .01 Mb intervals")
+# how different are the LD based map and the posterior distribution based on the observed meioses?
