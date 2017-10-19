@@ -16,7 +16,7 @@ sum(r$CO_counts) #2177 not expected 3505 -- are some missing?
 # these gaps are not included in the genetic length either, but increase uncertainty about local recomb. rate in those regions.
 unique(r$linkage_group)
 # I could make a map based on the posterior probability based on # of crossovers observed:
-# prior on local recombination rate (lambda) centered around mean for the whole genome -- gamma? not sure.
+# prior on local recombination rate (lambda) centered around mean for the whole genome -- gamma? not sure; would estimate both
 # calculate posterior
 genome_length = dim(r)[1] #in .01 Mb units, this is the total length included in Liu 2015 (skips gaps)
 mean_r = sum(r$CO_counts)/genome_length
