@@ -28,3 +28,14 @@ make NO_TBB=1
 # 2177 recombination events were logged in S5_rates.txt downloaded (and renamed) from Liu 2015
 # (emailed authors - doesn't include recombination in bee genome gaps)
 
+# downloading NCBI data - Harpur 2014 not sure they're actually paired reads
+while read p; do fastq-dump --split-files -clip --gzip --skip-technical -O ../bees/data/Harpur_2014_N$
+
+# indexed v4.5 genome from www.beebase.org
+bees/data/honeybee_genome$ bowtie2-build Amel_4.5_scaffolds.fa.gz honeybee_Amel_4.5
+
+# aligning Harpur NCBI reads using very-sensitive-local alignment with Bowtie 2
+# ID uses accession number. Pipes directly into samtools to convert from SAM to binary BAM format
+bees/data/honeybee_genome$ parallel --noswap --joblog ../../Harpur_2014_alignment.log --jobs 6 'bowti$
+# Job started: Fri Nov  3 15:03:22 PDT 2017
+
