@@ -37,8 +37,11 @@ bees/data/honeybee_genome$ bowtie2-build Amel_4.5_scaffolds.fa.gz honeybee_Amel_
 # aligning Harpur NCBI reads using very-sensitive-local alignment with Bowtie 2
 # ID uses accession number. Pipes directly into samtools to convert from SAM to binary BAM format
 parallel --noswap --joblog ../../Harpur_2014_alignment.log --jobs 6 'bowtie2 --seed 2014 --very-sensitive --local -x honeybee_Amel_4.5 -U ../Harpur_2014_NCBI/fastq_files/{1}_1.fastq.gz --rg-id Harpur2014 --rg SM:{1} | samtools view -b - > ../Harpur_2014_NCBI/bam_files/Harpur_{1}.bam' :::: ../../SRR_Acc_List_Harpur_2014.txt
-# Job started: Fri Nov  3 15:03:22 PDT 2017
+# Job started: Fri Nov  3 15:03:22 PDT 2017 -- Finished
 
 # download NCBI data - Sheppard's honeybees from Kenya (6)
 while read p; do fastq-dump --split-files -clip --gzip --skip-technical -O data/Kenya_Sheppard_NCBI/ "${p}"; done < SRR_Acc_List_Kenya_Sheppard.txt;
-# Job started: Fri Nov  3 17:03:30 PDT 2017
+# Job started: Fri Nov  3 17:03:30 PDT 2017 -- Finished
+
+# aligning Sheppard's 6 samples from Kenya using very-sensitive-alignment with Bowtie 2
+data/honeybee_genome$ parallel --noswap --joblog ../../Kenya_Sheppard_alignment.log --jobs 6 'bowtie2 --seed 2014 --very-sensitive --local -x honeybee_Amel_4.5 -U ../Kenya_Sheppard_NCBI/fastq_files/{1}_1.fastq.gz --rg-id Kenya --rg SM:{1} | samtools view -b - > ../Kenya_Sheppard_NCBI/bam_files/Kenya_{1}.bam' :::: ../../SRR_Acc_List_Kenya_Sheppard.txt
