@@ -49,14 +49,29 @@ data/honeybee_genome$ parallel --noswap --joblog ../../Kenya_Sheppard_alignment.
 # sorting and indexing BAM files for both reference data sets: Harpur_2014 and Kenya_Sheppard data
 parallel --noswap --joblog ../Harpur_Kenya_bam_sorting.log --jobs 6 'samtools sort {1} {1.}.sorted; samtools index {1.}.sorted.bam' ::: Harpur_2014_NCBI/bam_files/* Kenya_Sheppard_NCBI/bam_files/*
 
+# indexing BAM files from CA (already sorted) 
+parallel --noswap --jobs 6 'samtools index {1}' ::: data/CA_Bee_bam/*.bam
+
+# Make a list of files to include in ANGST -- only more recent CA samples, no cerano individuals (CA or Harpur)
+for i in data/Harpur_2014_NCBI/bam_files/Harpur_*.sorted.bam; do echo $i >> Bee_bam_include_NGSadmix.txt; done
+for i in data/Kenya_Sheppard_NCBI/bam_files/Kenya_*.sorted.bam; do echo $i >> Bee_bam_include_NGSadmix.txt; done
+cat List_CA_bees_include.txt | while read id rest_of_info ; do echo data/CA_Bee_bam/$id.*.bam >> Bee_bam_include_NGSadmix.txt; done
+removed Harpur cerano = SRR957079 from list
+
 # Next I will use ANGST to create a beagle-type genotype likelihood file for input into NGSadmix which I will use for global ancestry inference
-# File will include all Harpur 2014 files (except Cerana individual, ) (n=30)
+# File will include all Harpur 2014 files (except Cerana individual) (n=30)
 # All Kenya files (n=6)
 # and All admixed CA bees (n=51 wild samples and n=6 domestic)
 # I will use two types of quality filtering minimum thresholds:
 # 1) Minimum of base quality score from sequencing and base alignment quality score from noise around indels (Li 2011 "Improving SNP discovery by base alignment quality"
 # 2) Mapping quality score which accounts for read mapping uniqueness (Li 2008)
-# 13 and 30 (conservative?) may be standard thresholds or defaults, but I will first look at the distribution of quality.
+# 13 and 30 (conservative?) may be standard thresholds or defaults, but I will first look at the distribution of quality to see if it's bimodal with a logical cuttoff.
+# Pulled out a subset of reads randomly across the sequenced genomes for quality checking: (where -s .00001 specifies subset to .00001 proportion aligned reads and $5 fifth column is MAPQ
+for i in *.sorted.bam; do samtools view -s .00001 $i | awk -F "\t" '{print $5}' > ../alignment_stats/${i}.mapq; done
+-baq 1 -minMapQ 20 -minQ 13 -bam [file with full path to each bam file] -r [chr]:[start-stop]
+angsd -out out_file -doCounts 1 -doQsDist 1 -bam bam.filelist
+# Theoretically a mapq=20 indicates less than .01 false mapping and mapq=10 is less than .1 etc. but the scores aren't very reliable: 
+# see - https://academic.oup.com/bioinformatics/article/28/18/i349/249968
 
 # To infer global ancestry of each individual, I run NGSadmix with K = 3 (A, C, M ancestries). NGSadmix does not use pre-assigned labels to identify source and admixed individuals.
 
