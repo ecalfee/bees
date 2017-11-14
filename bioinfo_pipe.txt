@@ -55,8 +55,8 @@ parallel --noswap --jobs 6 'samtools index {1}' ::: data/CA_Bee_bam/*.bam
 # Make a list of files to include in ANGST -- only more recent CA samples, no cerano individuals (CA or Harpur)
 for i in data/Harpur_2014_NCBI/bam_files/Harpur_*.sorted.bam; do echo $i >> Bee_bam_include_NGSadmix.txt; done
 for i in data/Kenya_Sheppard_NCBI/bam_files/Kenya_*.sorted.bam; do echo $i >> Bee_bam_include_NGSadmix.txt; done
-cat List_CA_bees_include.txt | while read id rest_of_info ; do echo data/CA_Bee_bam/$id.*.bam >> Bee_bam_include_NGSadmix.txt; done
-removed Harpur cerano = SRR957079 from list
+cat List_CA_bees_include.txt | while read id rest_of_info ; do echo data/CA_Bee/bam_files/$id.*.bam >> Bee_bam_include_NGSadmix.txt; done
+removed Harpur cerano = SRR957079 from list in Bee_bam_include_NGSadmix.txt
 
 # Next I will use ANGST to create a beagle-type genotype likelihood file for input into NGSadmix which I will use for global ancestry inference
 # File will include all Harpur 2014 files (except Cerana individual) (n=30)
@@ -65,13 +65,27 @@ removed Harpur cerano = SRR957079 from list
 # I will use two types of quality filtering minimum thresholds:
 # 1) Minimum of base quality score from sequencing and base alignment quality score from noise around indels (Li 2011 "Improving SNP discovery by base alignment quality"
 # 2) Mapping quality score which accounts for read mapping uniqueness (Li 2008)
-# 13 and 30 (conservative?) may be standard thresholds or defaults, but I will first look at the distribution of quality to see if it's bimodal with a logical cuttoff.
+# 13 and 30 (too conservative on mapQ?) may be standard thresholds or defaults, but I will first look at the distribution of quality to see if it's bimodal with a logical cuttoff.
 # Pulled out a subset of reads randomly across the sequenced genomes for quality checking: (where -s .00001 specifies subset to .00001 proportion aligned reads and $5 fifth column is MAPQ
 for i in *.sorted.bam; do samtools view -s .00001 $i | awk -F "\t" '{print $5}' > ../alignment_stats/${i}.mapq; done
--baq 1 -minMapQ 20 -minQ 13 -bam [file with full path to each bam file] -r [chr]:[start-stop]
+# very slow to use angst to get a file with different quality scores for whole genome (even just 1 file):
 angsd -out out_file -doCounts 1 -doQsDist 1 -bam bam.filelist
 # Theoretically a mapq=20 indicates less than .01 false mapping and mapq=10 is less than .1 etc. but the scores aren't very reliable: 
 # see - https://academic.oup.com/bioinformatics/article/28/18/i349/249968
+# For now, since nothing pops out in the distribution of mapping quality and phred sequencing quality is more interpretable, 
+# I will use >=13 for both as the cutoff (.05% theoretically)
+angsd -GL 1 -baq 1 -ref data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz -doGlf 2 -doMajorMinor 1 -doMaf 3 -SNP_pval 1e-1 -minInd 9 
+-minMapQ 13 -minQ 13 -nThreads 14 -out Bee_bam_include_GL -bam Bee_bam_include_NGSadmix.txt
+# GenotypeLikelihood=1 is for SAMtools method (2 is GATK), BAQ=1 adjusts seq quality scores using the reference genome provided, 
+# -doGenotypelikelihoodfile=2 is for beagle likelihood output format
+# -doMajorMinor 1 infers major/minor allele from genotype likelihoods; then after this the major allele is assumed known and it calculates MAF 2 ways: 
+# doMinorAlleleFreq=3=1+2 where 1 assumes inferred major/minor are known and 2 marginalizes over possible minor alleles
+# To reduce computation, I conservatively exclude sites that are very unlikely polymorphic (SNP p-value > .1) or that have data for fewer than 9 individuals (~10% of the sample)
+
+# NOTE: I accidentally wrote over my gzipped ref genome (can just re-download) using bgzip Amel_4.5_scaffolds.fa.gz which created Amel_4.5_scaffolds.fa.gz.gz 
+# then I unzipped this file twice and bgzipped
+gunzip -c Amel_4.5_scaffolds.fa.gz.gz | gunzip | bgzip > Amel_4.5_scaffolds.fa.bgz
+
 
 # To infer global ancestry of each individual, I run NGSadmix with K = 3 (A, C, M ancestries). NGSadmix does not use pre-assigned labels to identify source and admixed individuals.
 
