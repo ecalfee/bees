@@ -86,8 +86,30 @@ angsd -GL 1 -baq 1 -ref data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz -doGlf 2 
 # then I unzipped this file twice and bgzipped
 gunzip -c Amel_4.5_scaffolds.fa.gz.gz | gunzip | bgzip > Amel_4.5_scaffolds.fa.bgz
 
+# This initial run crashed, so I am trying again with smaller segments of the genome in parallel. I only include scaffolds associated with a bee chromosome and make a list from the reference genome.
+bees/data/honeybee_genome$ zgrep "^>Group[0-9]" Amel_4.5_scaffolds.fa.bgz | sed 's:>::' > list_aligned_scaffolds.txt
+# In addition to splitting up the files, I've decided to run it without any minimum cutoff filters for quality and just let that be incorporated in the SNP and genotype likelihoods
+cat data/honeybee_genome/list_aligned_scaffolds.txt | parallel --noswap --joblog angsd_log_aligned_scaffolds.log --jobs 12 "angsd -GL 1 -baq 1 -ref data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz -r {1} -doGlf 2 -doMajorMinor 1 -doMaf 3 -SNP_pval 1e-1 -minInd 9 -minMapQ 0 -minQ 0 -nThreads 2 -out data/geno_lik/GL_{1} -bam Bee_bam_include_NGSadmix.txt"
+# This crashed I think due to libreoffice. I restarted and ran with nohup and also getting rid of awkward 'cat'
+/bees$ nohup parallel --noswap --joblog angsd_log_aligned_scaffolds.log --jobs 14 
+"angsd -GL 1 -baq 1 -ref data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz -r {1} 
+-doGlf 2 -doMajorMinor 1 -doMaf 3 -SNP_pval 1e-1 -minInd 9 -minMapQ 0 -minQ 0 
+-nThreads 2 -out data/geno_lik/GL_{1} -bam Bee_bam_include_NGSadmix.txt" 
+< data/honeybee_genome/list_aligned_scaffolds.txt &
+[1] 5111
+
+# Completed overnight - all the files were made. Then I concatenated the output files and get rid of multiple headers (headers start with "marker ind0 " etc).
+while read i; do pv "GL_${i}.beagle.gz" >> GL_all.beagle.gz; done < ../honeybee_genome/list_aligned_scaffolds.txt
+(zgrep '^marker' GL_Group1.1.beagle.gz && zgrep -v '^marker' GL_all.beagle.gz) | gzip >> GL_all2.beagle.gz 
+# above, take header from file with just one, add it to the file, then take everything NOT (-v) header and add to the new file, pipe to gzip
+while read i; do pv "GL_${i}.mafs.gz" >> GL_all.mafs.gz; done < ../honeybee_genome/list_aligned_scaffolds.txt
+
+# NOTE: pv is just like cat but shows a progress bar
 
 # To infer global ancestry of each individual, I run NGSadmix with K = 3 (A, C, M ancestries). NGSadmix does not use pre-assigned labels to identify source and admixed individuals.
+# other parameters: P = 14 for processors/cores, minMaf = minimum minor allele freq to filter by, outfiles= prefix of output file
+nohup NGSadmix -likes geno_lik/GL_all2.beagle.gz -K 3 -P 14 -seed 100 -minMaf .01 -outfiles out_all_NGSadmix &
+[1] 32363
 
 # To infer local ancestry along the chromosome for each individual, I will run the HMM from Corbett-Detig and Nielsen 
 # I can see if it's sensitive to running all CA bees together in 1 population or separately by location/date (T may differ sig.)
