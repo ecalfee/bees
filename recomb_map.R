@@ -86,7 +86,7 @@ lapply(1:16, function(i) plot(pos_byLG[[i]], r_byLG[[i]],
                               main = unique(r$linkage_group)[i]))
 #approxfun
 #monopoly -smooths over larger windows
-d = data.frame(list(pos_byLG = pos_byLG[[15]], r_byLG = r_byLG[[15]]))
+d = data.frame(list(pos_byLG = pos_byLG[[6]], r_byLG = r_byLG[[6]]))
 par(mfrow=c(1,1))
 m1 = monpol(r_byLG ~ pos_byLG, data = d,
        degree = 9, plot.it = T) # will need to plot on my own just final fit (not all)
