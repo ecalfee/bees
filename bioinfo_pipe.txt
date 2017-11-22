@@ -110,6 +110,26 @@ while read i; do pv "GL_${i}.mafs.gz" >> GL_all.mafs.gz; done < ../honeybee_geno
 # other parameters: P = 14 for processors/cores, minMaf = minimum minor allele freq to filter by, outfiles= prefix of output file
 nohup NGSadmix -likes geno_lik/GL_all2.beagle.gz -K 3 -P 14 -seed 100 -minMaf .01 -outfiles out_all_NGSadmix &
 [1] 32363
+# This process aborted because scaffold 7.1 has an incomplete line at 7.1_10306
+# This did not appear in the log from parallel as an error: angsd_log_aligned_scaffolds.log
+# But this section of the nohup_parallel_scaffolds_to_beagle.out does skip [ALL DONE]
+less +14280 nohup_parallel_scaffolds_to_beagle.out 
+# And the error in the file can be seen here:
+zgrep "^Group7.1_10306" data/geno_lik/GL_Group7.1.beagle.gz
+# or by using zgrep for "^Group7.1_10306" on GL_all2.beagle.gz or zgrep "Ind1" which shows this is the only messed up line
+# I will save the corrupt file as a backup and re-run just scaffold Group7.1:
+nohup angsd -GL 1 -baq q -ref data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz -r Group7.1
+-doGlf 2 -doMajorMinor 1 -doMaf 3 -SNP_pval 1e-1 -minInd 9 -minMapQ 0 -minQ 0
+-nThreads 2 -out data/geno_lik/GL_Group7.1 -bam Bee_bam_include_NGSadmix.txt &
+[1] 24103
+# checked the file -- looks good -- repeated the merge to rerun NGSadmix
+while read i; do pv "GL_${i}.beagle.gz" >> GL_all_temp.beagle.gz; done < ../honeybee_genome/list_aligned_scaffolds.txt; 
+(zgrep '^marker' GL_Group1.1.beagle.gz && zgrep -v '^marker' GL_all_temp.beagle.gz) | gzip >> GL_all.beagle.gz
+# run NGSadmix
+nohup NGSadmix -likes geno_lik/GL_all.beagle.gz -K 3 -P 14 -seed 100 -minMaf .01 -outfiles out_all_NGSadmix &
+[1] 26027
+# 1pm Tuesday Nov 21 2017
+
 
 # To infer local ancestry along the chromosome for each individual, I will run the HMM from Corbett-Detig and Nielsen 
 # I can see if it's sensitive to running all CA bees together in 1 population or separately by location/date (T may differ sig.)
