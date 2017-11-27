@@ -122,9 +122,11 @@ nohup angsd -GL 1 -baq q -ref data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz -r 
 -doGlf 2 -doMajorMinor 1 -doMaf 3 -SNP_pval 1e-1 -minInd 9 -minMapQ 0 -minQ 0
 -nThreads 2 -out data/geno_lik/GL_Group7.1 -bam Bee_bam_include_NGSadmix.txt &
 [1] 24103
+
 # checked the file -- looks good -- repeated the merge to rerun NGSadmix
 while read i; do pv "GL_${i}.beagle.gz" >> GL_all_temp.beagle.gz; done < ../honeybee_genome/list_aligned_scaffolds.txt; 
 (zgrep '^marker' GL_Group1.1.beagle.gz && zgrep -v '^marker' GL_all_temp.beagle.gz) | gzip >> GL_all.beagle.gz
+
 # run NGSadmix
 nohup NGSadmix -likes geno_lik/GL_all.beagle.gz -K 3 -P 14 -seed 100 -minMaf .01 -outfiles out_all_NGSadmix &
 [1] 26027
@@ -183,12 +185,31 @@ gunzip < Amel_4.5_scaffolds.fa.bgz | grep "^>Group[0-9]" -n >> start_line_n.txt
 # I will use the same quality filtering thresholds as above for this analysis.
 
 
-
-nohup parallel --noswap --joblog M_freqs.log --jobs 6 "java -jar ~/Software/GATK/GenomeAnalysisTK.jar -R ../../data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz -T ASEReadCounter --minMappingQuality 13 --minBaseQuality 13 --outputFormat CSV -sites ../../ref_panel_vcf/{1} -o M_counts_{1}.csv -I Harpur_SRR957058.sorted.bam -I Harpur_SRR957059.sorted.bam -I Harpur_SRR957060.sorted.bam -I Harpur_SRR957061.sorted.bam -I Harpur_SRR957062.sorted.bam -I Harpur_SRR957063.sorted.bam -I Harpur_SRR957064.sorted.bam -I Harpur_SRR957089.sorted.bam -I Harpur_SRR957090.sorted.bam; java -jar ~/Software/GATK/GenomeAnalysisTK.jar -R ../../data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz -T ASEReadCounter --minMappingQuality 13 --minBaseQuality 13 --outputFormat CSV -sites ../../ref_panel_vcf/{1} -o C_counts_{1}.csv -I Harpur_SRR957080.sorted.bam -I Harpur_SRR957081.sorted.bam -I Harpur_SRR957082.sorted.bam -I Harpur_SRR957083.sorted.bam -I Harpur_SRR957084.sorted.bam -I Harpur_SRR957085.sorted.bam -I Harpur_SRR957086.sorted.bam -I Harpur_SRR957087.sorted.bam -I Harpur_SRR957088.sorted.bam; java -jar ~/Software/GATK/GenomeAnalysisTK.jar -R ../../data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz -T ASEReadCounter --minMappingQuality 13 --minBaseQuality 13 --outputFormat CSV -sites ../../ref_panel_vcf/{1} -o A_counts_{1}.csv -I Harpur_SRR957075.sorted.bam -I Harpur_SRR957076.sorted.bam -I Harpur_SRR957077.sorted.bam -I Harpur_SRR957078.sorted.bam -I Harpur_SRR957091.sorted.bam -I Harpur_SRR957092.sorted.bam -I Harpur_SRR957093.sorted.bam -I Harpur_SRR957094.sorted.bam -I Harpur_SRR957095.sorted.bam -I Harpur_SRR957096.sorted.bam -I Harpur_SRR957097.sorted.bam -I ../../Kenya_Sheppard_NCBI/bam_files/Kenya_SRR5270366.sorted.bam -I ../../Kenya_Sheppard/NCBI/bam_files/Kenya_SRR5270367.sorted.bam -I ../../Kenya_Sheppard/bam_files/Kenya_SRR5270368.sorted.bam -I ../../Kenya_Sheppard_NCBI/bam/files/Kenya_SRR5270369.sorted.bam -I ../../Kenya_Sheppard_NCBI/bam/files/Kenya_SRR5270370.sorted.bam -I ../../Kenya_Sheppard_NCBI/bam/files/Kenya_SRR5270371.sorted.bam" < ../../honeybee_genome/list_aligned_scaffolds.txt &
-[1] 18075
+data/ref_panel_vcf$ find . -exec mv "{}" "{}".bcf2 \;
+data/Harpur_2014_NCBI/bam_files$
+nohup parallel --noswap --joblog AMC_freqs.log --jobs 14 "java -jar ~/Software/GATK/GenomeAnalysisTK.jar -R ../../honeybee_genome/Amel_4.5_scaffolds.fa.bgz -T ASEReadCounter 
+--minMappingQuality 13 --minBaseQuality 13 --outputFormat CSV -sites:BCF2 ../../ref_panel_vcf/{1}.bcf2 -o M_counts_{1}.csv -I Harpur_SRR957058.sorted.bam -I Harpur_SRR957059.sorted.bam 
+-I Harpur_SRR957060.sorted.bam -I Harpur_SRR957061.sorted.bam -I Harpur_SRR957062.sorted.bam -I Harpur_SRR957063.sorted.bam -I Harpur_SRR957064.sorted.bam -I Harpur_SRR957089.sorted.bam 
+-I Harpur_SRR957090.sorted.bam; java -jar ~/Software/GATK/GenomeAnalysisTK.jar -R ../../honeybee_genome/Amel_4.5_scaffolds.fa.bgz -T ASEReadCounter 
+--minMappingQuality 13 --minBaseQuality 13 --outputFormat CSV -sites:BCF2 ../../ref_panel_vcf/{1}.bcf2 -o C_counts_{1}.csv -I Harpur_SRR957080.sorted.bam -I Harpur_SRR957081.sorted.bam 
+-I Harpur_SRR957082.sorted.bam -I Harpur_SRR957083.sorted.bam -I Harpur_SRR957084.sorted.bam -I Harpur_SRR957085.sorted.bam -I Harpur_SRR957086.sorted.bam -I Harpur_SRR957087.sorted.bam 
+-I Harpur_SRR957088.sorted.bam; java -jar ~/Software/GATK/GenomeAnalysisTK.jar -R ../../honeybee_genome/Amel_4.5_scaffolds.fa.bgz -T ASEReadCounter 
+--minMappingQuality 13 --minBaseQuality 13 --outputFormat CSV -sites:BCF2 ../../ref_panel_vcf/{1}.bcf2 -o A_counts_{1}.csv -I Harpur_SRR957075.sorted.bam -I Harpur_SRR957076.sorted.bam 
+-I Harpur_SRR957077.sorted.bam -I Harpur_SRR957078.sorted.bam -I Harpur_SRR957091.sorted.bam -I Harpur_SRR957092.sorted.bam -I Harpur_SRR957093.sorted.bam -I Harpur_SRR957094.sorted.bam 
+-I Harpur_SRR957095.sorted.bam -I Harpur_SRR957096.sorted.bam -I Harpur_SRR957097.sorted.bam -I ../../Kenya_Sheppard_NCBI/bam_files/Kenya_SRR5270366.sorted.bam 
+-I ../../Kenya_Sheppard/NCBI/bam_files/Kenya_SRR5270367.sorted.bam -I ../../Kenya_Sheppard/bam_files/Kenya_SRR5270368.sorted.bam -I ../../Kenya_Sheppard_NCBI/bam/files/Kenya_SRR5270369.sorted.bam 
+-I ../../Kenya_Sheppard_NCBI/bam/files/Kenya_SRR5270370.sorted.bam -I ../../Kenya_Sheppard_NCBI/bam/files/Kenya_SRR5270371.sorted.bam" < ../../honeybee_genome/list_aligned_scaffolds.txt &
+[1] 32618
 nohup: appending output to 'nohup.out'
+# Need to rerun -- would not run because reference sequence needs to be type .fasta or .fa
 
 
+
+# Calling ancestry using called genotypes (with > .6 posterior probability)
 # Making strictly called genotype files:
 # Two different types "AC AT AA" etc. and -1, 0, 1, 2 . Posterior probability cutoff using GL method 1 and prior = allele freq
 nohup parallel --noswap --joblog angsd_geno_AC.log --jobs 10 "angsd -GL 1 -baq 1 -ref data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz -r {1} -doMajorMinor 1 -doMaf 3 -SNP_pval 1e-3 -minInd 9 -minMapQ 0 -minQ 0 -nThreads 2 -doGeno 4 -doPost 1 -postCutoff 0.6 -out data/geno_AC/geno_AC_{1} -bam Bee_bam_include_geno_AC_12.txt" < data/honeybee_genome/list_aligned_scaffolds.txt; parallel --noswap --joblog angsd_geno_12.log --jobs 10 "angsd -GL 1 -baq 1 -ref data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz -r {1} -doMajorMinor 1 -doMaf 3 -SNP_pval 1e-3 -minInd 9 -minMapQ 0 -minQ 0 -nThreads 2 -doGeno 19 -doPost 1 -postCutoff 0.6 -out data/geno_12/geno_12_{1} -bam Bee_bam_include_geno_AC_12.txt" < data/honeybee_genome/list_aligned_scaffolds.txt &
+
+# For the AC AT AA file types I will format them to run in ELAI using r
+# First I concatenate all data within a chromosome together (note out of order is okay 1, 11, 12 etc)
+data/geno_AC$ for i in {1..16}-I Harpur_SRR957090.sorted.bam; do zcat geno_AC_Group${i}.*.gz >> All_AC_${i}.geno; done

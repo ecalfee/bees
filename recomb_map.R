@@ -85,7 +85,8 @@ LG$id = sapply(LG$id, function(x) substr(x, 2, nchar(x))) # get rid of leading "
 
 
 # also sum up all the lengths to make sure I get the correct total length!!!!
-rownames(LG) = LG$tail = LG$start_line = LG$tail_n = NULL
+rownames(LG) = NULL
+  #LG$tail = LG$start_line = LG$tail_n = NULL
 write.csv(LG, file = "data/recomb_map/Liu_2015/scaffold_start_positions.csv", quote = F)
 
 
@@ -140,3 +141,7 @@ m1.r <- map2stan(
   warmup = 10, iter = 10, chains = 4, cores = 4, start = list(mu = rep(1, 21970), k = 0.1, theta = 1)
 )
 }
+
+
+# load into r to manipulate
+g <- read.csv("data/geno_AC/All_AC_1.geno", stringsAsFactors = F, header = F)
