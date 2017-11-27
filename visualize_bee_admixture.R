@@ -7,7 +7,7 @@ id<-read.table("Bee_bam_include_NGSadmix.txt",as.is=T) # read in sample IDs
 id1 = lapply(pop$V1, function(x) strsplit(x, split="/")[[1]][[4]])
 id2 = sapply(pop1, function(x) strsplit(x, split="[.]")[[1]][[1]])
 # put sample IDs together with admixture results
-admix = as.data.frame(list(id = pop2, A = ngs_admix["V1",], C = ngs_admix["V2",], M = ngs_admix["V3",]))
+admix = as.data.frame(list(id = pop2, A = ngs_admix["V1",], M = ngs_admix["V2",], C = ngs_admix["V3",]))
 # add population labels
 # CA metadata
 metaCA = read.csv("data/CA_Bee/bam_files/Population_coverage", sep = "\t", header = F, stringsAsFactors = F)
@@ -29,7 +29,7 @@ admix[, "pop"] = ifelse(!is.na(admix$pop), admix$pop,
                                         "A"))
 admix = arrange(admix, year) %>% # organize by population and within population, by year
   arrange(., pop)
-barplot(t(as.matrix(admix[,c("A", "C", "M")])),col=1:3,space=0,border=NA,xlab="Individuals",ylab="admixture")
+barplot(t(as.matrix(admix[,c("A", "C", "M")])),col=c("red", "green", "blue"),space=0,border=NA,xlab="Individuals",ylab="admixture")
 text(tapply(1:length(admix$pop),admix$pop,mean),-0.05,unique(admix$pop),xpd=T)
 # I accidentally included a population from Yemen in the Harpur data (O lineage - in #7 in 8th row)
 admix[,c("pop")]
