@@ -142,6 +142,37 @@ m1.r <- map2stan(
 )
 }
 
-
 # load into r to manipulate
 g <- read.csv("data/geno_AC/All_AC_1.geno", stringsAsFactors = F, header = F)
+
+# The modeling above doesn't make a lot of sense -- instead I will try to fit a monotone increasing polynomial
+# as a smoothing technique
+r1 = r[r$linkage_group == "LG1",][1:10,]
+r1$posMb = sapply(strsplit(r1$pos_Mb, split = "~"), function(x) as.numeric(x[2])) # get physical Mb position
+r1$posM = cumsum(r1$n_crossovers_per_drone)
+pos_byLG = lapply(unique(r$linkage_group), # for each linkage group (of 16)
+             function(g) sapply(strsplit(r[r$linkage_group == g, "pos_Mb"], split = "~"), # get the end of each interval
+                               function(x) as.numeric(x[2]))) # as a number
+r_byLG = lapply(unique(r$linkage_group),
+                function(g) cumsum(r[r$linkage_group == g, "n_crossovers_per_drone"]))
+par(mfrow=c(2,2))
+lapply(1:16, function(i) plot(pos_byLG[[i]], r_byLG[[i]], 
+                              xlab = "position (omit gaps)",
+                              ylab = "r (Morgans)",
+                              main = unique(r$linkage_group)[i]))
+#approxfun
+#monopoly -smooths over larger windows
+d = data.frame(list(pos_byLG = pos_byLG[[6]], r_byLG = r_byLG[[6]]))
+par(mfrow=c(1,1))
+m1 = monpol(r_byLG ~ pos_byLG, data = d,
+       degree = 9, plot.it = T) # will need to plot on my own just final fit (not all)
+
+
+
+#dpois(x = unique(r$CO_counts), lambda = mean_r)
+plot(unique(r$CO_counts), 
+     log(dpois(x = unique(r$CO_counts), lambda = mean_r)),
+     main = paste("Prob. observations under a fixed genomewide rate ", round(mean_r, digits = 2)/.01, "r/Mb"),
+     ylab = "log probability",
+     xlab = "counted recombination events in .01 Mb intervals")
+# how different are the LD based map and the posterior distribution based on the observed meioses?
