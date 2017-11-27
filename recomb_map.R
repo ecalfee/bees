@@ -1,5 +1,6 @@
 library(rethinking)
 library(MonoPoly)
+library(dplyr)
 # I will be using the observed crosses in haploid drones from Liu 2015 to create a smoothed recombination map 
 # to get estimated genetic positions for physical markers
 
@@ -86,10 +87,44 @@ lapply(1:16, function(i) plot(pos_byLG[[i]], r_byLG[[i]],
                               main = unique(r$linkage_group)[i]))
 #approxfun
 #monopoly -smooths over larger windows
-d = data.frame(list(pos_byLG = pos_byLG[[6]], r_byLG = r_byLG[[6]]))
+# 9 degrees of freedom appears to capture all major variation across the chromosome
+for (i in 1:16){
+d = data.frame(list(pos = pos_byLG[[i]], r = r_byLG[[i]]))
 par(mfrow=c(1,1))
-m1 = monpol(r_byLG ~ pos_byLG, data = d,
-       degree = 9, plot.it = T) # will need to plot on my own just final fit (not all)
+m1 = monpol(r ~ pos, data = d, 
+            ptype= "SOS", monotone = "increasing",
+       degree = 9, plot.it = T) 
+#plot(seq(-1,1,by=.01), fitted(m1))
+# will need to plot on my own just final fit (not all)
+
+dist = seq(0, max(d$pos), by = .1)
+plot(x = dist, 
+    y = sapply(dist, function(x) 
+      coef(m1) %*% c(1, x, x^2, x^3, x^4, x^5, x^6, x^7, x^8, x^9)),
+    xlab = "distance (Mbp)",
+    ylab = "distance (Morgans)",
+    main = paste("chr", i, "fit"))
+plot(d$r ~ d$pos, main = paste("chr", i, "raw"))
+}
+
+for (i in 1:16){ # only 5 instead of 9 degree polynomial
+  d = data.frame(list(pos = pos_byLG[[i]], r = r_byLG[[i]]))
+  par(mfrow=c(1,1))
+  m1 = monpol(r ~ pos, data = d, 
+              ptype= "SOS", monotone = "increasing",
+              degree = 5, plot.it = T) 
+  #plot(seq(-1,1,by=.01), fitted(m1))
+  # will need to plot on my own just final fit (not all)
+  
+  dist = seq(0, max(d$pos), by = .1)
+  plot(x = dist, 
+       y = sapply(dist, function(x) 
+         coef(m1)%*%c(1, x, x^2, x^3, x^4, x^5)),
+       xlab = "distance (Mbp)",
+       ylab = "distance (Morgans)",
+       main = paste("chr", i, "fit"))
+  plot(d$r ~ d$pos, main = paste("chr", i, "raw"))
+}
 
 
 
@@ -100,3 +135,35 @@ plot(unique(r$CO_counts),
      ylab = "log probability",
      xlab = "counted recombination events in .01 Mb intervals")
 # how different are the LD based map and the posterior distribution based on the observed meioses?
+# simple test case with 2 scaffolds, 1 linkage group and each scaffold is 100bp long
+test1 = data.frame(LG=1, rel_pos = c(12, 16, 5), scaffold_start = c(1, 1, 101),
+                   scaffold=c("Group1.1", "Group1.1", "Group1.2"))
+test2 = test1 %>%
+  mutate(abs_pos = rel_pos + scaffold_start - 1)
+
+
+#get_fit_pos(data_pos = pos_byLG[[1]], data_r = r_byLG[[1]]),
+#abs_pos = test1$abs_pos, degree = 5)
+get_fit_pos = function(data_pos, data_r, abs_pos, degree = 9){
+  # where degree is the degrees for the polynomial to fit
+  # could be chosen by dividing data in half and finding ML of observations
+  # using a training and test set
+  d = data.frame(pos = data_pos, r = data_r)
+  m1 = monpol(r ~ pos, data = d, 
+              ptype= "SOS", monotone = "increasing",
+              degree = 5, plot.it = F) 
+ abs_r_pos = sapply(abs_pos, function(x) 
+         coef(m1)%*%c(1, x, x^2, x^3, x^4, x^5, x^6, x^7, x^8, x^9))
+  return(abs_r_pos) # return genetic distance from beginning of linkage group
+}
+# steps to get input for HMM Corbett-Detig:
+# 1) Start with bp positions from beginning of scaffold, e.g. Group1.6
+# 2) Using scaffold start positions, translate to bp positions 
+# from beginning of chromosome, all scaffolds stuck together (no gaps)
+# 3) Use monopoly interpolation to get cM position from beginning of chromosome
+# 4) Subtract to get cM distance between markers.
+# 5) Decide what to do with markers that span a scaffold junction
+# 5a) nothing - ignore gap has any recombination
+# 5b) treat like start of independent chromosome (extreme independence)
+# 5c) assume gaps are all = length and add in extra recomb. distance constant to reflect this
+# I can check sensitivity to these choices a-c and also get a sense of effect by just calculating what constant c would be under chromosome mean recomb. rate
