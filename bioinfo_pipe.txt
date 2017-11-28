@@ -180,6 +180,16 @@ SRCD9A
 # So all I need to know is the number of lines and the length of the last line. Note the scaffolds are listed in a weird order 1.10 after 1.1
 gunzip < Amel_4.5_scaffolds.fa.bgz | grep "^>Group[0-9]" -B1 >> last_line_prev.txt
 gunzip < Amel_4.5_scaffolds.fa.bgz | grep "^>Group[0-9]" -n >> start_line_n.txt
+# To get the length of the last listed scaffold, I add the last line too and for its location, 1 + number of lines in decompressed file
+echo -- >> data/honeybee_genome/last_line_prev.txt
+zcat data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz | tail -1 >> data/honeybee_genome/last_line_prev.txt
+
+zcat data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz | wc -l
+3352281
+echo 3352282:>Group9999.99 >> data/honeybee_genome/start_line_n.txt
+# Note that the scaffolds are not strictly listed in order in the reference, going 1, 10, 11 ... 2, 21, 22 etc.
+
+
 
 # I can see if it's sensitive to running all CA bees together in 1 population or separately by location/date (T may differ sig.)
 # I will use the same quality filtering thresholds as above for this analysis.

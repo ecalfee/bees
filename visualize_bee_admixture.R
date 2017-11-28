@@ -4,10 +4,12 @@ setwd("/media/erin/3TB/Documents/gitErin/bees/")
 ngs_admix = t(as.matrix(read.table("data/out_all_NGSadmix.qopt"))) # get NGSadmix results
 barplot(ngs_admix,col=1:3,space=0,border=NA,xlab="Individuals",ylab="admixture")
 id<-read.table("Bee_bam_include_NGSadmix.txt",as.is=T) # read in sample IDs
-id1 = lapply(pop$V1, function(x) strsplit(x, split="/")[[1]][[4]])
-id2 = sapply(pop1, function(x) strsplit(x, split="[.]")[[1]][[1]])
+#id <- read.table("Bee_bam_include_geno_AC_12.txt", as.is=T)
+id1 = lapply(id$V1, function(x) strsplit(x, split="/")[[1]][[4]])
+id2 = sapply(id1, function(x) strsplit(x, split="[.]")[[1]][[1]])
 # put sample IDs together with admixture results
-admix = as.data.frame(list(id = pop2, A = ngs_admix["V1",], M = ngs_admix["V2",], C = ngs_admix["V3",]))
+admix = as.data.frame(list(id = id2, A = ngs_admix["V1",], M = ngs_admix["V2",], C = ngs_admix["V3",]))
+#admix = as.data.frame(list(id = id2))
 # add population labels
 # CA metadata
 metaCA = read.csv("data/CA_Bee/bam_files/Population_coverage", sep = "\t", header = F, stringsAsFactors = F)
@@ -27,6 +29,7 @@ admix[, "pop"] = ifelse(!is.na(admix$pop), admix$pop,
                         ifelse(!is.na(admix$label_s), 
                                substring(admix$label_s, 1, 1), 
                                         "A"))
+#write.csv(x = admix[,c("id", "pop", "year", "study")], quote = F, file = "Bee_bam_include_geno_AC_12_metadata.txt")
 admix = arrange(admix, year) %>% # organize by population and within population, by year
   arrange(., pop)
 barplot(t(as.matrix(admix[,c("A", "C", "M")])),col=c("red", "green", "blue"),space=0,border=NA,xlab="Individuals",ylab="admixture")
