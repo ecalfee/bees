@@ -58,18 +58,22 @@ plot(unique(r$CO_counts),
 start = read.csv(file = "data/honeybee_genome/start_line_n.txt", header = F, stringsAsFactors = F)
 last = read.csv(file = "data/honeybee_genome/last_line_prev.txt", header = F, stringsAsFactors = F)
 starts = sapply(start$V1, function(x) as.numeric(strsplit(x, split = "[:>]")[[1]][1]))
-LG = data.frame(id = last$V1[c(T,F,F)], tail = last$V1[c(F,F,T)], 
+LG = data.frame(id = last$V1[c(T,F,F)][1:340], tail = last$V1[c(F,F,T)], 
                 start_line = starts[1:(length(starts)-1)], # ignore last
                 next_start_line = starts[-1], # ignore first
                 stringsAsFactors = F)
+
+# extract scaffold ids
+LG$id = substr(LG$id, 2, nchar(LG$id))
+LG$lg = as.integer(sapply(LG$id, function(x) substr(strsplit(x, split = "[>.]")[[1]][1], 6, 100000))) # e.g. Group1
+LG$scaffold = as.numeric(sapply(LG$id, function(x) strsplit(x, split = "[>.]")[[1]][2])) # e.g. 3 for scaffold
+
 # there are 70 characters = bp in all but the last line
-max(LG$tail_n) # maximum of last lines is also 70
+max(sapply(LG$tail, nchar)) # maximum of last lines is also 70
 nchar("AACGAGCACATGACAAGTAGTACATGACTTCCCATCCTTGGATCCAGACAAGATCCAAAGATGAGAAACC") # line taken from file
+
 # calculate length of each scaffold (in bp)
 LG$len = nchar(LG$tail) + 70*(LG$next_start_line - LG$start_line - 2)
-LG$lg = sapply(LG$id, function(x) strsplit(x, split = "[>.]")[[1]][2]) # e.g. Group1
-LG$scaffold = as.numeric(sapply(LG$id, function(x) strsplit(x, split = "[>.]")[[1]][3])) # e.g. 3 for scaffold
-LG$id = substr(LG$id, 2, nchar(LG$id))
 
 # finally, I calculate the start position for each scaffold (relative to the whole linkage group)
 LG$pos = NA # placeholder
@@ -82,32 +86,47 @@ for (lg in unique(LG$lg)){
   for (i in 2:length(unique(LG$scaffold[LG$lg == lg]))){
     LG[(LG$lg == lg & LG$scaffold == i), "pos"] = 
       LG[(LG$lg == lg & LG$scaffold == (i-1)), "pos"] + 
-      LG[(LG$lg == lg & LG$scaffold == i), "len"]
+      LG[(LG$lg == lg & LG$scaffold == (i-1)), "len"] +
+      50000 # see below but 50000 bp is the asummed length in Amel_4.5 for any unspanned gap
   }
 }
 # check that it worked visually
 
-plot(LG[LG$lg == "Group1", "scaffold"], LG[LG$lg == "Group1", "pos"], main = "plot")
+plot(LG[LG$lg == "Group1", "pos"], 
+     LG[LG$lg == "Group1", "scaffold"], main = "plot chr 1 scaffold positions",
+     ylab = "Group 1 scaffold #",
+     xlab = "starting position of chromosome 1")
+scaff_lengths = tapply(LG$len, LG$lg, sum)
+sum(tapply(LG$len, LG$lg, sum)) # length of concatenated chromosomes matches positions, good
 sapply(unique(LG$lg), function(x) 
-  (max(LG[LG$lg == x, "pos"]) + LG$len[which(LG$pos == max(LG[LG$lg == x, "pos"]))])/1000000)
-# also sum up all the lengths to make sure I get the correct total length!!!!
-# less than gapped length but more than ungapped length listed here (maybe spanned gaps aren't counted in ungapped but are in mine?):
-#https://www.ncbi.nlm.nih.gov/assembly/GCF_000002195.4/#/st
+  (max(LG[LG$lg == x, "pos"]) + LG$len[which(LG$lg == x & LG$pos == max(LG[LG$lg == x, "pos"]))] - 1)/1000000)
+# So it's internally consistent and matches Amel_4.5 (see below),and with addition of 50000 bp gaps matches Liu 2015 
+# and 'total length' in NCBI. Note that 'ungapped length' takes out medium-sized runs of NNNNs that are spanned gaps.
+# https://www.ncbi.nlm.nih.gov/assembly/GCF_000002195.4/#/st
+
+# I have also confirmed using command line that counting all ACTGN's (minus all G's in Group1 header etc)
+# equals the total genome length I calculate above.
+# I do not understand how the 'total length' is determined or how the gaps are distributed inbetween scaffolds
+# As a rough approximation for now, I will just treat the difference between true length and length I calculate 
+# divided by total unspanned gaps as the expected unspanned gap length for each unspanned gap on a chromosome
+# gunzip < Amel_4.5_scaffolds.fa.bgz | head -2906642 | tr -cd ACTGN | wc -c # counted all ACTGN's before first GroupUn (unmapped)
+# subtract all G's from Group1 etc. not actual nucleotides
+# gunzip < Amel_4.5_scaffolds.fa.bgz | head -2906642 | grep "^>Group" | wc -l
+203429952-341 # [1] 203429611
+# can see gaps placed here too:
+# https://www.ncbi.nlm.nih.gov/genome/gdv/browser/?context=genome&acc=GCF_000002195.4
+
+genome_meta = read.csv("data/honeybee_genome/ncbi_genome4.5_scaffold_stats.csv")[-17,] # get rid of last row (unmapped scaffolds)
+gap_length = (genome_meta$total_length - scaff_lengths)/genome_meta$unspanned.gaps
+# ok so what I found out is that all the unspanned gaps are put in as 50000 bp gaps as a proxy, which I can do too.
+
 rownames(LG) = NULL
   #LG$tail = LG$start_line = LG$tail_n = NULL
-write.csv(LG[,c("id", "lg", "scaffold", "pos", "len")], file = "data/recomb_map/Liu_2015/scaffold_start_positions.csv", quote = F)
+write.csv(LG[,c("id", "lg", "scaffold", "pos", "len")], file = "data/honeybee_genome/Amel_4.5_scaffold_start_positions.csv", quote = F)
 
-s <- read.csv("data/recomb_map/Liu_2015/scaffold_start_positions.csv", stringsAsFactors = F)
+s <- read.csv("data/honeybee_genome/Amel_4.5_scaffold_start_positions.csv", stringsAsFactors = F)
+# so now I just need to add the scaffold-relative position to their start position to get an absolute chromosome position per marker
 
-### I don't understand why when I put the scaffolds together I get a much smaller length
-sapply(unique(LG$lg), function(x) 
-  +   (max(LG[LG$lg == x, "pos"]) + LG$len[which(LG$pos == max(LG[LG$lg == x, "pos"]))])/1000000)
-### than their lengths, which match the "total length" (not "ungapped") -- possibly total excludes unspanned gaps
-sapply(pos_byLG, function(x) max(x))
-### https://www.ncbi.nlm.nih.gov/assembly/GCF_000002195.4/#/st
-### I could have an error or be misunderstanding how the spacing works in "total length"
-### i.e. does it just include GGCNNNNNNNATC type gaps or also unspanned gaps?
-### For a start I could check that all my scaffold lengths are > largest bp position on those scaffolds
 
 
 # The modeling at the end doesn't make a lot of sense -- instead I will try to fit a monotone increasing polynomial

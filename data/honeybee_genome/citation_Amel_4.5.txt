@@ -1,0 +1,6 @@
+Amel_4.5 Honey bee genome assembly
+Data available at NCBI
+Finding the missing honey bee genes: lessons learned from a genome upgrade (Elsik et. al 2014) 
+https://doi.org/10.1186/1471-2164-15-86
+
+Also re-annotated with a set of genes. Some of the smallest scaffolds may not be properly oriented?

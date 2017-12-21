@@ -139,44 +139,47 @@ nohup NGSadmix -likes geno_lik/GL_all.beagle.gz -K 3 -P 14 -seed 100 -minMaf .01
 # re-run with updated samtools v1.6, filtering non-variants, indels, and low quality sites:
 nohup parallel --noswap --joblog make_AMC_vcf.log --jobs 15 "samtools mpileup 
 -f data/honeybee_genome/Amel_4.5_scaffolds.fa -b List_AMC_bam_for_vcf.txt -r {1} -q 13 -Q 13 -I -u | 
-bcftools call -v -Ob -m -V indels -o data/AMC_vcf/{1}.vcf" < data/honeybee_genome/list_aligned_scaffolds.txt &
+bcftools call -v -Ob -m -V indels -o data/AMC_bcf/{1}.bcf" < data/honeybee_genome/list_aligned_scaffolds.txt &
 [1] 13274
+# make temporary uncompressed vcf files
+parallel "bcftools view {} > ../AMC_vcf/{.}.vcf" ::: *
 
 # Then I use these VCF files and GATK to get read counts for Ref/Alt alleles for
 # 1) each ancestral reference population
 # 2) each admixed individual
 # note that GATK does some read filters by default, including removing duplicate reads (reduces PCR bias)
-java -jar ~/Software/GATK/GenomeAnalysisTK.jar -R data/honeybee_genome/Amel_4.5_scaffolds.fa -T ASEReadCounter 
---minMappingQuality 13 --minBaseQuality 13 --outputFormat CSV -L {1} -sites:VCF data/AMC_vcf/{1}.vcf
--o M_counts_{1}.csv
--I M.list
--o C_counts_{1}.csv
--I C.list
--o A_counts_{1}.csv
--I A.list
-
-# Need to rerun -- would not run because reference sequence needs to be type .fasta or .fa
+# Reran -- would not originally run because reference sequence needs to be type .fasta or .fa
 # New format -- key is subsetting so it uses the index (fast) and giving it a VCF with only variants (not sure why bcf2 format can't be read, but oh well)
-nohup parallel --noswap --joblog M_counts.log --jobs 6 "java -jar ~/Software/GATK/GenomeAnalysisTK.jar -R data/honeybee_genome/Amel_4.5_scaffolds.fa
+# Start with reference bees A.list M.list and C.list where counts are for the whole population
+mkdir data/counts
+nohup parallel --noswap --joblog AMC_counts.log --jobs 14 "java -jar ~/Software/GATK/GenomeAnalysisTK.jar -R data/honeybee_genome/Amel_4.5_scaffolds.fa
 -T ASEReadCounter --minMappingQuality 13 --minBaseQuality 13 --outputFormat CSV -L {1} -sites:VCF data/AMC_vcf/{1}.vcf
--o M_counts.csv -I M.list" < data/honeybee_genome/list_aligned_scaffolds.txt &> nohup_M_counts.out
+-o data/counts/{2}_counts_{1}.csv -I {2}.list" :::: data/honeybee_genome/list_aligned_scaffolds.txt ::: A M C &> nohup_AMC_counts.out
+# found the ones that didn't run properly and reran. unfortunately wrote over log, but nohup_AMC confirms those were only errors
+cat AMC_counts.log | awk '$7==1'
+(same command w/ parallel) ::: Group10.14 Group7.15 ::: M C &> nohup_MC_exit1_counts.out 
+##### ERROR MESSAGE: Problem detecting index type
+# didn't work, so deleted indexfile .vcf.idx from AMC_vcf then re-ran A M and C
+(same command w/ parallel) ::: Group10.14 Group7.15 ::: A M C &> nohup_AMC_exit1_counts.out
+# fixed!
 
+# next priority is read counts for individual admixed bees from CA data:
+# ERROR b/c needed to add read group to header, so did this first. first created list of bam file names
+parallel "cd data/CA_Bee/bam_files/ && ls {1}.*.bam" >> CA_admit :::: CA_admix.list
+# then used picard to add a readgroup header and saved new bams
+nohup parallel --noswap --jobs 6 --joblog CA_Bees_add_RG_header.log "java -jar ~/Software/picard/picard.jar AddOrReplaceReadGroups
+I=data/CA_Bee/bam_files/{1} O=data/CA_Bee/bam_files_with_RG/{1} RGID=null RGLB=CA_Bees RGPL=illumina RGPU=NA RGSM={1}" :::: CA_admix.txt &> CA_Bees_add_RG_header.out
+# lastly, indexed new bam files with samtools
+data/CA_Bee/bam_files_with_RG$ parallel samtools index {1} {1}.bai ::: *.bam
 
-# next priority is Placerita_2014 and Riverside_2014
--o Placerita_2014_{2}_counts_{1}.csv
-SRCD10C SRCD11A SRCD11B SRCD54A SRCD6B SRCD6C
-
--o Riverside_2014_{2}_counts_{1}.csv
-SRCD10B
-SRCD47A
-SRCD49A
-SRCD51B
-SRCD51C
-SRCD54C
-SRCD6A
-SRCD9A
-
-
+# now run counts for admixed individuals in CA
+nohup parallel --noswap --joblog CA_admix_counts.log --jobs 6 
+"java -jar ~/Software/GATK/GenomeAnalysisTK.jar -R data/honeybee_genome/Amel_4.5_scaffolds.fa -T ASEReadCounter  
+--minMappingQuality 13 --minBaseQuality 13 --outputFormat CSV -L {1} -sites:VCF data/AMC_vcf/{1}.vcf 
+-o data/counts/admix/{2}_counts_{1}.csv -I data/CA_Bee/bam_files_with_RG/{2}.*.bam" 
+:::: data/honeybee_genome/list_aligned_scaffolds.txt :::: CA_admix.list &> nohup_CA_admix_counts.out
+# CA_admix.list includes bees from Placerita_2014 Riverside_2014 Riverside_1999 SanPedro_2002 CA_Other_2014 (1 africanized bee each from Stebbins Stanislaus and Avalon based on NGSAdmix)
+e.g. grep Riverside List_CA_bees_include.txt | grep 1999 | cut -f1 > Riverside_1999.list to make list of relevant bees
 
 # To infer local ancestry along the chromosome for each individual, I will run the HMM from Corbett-Detig and Nielsen 
 # But to do this, I need recombination positions for all SNPs included. The recombination map Liu 2015 sticks all scaffolds together, skipping gaps of unknown size
@@ -185,15 +188,16 @@ SRCD9A
 # So all I need to know is the number of lines and the length of the last line. Note the scaffolds are listed in a weird order 1.10 after 1.1
 gunzip < Amel_4.5_scaffolds.fa.bgz | grep "^>Group[0-9]" -B1 >> last_line_prev.txt
 gunzip < Amel_4.5_scaffolds.fa.bgz | grep "^>Group[0-9]" -n >> start_line_n.txt
-# To get the length of the last listed scaffold, I add the last line too and for its location, 1 + number of lines in decompressed file
-echo -- >> data/honeybee_genome/last_line_prev.txt
-zcat data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz | tail -1 >> data/honeybee_genome/last_line_prev.txt
+# To get the length of the last listed scaffold, I look for the first GroupUn (scaffold not used because unmapped)
 
-zcat data/honeybee_genome/Amel_4.5_scaffolds.fa.bgz | wc -l
-3352281
-echo 3352282:>Group9999.99 >> data/honeybee_genome/start_line_n.txt
 # Note that the scaffolds are not strictly listed in order in the reference, going 1, 10, 11 ... 2, 21, 22 etc.
-
+echo -- >> last_line_prev.txt
+gunzip < Amel_4.5_scaffolds.fa.bgz | grep "^>GroupUn" -B1 | head -2 >> last_line_prev.txt
+gunzip < Amel_4.5_scaffolds.fa.bgz | grep "^>GroupUn" -n | head -1 >> start_line_n.txt
+# Next I used recomb_map.R to put these together and get lengths and starting positions of concatenated scaffolds.
+# For now I add gaps that divide equally the difference between the sequenced length (including spanned short NNNN gaps)
+# and the total chromosome length reported by NCBI in ncbi_genome4.5_scaffold_stats.csv 
+# data source: https://www.ncbi.nlm.nih.gov/assembly/GCF_000002195.4/#/st_Primary-Assembly
 
 
 # I can see if it's sensitive to running all CA bees together in 1 population or separately by location/date (T may differ sig.)
