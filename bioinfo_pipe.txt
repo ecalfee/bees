@@ -223,4 +223,14 @@ nohup parallel --noswap --joblog angsd_geno_AC.log --jobs 10 "angsd -GL 1 -baq 1
 
 # For the AC AT AA file types I will format them to run in ELAI using r
 # First I concatenate all data within a chromosome together (note out of order is okay 1, 11, 12 etc)
-data/geno_AC$ for i in {1..16}-I Harpur_SRR957090.sorted.bam; do zcat geno_AC_Group${i}.*.gz >> All_AC_${i}.geno; done
+data/geno_AC$ for i in {1..16}; do zcat geno_AC_Group${i}.*.geno.gz >> All/All_AC_${i}.geno; done
+
+# I created position files that just use a chromosome average rate
+# later I will get better genetic map positions, but this will do for now
+# For speed I exclude snps with very low frequency because they tend to have low ancestry information (here maf<0.05 in complete sample)
+# ELAI can use dense snps but for other programs I will need to thin snps further
+# Now I run ELAI on all 16 chromosomes for 3 different generations since admixture (15, 30, 50), always same random seed (R=1)
+nohup parallel --noswap --joblog ELAI_all_chr_avgr.log --jobs 12 
+'elai-lin -g chr{1}/A.txt -p 10 -g chr{1}/C.txt -p 11 -g chr{1}/M.txt -p 12 -g chr{1}/Plac_Riv_2014.txt -p 1 -pos chr{1}/pos.txt 
+-s 20 -C 3 -c 9 -mg {2} -o out_chr{1} --exclude-nopos --exclude-miss1 -exclude-maf 0.05 -R 1'
+::: {1..16} ::: 15 30 55 &

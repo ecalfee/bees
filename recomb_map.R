@@ -1,4 +1,4 @@
-library(rethinking)
+#library(rethinking)
 library(MonoPoly)
 library(dplyr)
 # I will be using the observed crosses in haploid drones from Liu 2015 to create a smoothed recombination map 
@@ -128,6 +128,125 @@ s <- read.csv("data/honeybee_genome/Amel_4.5_scaffold_start_positions.csv", stri
 # so now I just need to add the scaffold-relative position to their start position to get an absolute chromosome position per marker
 
 
+# create ELAI input - positions file
+# start with just 1 scaffold, e.g. Group1.1
+raw_bp = read.csv("data/geno_AC/geno_AC_Group1.1.mafs.gz", sep = "\t", stringsAsFactors = F, header = T)
+raw_bp$snp_id = paste0(raw_bp$chromo, "_", raw_bp$pos)
+length(raw_bp$knownEM)/max(raw_bp$position)
+table(diff(raw_bp$position))
+mean(diff(raw_bp$position))
+median(diff(raw_bp$position))
+filter_bp = raw_bp[raw_bp$knownEM > .02,]
+thres_bp = raw_bp[raw_bp$pK.EM < .000001,]
+dim(filter_bp)
+dim(thres_bp)
+length(filter_bp$knownEM)/max(filter_bp$position)
+table(diff(filter_bp$position))
+length(raw_bp$knownEM)
+
+
+
+# which column goes with which bee/pop?
+meta = read.csv("Bee_bam_include_geno_AC_12_metadata.txt", stringsAsFactors = F, header = T)
+meta$pop = ifelse(is.na(meta$year), meta$pop, paste0(meta$pop, "_", meta$year)) 
+meta$pop = ifelse(meta$pop == "S", "A", meta$pop) # set S and A equivalent (both A ancestry)
+
+# genotype data
+raw_geno = read.csv("data/geno_AC/geno_AC_Group1.1.geno.gz", sep = "\t", stringsAsFactors = F, header = F)
+raw_geno$V1 <- NULL
+raw_geno$V2 <- NULL
+colnames(raw_geno) = meta$id
+
+# make ELAI files for one short scaffold Group1.1
+
+# function below formats a genotype input file for ELAI based on the full set of raw genotypes and snp names
+write_elai_geno_input = function(columns, snp_ids, raw_geno, output_file){ #columns = subset of columns from genotype file to use
+  write.table(length(columns), output_file, sep = ",", quote = F, append = F, row.names = F, col.names = F)
+  write.table(length(snp_ids), output_file, sep = ",", quote = F, append = T, row.names = F, col.names = F)
+  write.table(data.frame(IND = snp_ids, raw_geno[,columns]), output_file, sep = ",", 
+              quote = F, append = T, row.names = F, col.names = T)
+}
+# make input genotype files for ancestral and 2 admixed populations
+for (p in c("A", "M", "C", "Placerita_2014", "Riverside_2014")){
+  write_elai_geno_input(columns = which(meta$pop == p), snp_ids = raw_bp$snp_id, raw_geno = raw_geno, 
+                        output_file = paste0("data/ELAI_input/Group1.1/", p, ".txt"))
+}
+# combined Plac_Riv_2014
+write_elai_geno_input(columns = which(meta$pop == "Placerita_2014" | meta$pop == "Riverside_2014"), snp_ids = raw_bp$snp_id, raw_geno = raw_geno, 
+                      output_file = paste0("data/ELAI_input/Group1.1/", "Plac_Riv_2014", ".txt"))
+
+# function below formats a position input file for ELAI based on a set of snps
+# format: (no header) snp_id, position on chromosome (in bp), chromosome name
+# ELAI assumption is 1,000,000 bp (humans) = 1 cM, or 1Mbp per cM. So I will 1) put scaffolds together to make chromosomes in bp
+# then 2) convert bp to cM for honeybee genome markers and finally 
+# 3) multiply my cM by 1,000,000 to get a position on a human-bp scale
+# Initially I will use just the chromosome avg recombination rate for 2) and skip 1) for just 1 scaffold
+avg_r_per_chr = read.csv(file = "data/recomb_map/Liu_2015/avg_r_per_chr_Liu_2015.csv", header = T, stringsAsFactors = F)
+avg_r = avg_r_per_chr[avg_r_per_chr$chr_n == 1, "avg_r_cMperMb"] # cM/Mbp
+raw_bp$ELAI_pos = round(avg_r*raw_bp$position, digits = 0) # round to nearest whole bp
+write.table(raw_bp[ , c("snp_id", "ELAI_pos", "chromo")], "data/ELAI_input/Group1.1/pos.txt", sep = ",", 
+            quote = F, append = F, row.names = F, col.names = F)
+
+# make all input files for ELAI
+for (chr in 1:16){
+  raw_geno = read.csv(paste0("data/geno_AC/All/All_AC_", chr, ".geno"), sep = "\t", stringsAsFactors = F, header = F)
+  snp_id = paste0(raw_geno$V1, "_", raw_geno$V2)
+  snp_raw_pos = raw_geno$V2 
+  snp_lg = raw_geno$V1
+  raw_geno$V1 <- NULL
+  raw_geno$V2 <- NULL
+  colnames(raw_geno) = meta$id
+  # write genotype files
+  for (p in c("A", "M", "C")){
+    write_elai_geno_input(columns = which(meta$pop == p), snp_ids = snp_id, raw_geno = raw_geno, 
+                          output_file = paste0("data/ELAI_input/chr", chr, "/", p, ".txt"))
+  }
+  # combined Plac_Riv_2014
+  write_elai_geno_input(columns = which(meta$pop == "Placerita_2014" | meta$pop == "Riverside_2014"), 
+                        snp_ids = snp_id, raw_geno = raw_geno, 
+                        output_file = paste0("data/ELAI_input/chr", chr, "/", "Plac_Riv_2014", ".txt"))
+  
+  # write snp position files
+  avg_r = avg_r_per_chr[avg_r_per_chr$chr_n == i, "avg_r_cMperMb"] # cM/Mbp
+  
+  snp_new_pos = sapply(1:length(snp_raw_pos), function(p) 
+    round(avg_r*(snp_raw_pos[p] + s[s$id == snp_lg[p], "pos"]), 
+          # add starting position of the scaffold to raw relative position & multiply by chromosome recomb. rate 
+          digits = 0)) # then round to nearest whole bp
+  write.table(data.frame(snp_id, snp_new_pos, rep(chr, length(snp_id))),
+              paste0("data/ELAI_input/chr", chr, "/pos.txt"), sep = ",", 
+              quote = F, append = F, row.names = F, col.names = F)
+  
+}
+
+
+
+# visualizing elai test results
+elai_test_out = read.csv("data/ELAI_input/Group1.1/output/test_Group1.1.ps21.txt",
+                           header = F, sep = " ")
+elai_test_out2 = elai_test_out[,!is.na(elai_test_out[1,])] # out2 excludes MAF <.1 and in the future I'll use .05 (saves time on less useful snps)
+elai_test_out_snps = read.csv("data/ELAI_input/Group1.1/output/test_Group1.1.snpinfo.txt",
+                              header = T, sep = "\t")
+elai_test = list(A = t(elai_test_out2[, c(T, F, F)]),
+                       C = t(elai_test_out2[, c(F, T, F)]),
+                       M = t(elai_test_out2[, c(F, F, T)]),
+                 snp = elai_test_out_snps$rs,     
+                 pos = elai_test_out_snps$pos)
+par(mfrow=c(1,1))
+for(i in 1:14){
+  plot(elai_test$pos, elai_test$A[,i], type = "p", col = "blue")
+}
+
+
+
+
+
+# I have way too high a density of SNPs! (ok for ELAI but not for other software with assumptions about no within-ancestry LD)
+
+# Calculate LD within ancestral population 
+frq1 = read.csv("data/geno_12/geno_12_Group1.1.geno.gz", sep = "\t", stringsAsFactors = F, header = F)
+frq1[, 1:4] <- NULL
+frq1[,c(T,F)] <- NULL # get rid of columns not related to ind. bees
 
 # The modeling at the end doesn't make a lot of sense -- instead I will try to fit a monotone increasing polynomial
 # as a smoothing technique
@@ -197,12 +316,11 @@ plot(unique(r$CO_counts),
 # for each chromosome, load data into r to manipulate, make elai input files and add recomb. distances
 chr = 15
 g <- read.csv(paste0("data/geno_AC/All/All_AC_", chr, ".geno"), sep = "\t", stringsAsFactors = F, header = F)
-meta = read.csv("Bee_bam_include_geno_AC_12_metadata.txt", stringsAsFactors = F, header = T)
+
 colnames(g) = c("scaffold", "rel_pos", meta$id, "other")
 g$other = NULL
 g$IND = paste0(g$scaffold, "_", g$rel_pos)
-meta$pop = ifelse(is.na(meta$year), meta$pop, paste0(meta$pop, "_", meta$year)) 
-meta$pop = ifelse(meta$pop == "S", "A", meta$pop) # set S and A equivalent (both A ancestry)
+
 g$start_pos = sapply(g$scaffold, function(i) s[s$id == i, "pos"])
 g$abs_pos = g$start_pos + g$rel_pos - 1 # absolute bp position from start of chromosome
 # get recombination data for that chromosome
@@ -272,8 +390,9 @@ dont_run = function(x){
       #theta ~ dexp(1)
     ),
     data = r,
-    warmup = 1000, iter = 2000, chains = 4, cores = 4, start = list(mu = 0.1, k = 0.1, theta = 1)
+    warmup = 1000, iter = 2000, chains = 4, cores = 4, start = list(mu = 0.1) #, k = 0.1, theta = 1)
   )
+
   m0LG.r <- map2stan( # can I first get estimates by linkage group
     alist(
       CO_counts ~ dpois(lambda = lambda), # observed crossovers are poisson with mean = mean rate for whole genome
@@ -304,4 +423,16 @@ dont_run = function(x){
     data = r_short,
     warmup = 10, iter = 10, chains = 4, cores = 4, start = list(mu = rep(1, 21970), k = 0.1, theta = 1)
   )
+  
+  # an alternative would be just to use simple prior conjugacy between the gamma and poisson
+  # r | lambda ~ pois(lambda*t) where t is the observed meioses and lambda is the recombination rate for an interval = window size
+  # the prior for lambda is based on total number of recombinations previously observed in total # of genomic windows*meioses
+  # I would have to choose how strong to make the prior based on how much genomic evidence there was
+  # lambda ~ gamma(shape, rate) # note I use rate not scale parameterization
+  # then the posterior after x observed recombinations in w windows*meioses to observe them =
+  # lambda ~ gamma(shape + x, rate + w)
+  # unspanned gaps would have no observations and therefore just reflect the prior
+  # If I just want the expectation out of this posterior, however,
+  # I think this is the equivalent of just taking a weighted average p*(prior mean) + (1-p)*(observed mean)
+  # where p is how much you want to rely on prior beliefs .. so I can justify an average basically as the best point approximation
 }
