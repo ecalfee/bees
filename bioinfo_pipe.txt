@@ -230,7 +230,28 @@ data/geno_AC$ for i in {1..16}; do zcat geno_AC_Group${i}.*.geno.gz >> All/All_A
 # For speed I exclude snps with very low frequency because they tend to have low ancestry information (here maf<0.05 in complete sample)
 # ELAI can use dense snps but for other programs I will need to thin snps further
 # Now I run ELAI on all 16 chromosomes for 3 different generations since admixture (15, 30, 50), always same random seed (R=1)
-nohup parallel --noswap --joblog ELAI_all_chr_avgr.log --jobs 12 
+nohup nice -n 10 parallel --noswap --joblog ELAI_all_chr_avgr.log --jobs 12 
 'elai-lin -g chr{1}/A.txt -p 10 -g chr{1}/C.txt -p 11 -g chr{1}/M.txt -p 12 -g chr{1}/Plac_Riv_2014.txt -p 1 -pos chr{1}/pos.txt 
 -s 20 -C 3 -c 9 -mg {2} -o out_chr{1} --exclude-nopos --exclude-miss1 -exclude-maf 0.05 -R 1'
 ::: {1..16} ::: 15 30 55 &
+12/23/17 12:10AM started process
+[1] 21169
+mv nohup.out nohup_old.out
+mv output output_old
+# Ooops need to rerun because I saved over similar file names for each generation switch. Hard to tell what didn't run.
+# Also, using 60 generations as the max because that's 2014-1956 plus 2 years of breeding before that (approximation..shouldn't be sensitive to a year + or -
+nohup nice -n 10 parallel --noswap --joblog ELAI_all_chr_avgr_bychr.log --jobs 12
+'elai-lin -g chr{1}/A.txt -p 10 -g chr{1}/C.txt -p 11 -g chr{1}/M.txt -p 12 -g chr{1}/Plac_Riv_2014.txt -p 1 -pos chr{1}/pos.txt
+-s 20 -C 3 -c {4} -mg {2} -o out_chr{1}_g{2}_c{4}_s{3} --exclude-nopos --exclude-miss1 -exclude-maf 0.05 -R {3}'
+::: {1..16} ::: 60 30 15 ::: 1 ::: 9 &
+9:35pm Jan 1 started process
+[1] 13015 
+
+
+# also to look at how much c (lower levels) and seed parameters affect ancestry inference I run a couple chromosomes with different seeds and lower clusters.
+# I could run ELAI with C & M ancestry together as 'Euro' with more lower clusters to represent that diversity..
+ 
+ELAI_input$ nohup nice -n 12 parallel --noswap --joblog ELAI_all_chr_avgr_bychr_s2.log --jobs 6 'elai-lin -g chr{1}/A.txt -p 10 -g chr{1}/C.txt -p 11 -g chr{1}/M.txt -p 12 -g chr{1}/Plac_Riv_2014.txt -p 1 -pos chr{1}/pos.txt -s 20 -C 3 -c {4} -mg {2} -o out_chr{1}_g{2}_c{4}_s{3} --exclude-nopos --exclude-miss1 -exclude-maf 0.05 -R {3}' ::: {9..10} ::: 30 ::: 2 ::: 9 12 15 > nohup_s2.out&
+[2] 13772
+erin@Barbara:/media/erin/3TB/Documents/gitErin/bees/data/ELAI_input$ nohup: ignoring input and redirecting stderr to stdout
+
