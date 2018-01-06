@@ -247,11 +247,30 @@ nohup nice -n 10 parallel --noswap --joblog ELAI_all_chr_avgr_bychr.log --jobs 1
 9:35pm Jan 1 started process
 [1] 13015 
 
-
 # also to look at how much c (lower levels) and seed parameters affect ancestry inference I run a couple chromosomes with different seeds and lower clusters.
 # I could run ELAI with C & M ancestry together as 'Euro' with more lower clusters to represent that diversity..
  
 ELAI_input$ nohup nice -n 12 parallel --noswap --joblog ELAI_all_chr_avgr_bychr_s2.log --jobs 6 'elai-lin -g chr{1}/A.txt -p 10 -g chr{1}/C.txt -p 11 -g chr{1}/M.txt -p 12 -g chr{1}/Plac_Riv_2014.txt -p 1 -pos chr{1}/pos.txt -s 20 -C 3 -c {4} -mg {2} -o out_chr{1}_g{2}_c{4}_s{3} --exclude-nopos --exclude-miss1 -exclude-maf 0.05 -R {3}' ::: {9..10} ::: 30 ::: 2 ::: 9 12 15 > nohup_s2.out&
 [2] 13772
 erin@Barbara:/media/erin/3TB/Documents/gitErin/bees/data/ELAI_input$ nohup: ignoring input and redirecting stderr to stdout
+
+# Errors with most output files -- some did not finish (maybe memory issue) and others
+# have error in trk or beta update. Emailed Grant who sent me a new version (same v1 labelling though)
+# Replaced elai-lin old binary with new binary from Grant 1.5.18 and re-running all files. Deleted old output.
+# For memory issue, I'm using fewer cores and delaying the start by 3 min --delay 180
+nohup nice -n 10 parallel --noswap --delay 180 --joblog ELAI_PlRiv_bees_rbychr.log --jobs 6
+'elai-lin -g chr{2}/A.txt -p 10 -g chr{2}/C.txt -p 11 -g chr{2}/M.txt -p 12
+-g chr{2}/Plac_Riv_2014.txt -p 1 -pos chr{2}/pos.txt
+-s 20 -C 3 -c {4} -mg {1} -o out_chr{2}_g{1}_c{4}_s{3}
+--exclude-nopos --exclude-miss1 -exclude-maf 0.05 -R {3}'
+::: 60 30 ::: {1..16} ::: 1 ::: 9 >& ELAI_PlRiv_bees_rbychr.out &
+
+[1] 21518
+# Started 6:23PM 1.5.18
+
+# Later I will check, using one short chrom, robustness to
+# 1) recomb. rate -- 22 cM/Mb across genome (Wallberg as in Nelson 2017), avg by chrom (Liu), or high-resol. map (Wallberg -- 100,000 bp windows?)
+# 2) random seed {1..5}
+# 3) choice of # of lower clusters (-c) -- 9, 12, 15
+# 4) slightly varying t generations since admixture 
 
