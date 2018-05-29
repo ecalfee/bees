@@ -43,15 +43,25 @@ bees_new_positions$ plink --bfile ALL --indep-pairwise 50 10 0.4 --keep-allele-o
 bees_new_positions$ wc -l lowLDA4.prune.in161036 lowLDA4.prune.in
 
 # now I get allele counts for Harpur A C M for those positions (and I put all the lowLD files in a folder) lowLDA4
-for pop in A C M; do plink --bfile ALL --freq counts --keep-allele-order --extract lowLDA4/lowLDA4.prune.in --filter populations.txt $pop --out lowLDA4/$pop; done
+data/bees_new_positions$ for pop in A C M; do plink --bfile ALL --freq counts --keep-allele-order --extract lowLDA4/lowLDA4.prune.in --filter populations.txt $pop --out lowLDA4/$pop; done
 
 # now I get allele counts for each individual in Riverside_2014 for those same alleles.
+# to do this, I first make a new file with 3rd column identifying samples by individual ID
+data/bees_new_positions$ awk '{print $1, '\t', $2, '\t', $2}' populations.txt > individuals.txt
+# then for each individual in riverside_2014, I make an allele counts file
+data/bees_new_positions$ for ind in $(awk '$1 == "Riverside_2014" {print $2}' individuals.txt); do plink --bfile ALL --freq counts --keep-allele-order --extract lowLDA4/lowLDA4.prune.in --filter individuals.txt $ind --out lowLDA4/$ind; done
+# these are now saved as, e.g. SRCD49A.frq.counts where columns C1 and C2 identify counts for allele A1 and A2 and column G0 counts missing genotypes (C1 + C2 + G0 = 2 for each individual)
 
 # now I get the recombination positions based on Wallberg recombination map for each position
+# first I convert from scaffold-level to chromosome-level coordinates by adding 50,000 bp gaps between each scaffold
+# then I convert from bp to recomb. position (in cM) by using the Wallberg 100kb resolution recombination map
+
 
 # now I merge the files to the correct format for ancestry_hmm
+
+# I run NGSadmix on A, C, M reference pops and riverside 2014 individuals using reduced SNPs (pruned for LD) to get approximate population admixture proportions for each contributing ancestry
+# to run NGSadmix I need beagle genotype likelihoods for all individuals, which I create in ANGSD
 
 # now I run ancestry_hmm
 
 # I binomially sample 'reads' for coverage and re-run ancestry_hmm
- 
