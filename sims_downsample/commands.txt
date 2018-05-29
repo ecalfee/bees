@@ -78,6 +78,21 @@ sample2\t2 etc.
 
 # I run NGSadmix on A, C, M reference pops and riverside 2014 individuals using reduced SNPs (pruned for LD) to get approximate population admixture proportions for each contributing ancestry
 # to run NGSadmix I need beagle genotype likelihoods for all individuals, which I create in ANGSD
+# first I get a new set of SNPs chosen to be sparse (unlinked) and at > 0.1 freq. in entire sample, including admixed samples, but not Cerana or Y individuals
+# inds to include
+data/bees_new_positions$ awk '$1 != "Y" && $1 != "Cerana" {print $0}' populations.txt > noYorCerana.txt
+# thin positions to 5KB and only sites > 0.1 MAF (about 34K snps remain)
+data/bees_new_positions$ plink --bfile ALL --make-bed --keep noYorCerana.txt --keep-allele-order --maf 0.1 --bp-space 5000 --out thin5KB
+# make into ANGSD formatted position input file: chr \t pos \t major \t minor \t from thin5KB.frq
+data/bees_new_positions$ cat thin5KB.bim | tr -s "." "\t" | awk '{print $3"."$4"\t"$5"\t"$9"\t"$10}' > thin5KB.positions
+# make list of bams to include in NGSadmix: data/sims_downsample/NGSadmix/thin5KB_bams.list
+# run angsd to calculate genotype likelihoods (-doMajorMinor 3 and -sites ensures consistency of major and minor allele)
+# bioinfo_pipe.txt describes the bio-informatics pipeline from raw reads to bams, coordinate sorted, indexed, with headers and with marked duplicates
+angsd -doMajorMinor 3 -sites data/bees_new_positions/thin5KB.positions -GL 1 -doGlf 2 -bam data/sims_downsample/NGSadmix/thin5KB_bams.list -baq 1 -ref REFERENCE_GENOME -remove_bads 1 -minMapQ 13 -out
+# filters: use BAQ (needs reference to calc. BAQ), remove bad reads (marked duplicates), minimum mapping quality of 13
+# I do not filter on minimum base quality (or minimum of base quality and adjusted base quality (BAQ)) because base quality is already considered in SAMTOOLS genotype likelihood calculation
+
+
 
 # now I run ancestry_hmm, allowing it to estimate time since admixture between 2 and 60 generations (1-2 yrs/gen & admixture after 1957 - present/2014 sample)
 # -g indicates that called genotypes (allele counts), rather than read counts, are being used for admixed individuals 

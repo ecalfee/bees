@@ -274,3 +274,28 @@ nohup nice -n 10 parallel --noswap --delay 180 --joblog ELAI_PlRiv_bees_rbychr.l
 # 3) choice of # of lower clusters (-c) -- 9, 12, 15
 # 4) slightly varying t generations since admixture 
 
+
+# Tue May 29 11:55:53 PDT 2018
+# from all aligned and sorted bams, I mark duplicates (to exclude in ANGSD):
+# CA bees (came sorted from Julie)
+# for these bams, first I add readgroups and sort by coordinate before marking duplicates and indexing
+bam_files$ ls *.*.bam | tr "." "\t" | awk '{print $1}' > IDs.list
+data/CA_Bee/bam_files$ nohup parallel --noswap --jobs 7 --joblog picard_readgrp_mrkdup.log \
+'java -jar ~/Software/picard/picard.jar AddOrReplaceReadGroups INPUT=$(ls {1}.*.bam) \
+OUTPUT={1}.sorted.bam SORT_ORDER=coordinate RGID=null RGLB=CA_Bees RGPL=illumina \
+RGPU=NA RGSM={1}; java -jar ~/Software/picard/picard.jar MarkDuplicates \
+INPUT={1}.sorted.bam OUTPUT={1}.sort.mrkdup.bam REMOVE_DUPLICATES=false \
+METRICS_FILE={1}.mrkdup.metrics.txt; rm {1}.sorted.bam; \
+samtools index {1}.sort.mrkdup.bam' :::: IDs.list &> picard_readgrp_mrkdup.out &
+[1] 26663
+
+# Harpur bees (I aligned & sorted already, see above)
+Harpur_2014_NCBI/bam_files$ nohup parallel --noswap --jobs 7 --joblog picard_mrkdup.log 'java -jar ~/Software/picard/picard.jar MarkDuplicates INPUT={1}.sorted.bam OUTPUT={1}.sort.mrkdup.bam REMOVE_DUPLICATES=false METRICS_FILE={1}.mrkdup.metrics.txt; samtools index {1}.sort.mrkdup.bam' :::: IDs.list &> picard_mrkdup.out &
+
+# Sheppard's Kenyan bees (waiting to run)
+data/Kenya_Sheppard_NCBI/bam_files$ nohup parallel --noswap --jobs 4 --joblog picard_mrkdup.log 'java -jar ~/Software/picard/picard.jar MarkDuplicates INPUT={1}.sorted.bam OUTPUT={1}.sort.mrkdup.bam REMOVE_DUPLICATES=false METRICS_FILE={1}.mrkdup.metrics.txt; samtools index {1}.sort.mrkdup.bam' :::: IDs.list &> picard_mrkdup.out &
+
+
+
+
+
