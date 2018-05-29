@@ -43,7 +43,7 @@ bees_new_positions$ plink --bfile ALL --indep-pairwise 50 10 0.4 --keep-allele-o
 bees_new_positions$ wc -l lowLDA4.prune.in161036 lowLDA4.prune.in
 
 # now I get allele counts for Harpur A C M for those positions (and I put all the lowLD files in a folder) lowLDA4
-for pop in A C M; do plink --bfile ALL --freq counts --keep-allele-order --extract lowLDA4/lowLDA4.prune.in --filter populations.txt $pop --out lowLDA4/$pop; done
+data/bees_new_positions$ for pop in A C M; do plink --bfile ALL --freq counts --keep-allele-order --extract lowLDA4/lowLDA4.prune.in --filter populations.txt $pop --out lowLDA4/$pop; done
 
 # I also try an alternative windowed approach to filter SNPs:
 # The idea is that on average LD decays quickly in honeybees and in all major groups A, C, M and O, mean r^2 is below 0.1 at greater than 1.5 kb https://www.nature.com/articles/ng.3077/figures/8 .
@@ -51,12 +51,40 @@ for pop in A C M; do plink --bfile ALL --freq counts --keep-allele-order --extra
 data/bees_new_positions$ plink -bfile ALL --indep-pairwise 1.5 kb 1 0.2 --keep-allele-order --extract ACM_common.frq --filter populations.txt A --out newlowLDA2/snps
 
 # now I get allele counts for each individual in Riverside_2014 for those same alleles.
+# to do this, I first make a new file with 3rd column identifying samples by individual ID
+data/bees_new_positions$ awk '{print $1, '\t', $2, '\t', $2}' populations.txt > individuals.txt
+# then for each individual in riverside_2014, I make an allele counts file
+data/bees_new_positions$ for ind in $(awk '$1 == "Riverside_2014" {print $2}' individuals.txt); do plink --bfile ALL --freq counts --keep-allele-order --extract lowLDA4/lowLDA4.prune.in --filter individuals.txt $ind --out lowLDA4/$ind; done
+# these are now saved as, e.g. SRCD49A.frq.counts where columns C1 and C2 identify counts for allele A1 and A2 and column G0 counts missing genotypes (C1 + C2 + G0 = 2 for each individual)
 
-# now I get the recombination positions based on Wallberg recombination map for each position at 100,000 resolution (could go down to 10,000 or lower, but some smoothing is likely more accurate). Note: As I understand it, this map skips over gaps between scaffolds as if the gaps did not exist and it's contiguous sequence (same with bp position for v4.5 genome). The lower resolution maps do the same, but omit a recombination rate for any window bridging scaffolds as it's not estimated well. [or do they have gaps of 50,000 bp represented in these positions? It seems like if that's the case there would be regions with no 10,000 map.
+# now I get physical positions relative to chromosome (not scaffold; assumes 50,000 bp gaps between scaffolds)
+# and the recombination distance between positions based on Wallberg recombination map for each position 
+# at 100,000 resolution (could go down to 10,000 or lower, but some smoothing is likely more accurate). 
+# Note: As I understand it, this map skips over gaps between scaffolds as if the gaps take up 50kbp and it's contiguous sequence 
+# (same with bp position for v4.5 genome). The lower resolution maps do the same, but omit a recombination rate for any window 
+# bridging scaffolds as it's not estimated well. I impute these recombination rates using the average rate across all non-NA windows in the chromosome
+Rscript bp_to_r_Wallberg2015.R data/bees_new_positions/lowLDA4/A.frq.counts
 
-# now I merge the files to the correct format for ancestry_hmm
+# now I merge all the files to the correct format for ancestry_hmm
+# chromosome, position_bp, allele counts A1 in A, allele counts A2 in A, allele counts A1 in C, allele counts A2 in C, allele counts A1 in M, allele counts A2 in M,
+# distance in Morgans between previous marker and this one
+# read counts A1 in sample1, read counts A2 in sample1, read counts A1 in sample2 etc.
+infX.counts.pos
 
-# now I run ancestry_hmm, allowing to estimate time since admixture between 2 and 60 generations (1-2 yrs/gen & admixture after 1957 - present/2014 sample)
+# I also create the sample input file for ancestry_hmm specifying ploidy
+Riv2014.sample.ploidy
+sample1\t2
+sample2\t2 etc.
+
+# I run NGSadmix on A, C, M reference pops and riverside 2014 individuals using reduced SNPs (pruned for LD) to get approximate population admixture proportions for each contributing ancestry
+# to run NGSadmix I need beagle genotype likelihoods for all individuals, which I create in ANGSD
+
+# now I run ancestry_hmm, allowing it to estimate time since admixture between 2 and 60 generations (1-2 yrs/gen & admixture after 1957 - present/2014 sample)
+# -g indicates that called genotypes (allele counts), rather than read counts, are being used for admixed individuals 
+# -a 3 0.4 0.4 0.2
+# population C 100 gen (est.) receives M migrants then 60 gen (est.) receives second wave of A migrants
+# -p 1 100000 0.4 -p 2 100 0.2 -p 0 -30 0.4 --tmax 60 --tmin 2
+# --ne ?not_sure
 
 # I binomially sample 'reads' for coverage and re-run ancestry_hmm
- 
+1X.counts.pos, 2X.counts.pos, 4X.counts.pos, 6X.counts.pos etc.
