@@ -288,9 +288,14 @@ INPUT={1}.sorted.bam OUTPUT={1}.sort.mrkdup.bam REMOVE_DUPLICATES=false \
 METRICS_FILE={1}.mrkdup.metrics.txt; rm {1}.sorted.bam; \
 samtools index {1}.sort.mrkdup.bam' :::: IDs.list &> picard_readgrp_mrkdup.out &
 [1] 26663
+# completed - I put original bams in a subfolder 'bam_from_Julie' and saved their basic file info
+CA_Bee/bam_files/bam_from_Julie$ stat * >> ../stat_bam_from_Julie.txt
+
 
 # Harpur bees (I aligned & sorted already, see above)
 Harpur_2014_NCBI/bam_files$ nohup parallel --noswap --jobs 7 --joblog picard_mrkdup.log 'java -jar ~/Software/picard/picard.jar MarkDuplicates INPUT={1}.sorted.bam OUTPUT={1}.sort.mrkdup.bam REMOVE_DUPLICATES=false METRICS_FILE={1}.mrkdup.metrics.txt; samtools index {1}.sort.mrkdup.bam' :::: IDs.list &> picard_mrkdup.out &
+[1] 9537
+
 
 # Sheppard's Kenyan bees (waiting to run)
 data/Kenya_Sheppard_NCBI/bam_files$ nohup parallel --noswap --jobs 4 --joblog picard_mrkdup.log 'java -jar ~/Software/picard/picard.jar MarkDuplicates INPUT={1}.sorted.bam OUTPUT={1}.sort.mrkdup.bam REMOVE_DUPLICATES=false METRICS_FILE={1}.mrkdup.metrics.txt; samtools index {1}.sort.mrkdup.bam' :::: IDs.list &> picard_mrkdup.out &
