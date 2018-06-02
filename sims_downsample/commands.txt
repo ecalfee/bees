@@ -47,8 +47,15 @@ data/bees_new_positions$ for pop in A C M; do plink --bfile ALL --freq counts --
 
 # I also try an alternative windowed approach to filter SNPs:
 # The idea is that on average LD decays quickly in honeybees and in all major groups A, C, M and O, mean r^2 is below 0.1 at greater than 1.5 kb https://www.nature.com/articles/ng.3077/figures/8 .
-# Based on this information, I only look for r^2 above 0.2 in the African population in widows length 1.5 kb to avoid chance spurious results at unreasonably great distances
+# Based on this information, I only look for r^2 above 0.2 in the African population in widows length 1.5 kb to avoid chance spurious results at unreasonably great distances. This leaves 252k SNPs.
 data/bees_new_positions$ plink -bfile ALL --indep-pairwise 1.5 kb 1 0.2 --keep-allele-order --extract ACM_common.frq --filter populations.txt A --out newlowLDA2/snps
+# If I filter in serial then for alleles with LD within C and then within M, I get very few SNPs (47k)
+data/bees_new_positions$ plink -bfile ALL --indep-pairwise 1.5 kb 1 0.2 --keep-allele-order --extract newlowLDA2/snps.prune.in --filter populations.txt C --out newlowLDA2/snpsAC
+data/bees_new_positions$ plink -bfile ALL --indep-pairwise 1.5 kb 1 0.2 --keep-allele-order --extract newlowLDA2/snpsAC.prune.in --filter populations.txt M --out newlowLDA2/snpsACM
+# I don't understand how this could be lower than a hard filter for SNPs closer than 1.5kb (see below)
+
+# I need to ask Graham if it is an issue to only filter for LD within A; filtering in serial A -> C -> M leaves very few SNPs (<60k) likely due to chance high LD from small pop. sizes. Yet another alternative: Below I create a set of ~94k SNPs by doing a hard filter of min. 1.5kb between each SNP from the high ancestry freq (>0.4 in at least one ancestry) SNPs.
+data/bees_new_positions$ plink --bfile ALL --write-snplist --keep noYorCeranaorDomestic.txt --keep-allele-order --extract ACM_common.frq --bp-space 1500 --out thin1andHalfKB_common
 
 # now I get allele counts for each individual in Riverside_2014 for those same alleles.
 # to do this, I first make a new file with 3rd column identifying samples by individual ID
@@ -78,28 +85,73 @@ sample2\t2 etc.
 
 # I run NGSadmix on A, C, M reference pops and riverside 2014 individuals using reduced SNPs (pruned for LD) to get approximate population admixture proportions for each contributing ancestry
 # to run NGSadmix I need beagle genotype likelihoods for all individuals, which I create in ANGSD
-# first I get a new set of SNPs chosen to be sparse (unlinked) and at > 0.1 freq. in entire sample, including admixed samples, but not Cerana or Y individuals
+# first I get a new set of SNPs chosen to be sparse (unlinked) and at > 0.05 freq. in entire sample, including admixed samples, but not Cerana or Y individuals or domestic bee samples
 # inds to include
-data/bees_new_positions$ awk '$1 != "Y" && $1 != "Cerana" {print $0}' populations.txt > noYorCerana.txt
-# thin positions to 5KB and only sites > 0.1 MAF (about 34K snps remain)
-data/bees_new_positions$ plink --bfile ALL --make-bed --keep noYorCerana.txt --keep-allele-order --maf 0.1 --bp-space 5000 --out thin5KB
+data/bees_new_positions$ awk '$1 != "Y" && $1 != "Cerana" && $1 != "Domestic_2014"  {print $0}' populations.txt > noYorCeranaorDomestic.txt
+# thin positions to 5KB and only sites > 0.05 MAF (about 35K snps remain)
+data/bees_new_positions$ plink --bfile ALL --make-bed --keep noYorCeranaorDomestic.txt --keep-allele-order --maf 0.05 --bp-space 5000 --out thin5KB
+
 # make into ANGSD formatted position input file: chr \t pos \t major \t minor \t from thin5KB.frq
 data/bees_new_positions$ cat thin5KB.bim | tr -s "." "\t" | awk '{print $3"."$4"\t"$5"\t"$9"\t"$10}' > thin5KB.positions
-# make list of bams to include in NGSadmix: data/sims_downsample/NGSadmix/thin5KB_bams.list
+# make list of bams to include in NGSadmix: data/bees_new_positions/thin5KB_bams.list
+data/bees_new_positions$ awk '$1 == "A" || $1 == "C" || $1 == "M" {print "data/Harpur_2014_NCBI/bam_files/Harpur_"$2".sort.mrkdup.bam"}' thin5KB.fam >> thin5KB_bams.list
+data/bees_new_positions$ awk '$1 != "A" && $1 != "C" && $1 != "M" {print "data/CA_Bee/bam_files/"$2".sort.mrkdup.bam"}' thin5KB.fam >> thin5KB_bams.list
+# indexed sites file for use by angsd:
+data/bees_new_positions$ angsd sites index thin5KB.positions
+# and I identify the scaffolds/chromosomes that have at least one SNP included:
+data/bees_new_positions$ cut -f1 thin5KB.positions | uniq > thin5KB_chrs.txt
+
 # run angsd to calculate genotype likelihoods (-doMajorMinor 3 and -sites ensures consistency of major and minor allele)
 # bioinfo_pipe.txt describes the bio-informatics pipeline from raw reads to bams, coordinate sorted, indexed, with headers and with marked duplicates
-angsd -doMajorMinor 3 -sites data/bees_new_positions/thin5KB.positions -GL 1 -doGlf 2 -bam data/sims_downsample/NGSadmix/thin5KB_bams.list -baq 1 -ref REFERENCE_GENOME -remove_bads 1 -minMapQ 13 -out
-# filters: use BAQ (needs reference to calc. BAQ), remove bad reads (marked duplicates), minimum mapping quality of 13
-# I do not filter on minimum base quality (or minimum of base quality and adjusted base quality (BAQ)) because base quality is already considered in SAMTOOLS genotype likelihood calculation
+# filters: use BAQ (needs reference to calc. BAQ), remove bad reads (marked duplicates), minimum mapping quality of 13, minimum base/BAQ quality of 13, use samtools method and create beagle-type genotype likelihood file (-GL 1 -doGlf), use 6 threads (-P 6)
+# I do not filter stringently on minimum base quality (or minimum of base quality and adjusted base quality (BAQ)) because base quality is already considered in SAMTOOLS genotype likelihood calculation; 13 is the recommended default
+bees$ nohup angsd -doMajorMinor 3 -sites data/bees_new_positions/thin5KB.positions \
+-rf data/bees_new_positions/thin5KB_chrs.txt \
+-GL 1 -doGlf 2 -bam data/bees_new_positions/thin5KB_bams.list -baq 1 \
+-ref data/honeybee_genome/Amel_4.5_scaffolds.fa -remove_bads 1 \
+-minMapQ 13 -minQ 13 -P 6 -out data/sims_downsample/NGSadmix/thin5KB_GL &> data/sims_downsample/NGSadmix/thin5KB_GL.log
+mv think5KB_GL.gz thin5KB_GL.gz &> data/sims_downsample/NGSadmix/thin5KB_GL.log &
+[1] 20137
+# CANCELLED - going to take too long. I split the input file into more manageable chunks to run in parallel:
+data/bees_new_positions$ split thin5KB.positions -d -l 1000 thin5KB_chunks/positions
+# indexed the chunks
+data/bees_new_positions/thin5KB_chunks$ for i in $(ls positions*); do angsd sites index $i; done
+# and make chromosome files for each
+data/bees_new_positions/thin5KB_chunks$ for i in $(ls positions[0-9][0-9]); do cut -f1 $i | uniq > $i.chr; done
+# now run angsd to get genotype likelihoods (in parallel)
+bees$ nohup parallel --joblog data/sims_downsample/NGSadmix/thin5KB_GL_chunks.log \
+--noswap --jobs 6 'angsd -doMajorMinor 3 \
+-sites data/bees_new_positions/thin5KB_chunks/positions{1} \
+-rf data/bees_new_positions/thin5KB_chunks/positions{1}.chr \
+-GL 1 -doGlf 2 -bam data/bees_new_positions/thin5KB_bams.list -baq 1 \
+-ref data/honeybee_genome/Amel_4.5_scaffolds.fa -remove_bads 1 \
+-minMapQ 13 -minQ 13 -out data/sims_downsample/NGSadmix/thin5KB_GL_chunk{1}' ::: {00..34} &> data/sims_downsample/NGSadmix/thin5KB_GL_chunks.out
+[1] 29871
 
+# I run NGSadmix on AMC reference pops and CA possible admixed pops, using genotype likelihood file from above
+bees$ NGSadmix -likes inputdata/sims_downsample/NGSadmix/thin5KB_GL.beagle.gz -K 3 -P 4 -o data/sims_downsample/NGSadmix/CA_Bee_AMC -minMaf 0.05
 
 
 # now I run ancestry_hmm, allowing it to estimate time since admixture between 2 and 60 generations (1-2 yrs/gen & admixture after 1957 - present/2014 sample)
+# preparing ancestry_hmm input file with reference and admixed counts
+# extract only counts for ACM and Riverside individuals
+data/bees_new_positions/lowLDA4$ for i in $(ls *.frq.counts); do awk '$1!="CHR" {print $5"\t"$6}' $i > $i.strp; done
+# separates SNP position on chromosome and recombination position
+data/bees_new_positions/lowLDA4$ awk '{print $1"\t"$2}' A.frq.counts.rmap > all.pos
+data/bees_new_positions/lowLDA4$ awk '{print $3}' A.frq.counts.rmap > all.rpos
+# paste together with SNP position information to make input file
+data/bees_new_positions/lowLDA4$ paste all.pos A.frq.counts.strp C.frq.counts.strp M.frq.counts.strp all.rpos $(ls SRCD*frq.counts.strp) -d '\t' >> ../../sims_downsample/ancestry_hmm/ACM_Riv2014.counts
+# making ancestry_hmm sample file with admixed sample ind's ploidy
+data/bees_new_positions/lowLDA4$ for i in $(ls SRC*.frq.counts | cut -d"." -f1); do echo $i"\\t"2 >> ../../sims_downsample/ancestry_hmm/Riv2014.ploidy; done
+
+
+
+
 # -g indicates that called genotypes (allele counts), rather than read counts, are being used for admixed individuals 
 # -a 3 0.4 0.4 0.2
 # population C 100 gen (est.) receives M migrants then 60 gen (est.) receives second wave of A migrants
 # -p 1 100000 0.4 -p 2 100 0.2 -p 0 -30 0.4 --tmax 60 --tmin 2
-# --ne ?not_sure
+# --ne ?not_sure form Nelson 2017: "The Africanized population has a large (666,667) effective population size."
 
 # I binomially sample 'reads' for coverage and re-run ancestry_hmm
 1X.counts.pos, 2X.counts.pos, 4X.counts.pos, 6X.counts.pos etc.
