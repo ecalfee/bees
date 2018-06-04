@@ -133,7 +133,12 @@ for i in {01..34}; do zcat thin5KB_GL_chunk$i.beagle.gz | tail -n +2 | gzip >> t
 
 # I run NGSadmix on AMC reference pops and CA possible admixed pops, using genotype likelihood file from above
 bees$ NGSadmix -likes data/sims_downsample/NGSadmix/thin5KB_GL_ALL.beagle.gz -K 3 -P 4 -o data/sims_downsample/NGSadmix/CA_Bee_AMC -minMaf 0.05
+# order of IDs that matches thin5KB_bams.list and output to NGSadmix:
+data/bees_new_positions$ awk '$1 == "A" || $1 == "C" || $1 == "M" {print $1"\t"$2}' thin5KB.fam >> thin5KB_ids.list
+data/bees_new_positions$ awk '$1 != "A" && $1 != "C" && $1 != "M" {print $1"\t"$2}' thin5KB.fam >> thin5KB_ids.list
 
+# using results of NGSadmix, I infer approximate avg. contributions of A, C, and M ancestries to Riverside_2014 pop
+bees/sims_downsample$ sim_sample_x_coverage.R # A, C, M in Riverside_2014: 0.426 0.376 0.198
 
 # now I run ancestry_hmm, allowing it to estimate time since admixture between 2 and 60 generations (1-2 yrs/gen & admixture after 1957 - present/2014 sample)
 # preparing ancestry_hmm input file with reference and admixed counts
@@ -147,13 +152,17 @@ data/bees_new_positions/lowLDA4$ paste all.pos A.frq.counts.strp C.frq.counts.st
 # making ancestry_hmm sample file with admixed sample ind's ploidy
 data/bees_new_positions/lowLDA4$ for i in $(ls SRC*.frq.counts | cut -d"." -f1); do echo $i"\\t"2 >> ../../sims_downsample/ancestry_hmm/Riv2014.ploidy; done
 
-
-
-
+# ancestry_hmm (manual: https://github.com/russcd/Ancestry_HMM)
+data/sims_downsample/ancestry_hmm$ nohup ancestry_hmm -g -a 3 0.426 0.376 0.198 \
+-p 1 100000 0.376 -p 2 100 0.198 -p 0 -30 0.426 --tmax 60 --tmin 2 --ne 670000 \
+-i ACM_Riv2014.counts -s Riv2014.ploidy &> ancestry_hmm.fullx.out &
+[2] 9343
+# -i is the input file (read counts) and -s is the sample ploidy file
 # -g indicates that called genotypes (allele counts), rather than read counts, are being used for admixed individuals 
-# -a 3 0.4 0.4 0.2
-# population C 100 gen (est.) receives M migrants then 60 gen (est.) receives second wave of A migrants
-# -p 1 100000 0.4 -p 2 100 0.2 -p 0 -30 0.4 --tmax 60 --tmin 2
+# -a 3 0.426 0.376 0.198
+# population C 100 gen (est.) receives M migrants then 
+# at 30 gen (negative = estimate this) receives second wave of A migrants
+# -p 1 100000 0.376 -p 2 100 0.198 -p 0 -30 0.426 --tmax 60 --tmin 2
 # --ne ?not_sure form Nelson 2017: "The Africanized population has a large (666,667) effective population size."
 
 # I binomially sample 'reads' for coverage and re-run ancestry_hmm

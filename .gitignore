@@ -1,2 +1,6 @@
 # don't track (large) data files
 data/*
+*.out
+*.log
+.Rhistory
+*.gz
