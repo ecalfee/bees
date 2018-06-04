@@ -112,7 +112,7 @@ bees$ nohup angsd -doMajorMinor 3 -sites data/bees_new_positions/thin5KB.positio
 -minMapQ 13 -minQ 13 -P 6 -out data/sims_downsample/NGSadmix/thin5KB_GL &> data/sims_downsample/NGSadmix/thin5KB_GL.log
 mv think5KB_GL.gz thin5KB_GL.gz &> data/sims_downsample/NGSadmix/thin5KB_GL.log &
 [1] 20137
-# CANCELLED - going to take too long. I split the input file into more manageable chunks to run in parallel:
+# CANCELLED - going to take too long. Deleted partial output. I split the input file into more manageable chunks to run in parallel:
 data/bees_new_positions$ split thin5KB.positions -d -l 1000 thin5KB_chunks/positions
 # indexed the chunks
 data/bees_new_positions/thin5KB_chunks$ for i in $(ls positions*); do angsd sites index $i; done
@@ -127,9 +127,12 @@ bees$ nohup parallel --joblog data/sims_downsample/NGSadmix/thin5KB_GL_chunks.lo
 -ref data/honeybee_genome/Amel_4.5_scaffolds.fa -remove_bads 1 \
 -minMapQ 13 -minQ 13 -out data/sims_downsample/NGSadmix/thin5KB_GL_chunk{1}' ::: {00..34} &> data/sims_downsample/NGSadmix/thin5KB_GL_chunks.out
 [1] 29871
+# I concatenate GL by chunks together (without headers for all but first file):
+data/sims_downsample/NGSadmix$ zcat thin5KB_GL_chunk00.beagle.gz | gzip >> thin5KB_GL_ALL.beagle.gz; \
+for i in {01..34}; do zcat thin5KB_GL_chunk$i.beagle.gz | tail -n +2 | gzip >> thin5KB_GL_ALL.beagle.gz; done
 
 # I run NGSadmix on AMC reference pops and CA possible admixed pops, using genotype likelihood file from above
-bees$ NGSadmix -likes inputdata/sims_downsample/NGSadmix/thin5KB_GL.beagle.gz -K 3 -P 4 -o data/sims_downsample/NGSadmix/CA_Bee_AMC -minMaf 0.05
+bees$ NGSadmix -likes inputdata/sims_downsample/NGSadmix/thin5KB_GL_ALL.beagle.gz -K 3 -P 4 -o data/sims_downsample/NGSadmix/CA_Bee_AMC -minMaf 0.05
 
 
 # now I run ancestry_hmm, allowing it to estimate time since admixture between 2 and 60 generations (1-2 yrs/gen & admixture after 1957 - present/2014 sample)
