@@ -132,7 +132,7 @@ data/sims_downsample/NGSadmix$ zcat thin5KB_GL_chunk00.beagle.gz | gzip >> thin5
 for i in {01..34}; do zcat thin5KB_GL_chunk$i.beagle.gz | tail -n +2 | gzip >> thin5KB_GL_ALL.beagle.gz; done
 
 # I run NGSadmix on AMC reference pops and CA possible admixed pops, using genotype likelihood file from above
-bees$ NGSadmix -likes inputdata/sims_downsample/NGSadmix/thin5KB_GL_ALL.beagle.gz -K 3 -P 4 -o data/sims_downsample/NGSadmix/CA_Bee_AMC -minMaf 0.05
+bees$ NGSadmix -likes data/sims_downsample/NGSadmix/thin5KB_GL_ALL.beagle.gz -K 3 -P 4 -o data/sims_downsample/NGSadmix/CA_Bee_AMC -minMaf 0.05
 
 
 # now I run ancestry_hmm, allowing it to estimate time since admixture between 2 and 60 generations (1-2 yrs/gen & admixture after 1957 - present/2014 sample)
@@ -158,3 +158,10 @@ data/bees_new_positions/lowLDA4$ for i in $(ls SRC*.frq.counts | cut -d"." -f1);
 
 # I binomially sample 'reads' for coverage and re-run ancestry_hmm
 1X.counts.pos, 2X.counts.pos, 4X.counts.pos, 6X.counts.pos etc.
+# binomial samples are done two ways- using fixed (even) coverage across the genome, and using poisson total # reads/coverage per position
+bees/sims_downsample$ nohup parallel --jobs 6 --joblog downsampling.log --noswap "Rscript sim_sample_x_coverage.R ../data/sims_downsample/ancestry_hmm/ACM_Riv2014.counts {1} {2} {3}" ::: {1..10} ::: {1001..1010} ::: poisson fixed &> downsampling.out &
+[1] 23922
+# For each level of coverage, I use 10 different random seeds 1001-1010 for replicates.
+# My plan is to compare ancestry at high confidence genomic locations in the high coverage data 
+# with corresponding ancestry calls across replicate seeds & across all individuals & genomic locations
+# Note: there is some missing data (uncalled genotypes) in the high coverage genotype data which have 0 0 allele counts and can't be binomially sampled.
