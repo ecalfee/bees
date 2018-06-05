@@ -76,12 +76,14 @@ Rscript bp_to_r_Wallberg2015.R data/bees_new_positions/lowLDA4/A.frq.counts
 # chromosome, position_bp, allele counts A1 in A, allele counts A2 in A, allele counts A1 in C, allele counts A2 in C, allele counts A1 in M, allele counts A2 in M,
 # distance in Morgans between previous marker and this one
 # read counts A1 in sample1, read counts A2 in sample1, read counts A1 in sample2 etc.
-infX.counts.pos
+data/bees_new_positions/lowLDA4$ paste all.pos A.frq.counts.strp C.frq.counts.strp M.frq.counts.st
+rp all.rpos $(ls SRC*.frq.counts.strp) > ACM_Riv2014.counts
 
 # I also create the sample input file for ancestry_hmm specifying ploidy
 Riv2014.sample.ploidy
 sample1\t2
 sample2\t2 etc.
+data/bees_new_positions/lowLDA4$ ls SRC*.frq.counts.strp | sed 's/.frq.counts.strp/\t2/' > Riv2014.ploidy
 
 # I run NGSadmix on A, C, M reference pops and riverside 2014 individuals using reduced SNPs (pruned for LD) to get approximate population admixture proportions for each contributing ancestry
 # to run NGSadmix I need beagle genotype likelihoods for all individuals, which I create in ANGSD
