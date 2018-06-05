@@ -179,9 +179,30 @@ data/sims_downsample/ancestry_hmm/highx$ nohup ancestry_hmm -g -e 1e-3 -a 3 0.42
 bees/sims_downsample$ nohup parallel --jobs 6 --joblog downsampling.log --noswap "Rscript sim_sample_x_coverage.R ../data/sims_downsample/ancestry_hmm/ACM_Riv2014.counts {1} {2} {3}" ::: {1..10} ::: {1001..1010} ::: poisson fixed &> downsampling.out &
 [1] 23922
 # removed above samples and re-did after fixing -9 -> 1 start of chr position issue
-bees/sims_downsample$ nohup parallel --jobs 6 --joblog downsampling.log --noswap "mkdir -p ../data/sims_downsample/ancestry_hmm/{1}x/{3}/seed{2}; Rscript sim_sample_x_coverage.R ../data/sims_downsample/ancestry_hmm/ACM_Riv2014.counts {1} {2} {3} ../data/sims_downsample/ancestry_hmm/{1}x/{3}/seed{2}/ACM_Riv2014" ::: {1..10} ::: {1001..1010} ::: poisson fixed &> downsample_x.out &
+bees/sims_downsample$ nohup parallel --jobs 6 --joblog downsampling.log --noswap "mkdir -p ../data/sims_downsample/ancestry_hmm/{1}x/{3}/seed{2}; Rscript sim_sample_x_coverage.R ../data/sims_downsample/ancestry_hmm/ACM_Riv2014.counts {1} {2} {3} ../data/sims_downsample/ancestry_hmm/{1}x/{3}/seed{2}/ACM_Riv2014" ::: {1..10} ::: {1001..1010} ::: poisson fixed &> downsampling.out &
 [1] 25847
 # For each level of coverage, I use 10 different random seeds 1001-1010 for replicates.
 # My plan is to compare ancestry at high confidence genomic locations in the high coverage data 
 # with corresponding ancestry calls across replicate seeds & across all individuals & genomic locations
 # Note: there is some missing data (uncalled genotypes) in the high coverage genotype data which have 0 0 allele counts and can't be binomially sampled.
+# run ancestry_hmm where both times (C-M admixture and secondary A admixture) are estimated from the low-coverage data
+bees/data/sims_downsample/ancestry_hmm$ nohup parallel --jobs 6 --joblog ancestry_hmm_1-10x_est_t2.log --noswap \
+"cd {1}x/{3}/seed{2}; mkdir -p est_t2; cd est_t2; \
+ancestry_hmm -e 3e-3 -a 3 0.426 0.376 0.198 \
+-p 1 100000 0.376 -p 2 -60 0.198 -p 0 -30 0.426 \
+--tmax 100 --tmin 2 --ne 670000 \
+-i ../ACM_Riv2014.{1}x.{2}.{3} -s ../../../../Riv2014.ploidy" \
+::: {1..10} ::: {1001..1010} ::: poisson fixed &> ancestry_hmm_1-10x_est_t2.out &
+[1] 31145
+
+
+# run ancestry_hmm where neither time is estimated from the low-coverage data; they are fixed at 30 and 60
+bees/data/sims_downsample/ancestry_hmm$ nohup parallel --jobs 6 --joblog ancestry_hmm_1-10x_fix_t.log --noswap \
+"cd {1}x/{3}/seed{2}; mkdir -p fix_t; cd fix_t; \
+ancestry_hmm -e 3e-3 -a 3 0.426 0.376 0.198 \
+-p 1 100000 0.376 -p 2 -60 0.198 -p 0 -30 0.426 \
+--tmax 100 --tmin 2 --ne 670000 \
+-i ../ACM_Riv2014.{1}x.{2}.{3} -s ../../../../Riv2014.ploidy" \
+::: {1..10} ::: {1001..1010} ::: poisson fixed &> ancestry_hmm_1-10x_fix_t.out &
+[not run yet]
+
