@@ -5,11 +5,11 @@
 # using a user-specified random seed 
 # and either "fixed" or "poisson" to indicate whether coverage should be fixed (even across every bp)
 # or sampled from a poisson distribution
-# to run: Rscript sim_sample_x_coverage.R ../data/TEST/head_ACM_Riv2014.counts 4 1353323 fixed
+# to run: Rscript sim_sample_x_coverage.R ../data/TEST/head_ACM_Riv2014.counts 4 1353323 fixed ../data/TEST/head_ACM_Riv2014.counts
 
 # to test
-#args <- c("../data/TEST/head_ACM_Riv2014.counts", "4", "1353323", "fixed")
-#args <- c("../data/TEST/head_ACM_Riv2014.counts", "4", "1353323", "poisson")
+#args <- c("../data/TEST/head_ACM_Riv2014.counts", "4", "1353323", "fixed", "../data/TEST/head_ACM_Riv2014.counts")
+#args <- c("../data/TEST/head_ACM_Riv2014.counts", "4", "1353323", "poisson", "../data/TEST/head_ACM_Riv2014.counts")
 # user input:
 args <- commandArgs(trailingOnly=TRUE)
 INPUT_FILE = args[1]
@@ -17,11 +17,12 @@ X = as.numeric(args[2]) # desired coverage to simulate
 SEED = as.integer(args[3])
 set.seed(SEED) # set random seed
 POISSON = ifelse(args[4]=="poisson", T, ifelse(args[4]=="fixed", F, stop("4th argument must be poisson or fixed")))
-print(paste(INPUT_FILE, "simulating", X, "x coverage, random seed", SEED, args[4]))
+OUTPUT = args[5]
+print(paste(INPUT_FILE, "simulating", X, "x coverage, random seed", SEED, args[4], "to output:", OUTPUT))
 
 ignoreLeft = 9 # 9 columns before the genotypes (2 per ancestry + 3 for snp position)
 infile <- file(INPUT_FILE, 'r') 
-outfile <- file(paste0(INPUT_FILE, ".", X, "x.", SEED, ".", args[4]), 'w') 
+outfile <- file(paste0(OUTPUT, ".", X, "x.", SEED, ".", args[4]), 'w') 
 while (length(oneLine <- readLines(infile, n=1)) > 0){ # read one line at a time
   d = strsplit(x = oneLine, split = "\t")[[1]]
   other = d[1:(ignoreLeft)] # other (SNP & reference pops) information columns

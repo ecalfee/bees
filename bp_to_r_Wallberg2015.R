@@ -5,18 +5,22 @@
 # relative to the whole chromosome,
 # assuming 50,000 bp gaps between scaffolds
 # and (2) recombination positions in Morgans between each position
-# where the first position of each chromosome has r = -9 
+# where the first position of each chromosome has r = 1 Morgan
 # (and will be ignored by ancestry_hmm because it has no preceding SNP)
 
 library(dplyr)
 #library(ggplot2)
 
-# to run: Rscript bp_to_r_Wallberg2015.R "data/bees_new_positions/lowLDA4/A.frq.counts"
+# to run: Rscript bp_to_r_Wallberg2015.R data/bees_new_positions/lowLDA4/A.frq.counts
 # the result is a position file for input to ancestry_hmm, e.g. data/bees_new_positions/lowLDA4/A.frq.counts.rmap
 
 # user input:
 args <- commandArgs(trailingOnly=TRUE)
 POS_FILE = args[1]
+
+# start of new chromosome/Linkage Group default distance (in cM; will be divided by 100 to convert to morgans) 
+# this number cannot be negative but is otherwise ignored by ancestry_hmm; 1 Morgan is recommended value
+startingBP = 100
 
 # Wallberg map with resolution 100kb scale -- note: blanks are NAs, no recomb. rate estimated for that window
 rmap = read.csv("data/recomb_map/Wallberg_2015/recombination_rates/A.rates.1000.201.low_penalty.csv.cM_Mb.windows.100000.csv",
@@ -57,10 +61,10 @@ d = left_join(d1, starts[ , c("LG", "scaffold", "pos_start")],
 # visualize chromosome-relative positions together
 #d %>% ggplot(., aes(y = chr_pos, x = seq_along(chr_pos), color = LG)) + geom_point()
 
-# create helper function to calculate recombination distance between 2 positions or return -9 if across chromosomes
+# create helper function to calculate recombination distance between 2 positions or return 1 if across chromosomes
 rBetween = function(pos1, pos2, lg1, lg2, rmap){
   if (lg1 != lg2){
-    dist = -900 # start of new chromosome/Linkage Group 
+    dist = startingBP # start of new chromosome/Linkage Group 
   }else{ # within-chromosome
     if (pos1 > pos2){# error; position 1 is greater than position 2
       stop(paste("out of order --", lg1, pos1, "seen before", lg2, pos2))
@@ -93,7 +97,7 @@ return(dist)
 
 # apply function to calculate recombination distance
 # /100 so distance is converted from cM to Morgans as specified by ancestry_hmm
-d$rDist = c(-900, sapply(2:length(d$chr_pos), function(i) 
+d$rDist = c(startingBP, sapply(2:length(d$chr_pos), function(i) 
   rBetween(pos1 = d[i-1, "chr_pos"], pos2 = d[i, "chr_pos"],
            lg1 = d[i-1, "LG"], lg2 = d[i, "LG"], rmap = rmap)))/100
 
