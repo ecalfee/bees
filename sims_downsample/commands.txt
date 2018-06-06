@@ -195,14 +195,20 @@ ancestry_hmm -e 3e-3 -a 3 0.426 0.376 0.198 \
 ::: {1..10} ::: {1001..1010} ::: poisson fixed &> ancestry_hmm_1-10x_est_t2.out &
 [1] 31145
 
-
-# run ancestry_hmm where neither time is estimated from the low-coverage data; they are fixed at 30 and 60
+# the lowest coverage data tends to underestimate the times
+# so to separate the effect of low-coverage generally and miss-specifiying the time
+# I fix the times using the optimum from the full high coverage data w/ called genotypes
+# run ancestry_hmm where admixture times are fixed at 28 and 61 (the optimum from running ancestry_hmm on the called genotypes).
+# Note that ~29 is about 0.5 gen/yr 1956-2014, but neither date should be taken
+# literally because additional ongoing gene flow from C, M, or A would reduce the estimated 
+# generations since admixture (b/c a mixture of exponentials looks like a more recent exp...
+# the good news is it tends to fit well anyways)
 bees/data/sims_downsample/ancestry_hmm$ nohup parallel --jobs 6 --joblog ancestry_hmm_1-10x_fix_t.log --noswap \
 "cd {1}x/{3}/seed{2}; mkdir -p fix_t; cd fix_t; \
 ancestry_hmm -e 3e-3 -a 3 0.426 0.376 0.198 \
--p 1 100000 0.376 -p 2 -60 0.198 -p 0 -30 0.426 \
---tmax 100 --tmin 2 --ne 670000 \
+-p 1 100000 0.376 -p 2 61 0.198 -p 0 28 0.426 \
+--ne 670000 \
 -i ../ACM_Riv2014.{1}x.{2}.{3} -s ../../../../Riv2014.ploidy" \
 ::: {1..10} ::: {1001..1010} ::: poisson fixed &> ancestry_hmm_1-10x_fix_t.out &
-[not run yet]
+[1] 7553
 
