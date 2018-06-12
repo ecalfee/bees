@@ -40,7 +40,7 @@ data/bees_new_positions$ awk '$7 >= 0.2 || $6 >= 0.2 || $5 >= 0.2 {print $0}' AC
 bees_new_positions$ plink --bfile ALL --indep-pairwise 50 10 0.4 --keep-allele-order --extract ACM_common.frq --filter populations.txt A --out lowLDA4
 
 # this leaves 160k SNPs
-bees_new_positions$ wc -l lowLDA4.prune.in161036 lowLDA4.prune.in
+bees_new_positions$ wc -l lowLDA4.prune.in lowLDA4.prune.in
 
 # now I get allele counts for Harpur A C M for those positions (and I put all the lowLD files in a folder) lowLDA4
 data/bees_new_positions$ for pop in A C M; do plink --bfile ALL --freq counts --keep-allele-order --extract lowLDA4/lowLDA4.prune.in --filter populations.txt $pop --out lowLDA4/$pop; done
@@ -65,10 +65,10 @@ data/bees_new_positions$ for ind in $(awk '$1 == "Riverside_2014" {print $2}' in
 # these are now saved as, e.g. SRCD49A.frq.counts where columns C1 and C2 identify counts for allele A1 and A2 and column G0 counts missing genotypes (C1 + C2 + G0 = 2 for each individual)
 
 # now I get physical positions relative to chromosome (not scaffold; assumes 50,000 bp gaps between scaffolds)
-# and the recombination distance between positions based on Wallberg recombination map for each position 
-# at 100,000 resolution (could go down to 10,000 or lower, but some smoothing is likely more accurate). 
-# Note: As I understand it, this map skips over gaps between scaffolds as if the gaps take up 50kbp and it's contiguous sequence 
-# (same with bp position for v4.5 genome). The lower resolution maps do the same, but omit a recombination rate for any window 
+# and the recombination distance between positions based on Wallberg recombination map for each position
+# at 100,000 resolution (could go down to 10,000 or lower, but some smoothing is likely more accurate).
+# Note: As I understand it, this map skips over gaps between scaffolds as if the gaps take up 50kbp and it's contiguous sequence
+# (same with bp position for v4.5 genome). The lower resolution maps do the same, but omit a recombination rate for any window
 # bridging scaffolds as it's not estimated well. I impute these recombination rates using the average rate across all non-NA windows in the chromosome
 bees$ Rscript bp_to_r_Wallberg2015.R data/bees_new_positions/lowLDA4/A.frq.counts
 # this produces file A.frq.counts.rmap
@@ -151,8 +151,8 @@ bees/sims_downsample$ sim_sample_x_coverage.R # A, C, M in Riverside_2014: 0.426
 
 # ancestry_hmm test run produced this error:
 computing forward probabilities	Segmentation fault (core dumped)
-# emailed Russ and problem was putting negative integers (-9) as the rmap distance 
-# to the first position of any chromosome (which is ignored by the hmm but negatives still produce an error) 
+# emailed Russ and problem was putting negative integers (-9) as the rmap distance
+# to the first position of any chromosome (which is ignored by the hmm but negatives still produce an error)
 # so I substituted any -9 for a 1
 data/TEST$ sed 's/-9/1/' head_ACM_Riv2014.counts > head2_ACM_Riv2014.counts
 data/TEST$ ancestry_hmm -g -a 3 0.426 0.376 0.198 -p 1 100000 0.376 -p 2 100 0.198 \
@@ -164,10 +164,10 @@ data/TEST$ ancestry_hmm -g -a 3 0.426 0.376 0.198 -p 1 100000 0.376 -p 2 100 0.1
 data/sims_downsample/ancestry_hmm/highx$ nohup ancestry_hmm -g -e 1e-3 -a 3 0.426 0.376 0.198 -p 1 100000 0.376 -p 2 100 0.198 -p 0 -30 0.426 -b 10 1000 --tmax 60 --tmin 2 --ne 670000 -i ../ACM_Riv2014.counts -s ../Riv2014.ploidy &> ancestry_hmm.out &
 [1] 22032
 # -i is the input file (read counts) and -s is the sample ploidy file
-# -g indicates that called genotypes (allele counts), rather than read counts, are being used for admixed individuals 
+# -g indicates that called genotypes (allele counts), rather than read counts, are being used for admixed individuals
 # for genotypes an erro rate of .001 is reasonable; for read counts I will use 3e-3 (approx. a 1% raw error rate * 1/3 chance it's a switch to the major (or minor))
 # -a 3 0.426 0.376 0.198
-# population C 100 gen (est.) receives M migrants then 
+# population C 100 gen (est.) receives M migrants then
 # at 30 gen (negative = estimate this) receives second wave of A migrants
 # -p 1 100000 0.376 -p 2 100 0.198 -p 0 -30 0.426 --tmax 60 --tmin 2
 # -b 10 1000 performs 10 bootstraps of 1000 snps to calculate get an error range for the time estimate
@@ -182,7 +182,7 @@ bees/sims_downsample$ nohup parallel --jobs 6 --joblog downsampling.log --noswap
 bees/sims_downsample$ nohup parallel --jobs 6 --joblog downsampling.log --noswap "mkdir -p ../data/sims_downsample/ancestry_hmm/{1}x/{3}/seed{2}; Rscript sim_sample_x_coverage.R ../data/sims_downsample/ancestry_hmm/ACM_Riv2014.counts {1} {2} {3} ../data/sims_downsample/ancestry_hmm/{1}x/{3}/seed{2}/ACM_Riv2014" ::: {1..10} ::: {1001..1010} ::: poisson fixed &> downsampling.out &
 [1] 25847
 # For each level of coverage, I use 10 different random seeds 1001-1010 for replicates.
-# My plan is to compare ancestry at high confidence genomic locations in the high coverage data 
+# My plan is to compare ancestry at high confidence genomic locations in the high coverage data
 # with corresponding ancestry calls across replicate seeds & across all individuals & genomic locations
 # Note: there is some missing data (uncalled genotypes) in the high coverage genotype data which have 0 0 allele counts and can't be binomially sampled.
 # run ancestry_hmm where both times (C-M admixture and secondary A admixture) are estimated from the low-coverage data
@@ -200,7 +200,7 @@ ancestry_hmm -e 3e-3 -a 3 0.426 0.376 0.198 \
 # I fix the times using the optimum from the full high coverage data w/ called genotypes
 # run ancestry_hmm where admixture times are fixed at 28 and 61 (the optimum from running ancestry_hmm on the called genotypes).
 # Note that ~29 is about 0.5 gen/yr 1956-2014, but neither date should be taken
-# literally because additional ongoing gene flow from C, M, or A would reduce the estimated 
+# literally because additional ongoing gene flow from C, M, or A would reduce the estimated
 # generations since admixture (b/c a mixture of exponentials looks like a more recent exp...
 # the good news is it tends to fit well anyways)
 bees/data/sims_downsample/ancestry_hmm$ nohup parallel --jobs 6 --joblog ancestry_hmm_1-10x_fix_t.log --noswap \
@@ -212,3 +212,7 @@ ancestry_hmm -e 3e-3 -a 3 0.426 0.376 0.198 \
 ::: {1..10} ::: {1001..1010} ::: poisson fixed &> ancestry_hmm_1-10x_fix_t.out &
 [1] 7553
 
+# I will make a new downsampling simulation that does a negative binomial (more variance in total read coverage)
+# sampling and accounts for a 1% error rate in illumina reads at each position
+to be called sim_sample_x_coverage_negBin.R
+# I will think more about how to pick ancestry-informative reads with high power to distinguish Euro from Afr bees
