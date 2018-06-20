@@ -165,7 +165,7 @@ data/sims_downsample/ancestry_hmm/highx$ nohup ancestry_hmm -g -e 1e-3 -a 3 0.42
 [1] 22032
 # -i is the input file (read counts) and -s is the sample ploidy file
 # -g indicates that called genotypes (allele counts), rather than read counts, are being used for admixed individuals
-# for genotypes an erro rate of .001 is reasonable; for read counts I will use 3e-3 (approx. a 1% raw error rate * 1/3 chance it's a switch to the major (or minor))
+# for genotypes an error rate of .001 is reasonable; for read counts I will use 3e-3 (approx. a 1% raw error rate * 1/3 chance it's a switch to the major (or minor))
 # -a 3 0.426 0.376 0.198
 # population C 100 gen (est.) receives M migrants then
 # at 30 gen (negative = estimate this) receives second wave of A migrants
@@ -199,6 +199,7 @@ ancestry_hmm -e 3e-3 -a 3 0.426 0.376 0.198 \
 # so to separate the effect of low-coverage generally and miss-specifiying the time
 # I fix the times using the optimum from the full high coverage data w/ called genotypes
 # run ancestry_hmm where admixture times are fixed at 28 and 61 (the optimum from running ancestry_hmm on the called genotypes).
+# THIS WAS RUN AND SAVED IN data/sims_downsample/ancestry_hmm/est_t2/ directory, but I have no other record of command .. so I systematically re-run this for different Ne specifications below
 # Note that ~29 is about 0.5 gen/yr 1956-2014, but neither date should be taken
 # literally because additional ongoing gene flow from C, M, or A would reduce the estimated
 # generations since admixture (b/c a mixture of exponentials looks like a more recent exp...
@@ -213,6 +214,51 @@ ancestry_hmm -e 3e-3 -a 3 0.426 0.376 0.198 \
 [1] 7553
 
 # I will make a new downsampling simulation that does a negative binomial (more variance in total read coverage)
-# sampling and accounts for a 1% error rate in illumina reads at each position
-to be called sim_sample_x_coverage_negBin.R
-# I will think more about how to pick ancestry-informative reads with high power to distinguish Euro from Afr bees
+# sampling and accounts for a 1% error rate in illumina reads at each position in modified
+sim_sample_x_coverage.R
+# negative binomial distribution chosen has variance to mean ratio set to 3
+# 3 comes from ReadDepth paper w/ Illumina sequenced human genomes by Christopher Miller 2011: 
+# https://doi.org/10.1371/journal.pone.0016327
+# re-doing all simulations including the illumina error rate of 1%:
+bees/sims_downsample$ nohup parallel --jobs 6 --joblog downsampling.log --noswap "mkdir -p ../data/sims_downsample/ancestry_hmm/wSeqError/{1}x/{3}/seed{2}; Rscript sim_sample_x_coverage.R ../data/sims_downsample/ancestry_hmm/ACM_Riv2014.counts {1} {2} {3} ../data/sims_downsample/ancestry_hmm/wSeqError/{1}x/{3}/seed{2}/ACM_Riv2014" ::: {1..10} ::: {1001..1010} ::: negbinom poisson fixed &> downsampling_withSeqError.out &
+[1] 15334
+
+# now re-doing all ancestry hmm calls with fixed times:
+data/sims_downsample/ancestry_hmm/wSeqError$ nohup parallel --jobs 6 \
+--joblog ancestry_hmm_1-10x_fix_t.log --noswap \
+"cd {1}x/{3}/seed{2}; mkdir -p fix_t; cd fix_t; \
+ancestry_hmm -e 3e-3 -a 3 0.426 0.376 0.198 \
+-p 1 100000 0.376 -p 2 61 0.198 -p 0 28 0.426 \
+--ne 670000 \
+-i ../ACM_Riv2014.{1}x.{2}.{3} -s ../../../../Riv2014.ploidy" \
+::: {1..10} ::: {1001..1010} ::: negbinom poisson fixed &> ancestry_hmm_1-10x_fix_t.out &
+[1] 23086
+
+# and with it estimating times:
+data/sims_downsample/ancestry_hmm/wSeqError$ nohup parallel --jobs 6 \
+--joblog ancestry_hmm_1-10x_est_t2.log --noswap \
+"cd {1}x/{3}/seed{2}; mkdir -p est_t2; cd est_t2; \
+ancestry_hmm -e 3e-3 -a 3 0.426 0.376 0.198 \
+-p 1 100000 0.376 -p 2 -100 0.198 -p 0 -30 0.426 \
+--tmax 200 --tmin 2 --ne 670000 \
+-i ../ACM_Riv2014.{1}x.{2}.{3} -s ../../../../Riv2014.ploidy" \
+::: {1..10} ::: {1001..1010} ::: negbinom poisson fixed &> ancestry_hmm_1-10x_est_t2.out &
+
+# there are multiple ways to verify the robustness of the highX ancestry_hmm calls:
+
+# using the highX coverage I assess robustness to misspecifying Ne; 
+# I reduce expected Ne by a factor of ten and 100 from 670k to 67k to 6.7k
+data/sims_downsample/ancestry_hmm$ nohup parallel --noswap \
+--joblog ancestry_hmm_diffNe_highx.log \
+"mkdir -p Ne{1}/est_t2/; cd Ne{1}/est_t2; \ 
+ancestry_hmm -g -e 1e-3 -a 3 0.426 0.376 0.198 \
+-p 1 100000 0.376 -p 2 -100 0.198 -p 0 -30 0.426 \
+-b 10 1000 --tmax 200 --tmin 2 --ne 6700 \
+-i ACM_Riv2014.counts -s Riv2014.ploidy" ::: 670000 67000 6700 \
+&> ancestry_hmm_diffNe_highx.out &
+[2] 23435
+
+
+# I also use multimix -- a 3 way ancestry caller for admixed individuals that uses full haplotype information (i.e. no thinning) but does not require phasing (waiting for permission to use software -- only academic non-commercial use license)
+
+# I will think more about how to pick ancestry-informative reads with high power to distinguish European from African bees
