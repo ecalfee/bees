@@ -223,16 +223,18 @@ sim_sample_x_coverage.R
 bees/sims_downsample$ nohup parallel --jobs 6 --joblog downsampling.log --noswap "mkdir -p ../data/sims_downsample/ancestry_hmm/wSeqError/{1}x/{3}/seed{2}; Rscript sim_sample_x_coverage.R ../data/sims_downsample/ancestry_hmm/ACM_Riv2014.counts {1} {2} {3} ../data/sims_downsample/ancestry_hmm/wSeqError/{1}x/{3}/seed{2}/ACM_Riv2014" ::: {1..10} ::: {1001..1010} ::: negbinom poisson fixed &> downsampling_withSeqError.out &
 [1] 15334
 
-# now re-doing all ancestry hmm calls with fixed times:
+# now re-doing all ancestry hmm calls with fixed times :
 data/sims_downsample/ancestry_hmm/wSeqError$ nohup parallel --jobs 6 \
 --joblog ancestry_hmm_1-10x_fix_t.log --noswap \
 "cd {1}x/{3}/seed{2}; mkdir -p fix_t; cd fix_t; \
 ancestry_hmm -e 3e-3 -a 3 0.426 0.376 0.198 \
 -p 1 100000 0.376 -p 2 61 0.198 -p 0 28 0.426 \
 --ne 670000 \
--i ../ACM_Riv2014.{1}x.{2}.{3} -s ../../../../Riv2014.ploidy" \
+-i ../ACM_Riv2014.{1}x.{2}.{3} -s ../../../../../Riv2014.ploidy" \
 ::: {1..10} ::: {1001..1010} ::: negbinom poisson fixed &> ancestry_hmm_1-10x_fix_t.out &
-[1] 23086
+[1] 23086 - Killed b/c did not appear to run (no output or memory usage)
+# fixed by adding a directory level ../ for Riv2014.ploidy above & re-ran:
+[1] 10994
 
 # and with it estimating times:
 data/sims_downsample/ancestry_hmm/wSeqError$ nohup parallel --jobs 6 \
@@ -241,8 +243,9 @@ data/sims_downsample/ancestry_hmm/wSeqError$ nohup parallel --jobs 6 \
 ancestry_hmm -e 3e-3 -a 3 0.426 0.376 0.198 \
 -p 1 100000 0.376 -p 2 -100 0.198 -p 0 -30 0.426 \
 --tmax 200 --tmin 2 --ne 670000 \
--i ../ACM_Riv2014.{1}x.{2}.{3} -s ../../../../Riv2014.ploidy" \
+-i ../ACM_Riv2014.{1}x.{2}.{3} -s ../../../../../Riv2014.ploidy" \
 ::: {1..10} ::: {1001..1010} ::: negbinom poisson fixed &> ancestry_hmm_1-10x_est_t2.out &
+[2] 15873
 
 # there are multiple ways to verify the robustness of the highX ancestry_hmm calls:
 
@@ -253,11 +256,11 @@ data/sims_downsample/ancestry_hmm$ nohup parallel --noswap \
 "mkdir -p Ne{1}/est_t2/; cd Ne{1}/est_t2; \ 
 ancestry_hmm -g -e 1e-3 -a 3 0.426 0.376 0.198 \
 -p 1 100000 0.376 -p 2 -100 0.198 -p 0 -30 0.426 \
--b 10 1000 --tmax 200 --tmin 2 --ne 6700 \
--i ACM_Riv2014.counts -s Riv2014.ploidy" ::: 670000 67000 6700 \
+-b 10 1000 --tmax 200 --tmin 2 --ne {1} \
+-i ../../ACM_Riv2014.counts -s ../../Riv2014.ploidy" ::: 670000 67000 6700 \
 &> ancestry_hmm_diffNe_highx.out &
-[2] 23435
-
+[2] 23435 - Killed (didn't chagne Ne or get directory correct..oops..fixed and re-ran:)
+[1] 15810
 
 # I also use multimix -- a 3 way ancestry caller for admixed individuals that uses full haplotype information (i.e. no thinning) but does not require phasing (waiting for permission to use software -- only academic non-commercial use license)
 
