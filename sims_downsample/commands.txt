@@ -138,7 +138,7 @@ bees$ nohup parallel --joblog data/sims_downsample/NGSadmix/thin5KB_GL_chunks.lo
 data/sims_downsample/NGSadmix$ zcat thin5KB_GL_chunk00.beagle.gz | gzip >> thin5KB_GL_ALL.beagle.gz; \
 for i in {01..34}; do zcat thin5KB_GL_chunk$i.beagle.gz | tail -n +2 | gzip >> thin5KB_GL_ALL.beagle.gz; done
 
-# I run NGSadmix on AMC reference pops and CA possible admixed pops, using genotype likelihood file from above
+# I run NGSadmix on ACM reference pops and CA possible admixed pops, using genotype likelihood file from above
 bees$ NGSadmix -likes data/sims_downsample/NGSadmix/thin5KB_GL_ALL.beagle.gz -K 3 -P 4 -o data/sims_downsample/NGSadmix/CA_Bee_AMC -minMaf 0.05
 # order of IDs that matches thin5KB_bams.list and output to NGSadmix:
 data/bees_new_positions$ awk '$1 == "A" || $1 == "C" || $1 == "M" {print $1"\t"$2}' thin5KB.fam >> thin5KB_ids.list
@@ -262,6 +262,25 @@ ancestry_hmm -g -e 1e-3 -a 3 0.426 0.376 0.198 \
 [2] 23435 - Killed (didn't chagne Ne or get directory correct..oops..fixed and re-ran:)
 [1] 15810
 
-# I also use multimix -- a 3 way ancestry caller for admixed individuals that uses full haplotype information (i.e. no thinning) but does not require phasing (waiting for permission to use software -- only academic non-commercial use license)
+# I also use multimix -- a 3 way ancestry caller for admixed individuals that uses full haplotype information (i.e. no thinning) but does not require phasing (got permission to use software -- only academic non-commercial use license)
+# publication: 
+C. Churchhouse and J. Marchini (2013) Multi-way admixture deconvolution using phased or unphased ancestral panels. Genetic Epidemiology
+# file:///home/erin/Software/multimix/index.html: 
+# "To run MCMC-MULTIMIX when the admixed samples are unphased genotypes we use MULTIMIX_MCMCgeno instead of MULTIMIX_MCMC:
+cd data/sims_downsample/multimix
+MULTIMIX_MCMCgeno -dir ./input/ -o ./output/ -sourcepops A/ C/ M/ -sampledir Riv2014 \
+-misfit 0.95 0.025 0.025 0.025 0.95 0.025 0.025 0.025 0.95 -M -sourcegenos \
+-chr.list 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 \
+-iters 200 -burnin 100 -chunk 50
+# parameters: specify input, output, source pop & admixed sample directories
+# -M estimates the misfit probabilities specified in flattened matrix -misfit
+# -chr.list specifies to run on all 16 bee chromosomes
+# -sourcegenos indicates unphased source pops and MCMCgeno indicates unphased admixed samples
+# -iters sets total number of MCMC iterations, of which -burnin are used for 'burn in'; -chunk sets # SNPs per window
+# I should possibly filter sites near the boundaries of windows because "All of the methods are window-based meaning that the sites of switches in ancestry are restricted to occur only at the boundaries between these windows."
+
+
+
+
 
 # I will think more about how to pick ancestry-informative reads with high power to distinguish European from African bees
