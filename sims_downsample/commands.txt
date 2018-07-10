@@ -280,21 +280,27 @@ bees$ parallel --joblog data/sims_downsample/multimix/make_ref_input_geno.log 't
 [2] 13992
 # finally create an appropriate genetic map file: (doesn't have to include all SNPs, but I do it that way)
 bees$ parallel --joblog data/sims_downsample/multimix/make_recomb_maps.log "Rscript bp_LG_to_r_Wallberg2015_4multimix.R data/sims_downsample/multimix {1} data/recomb_map/Wallberg_2015/recombination_rates/A.rates.1000.201.low_penalty.csv.cM_Mb.windows.100000.csv" ::: {1..16} &> data/sims_downsample/multimix/make_recomb_maps.out &
-[1] 18437
+[1] 18437 -- oops, corrected typo:
+[1] 19467
 
 # "To run MCMC-MULTIMIX when the admixed samples are unphased genotypes we use MULTIMIX_MCMCgeno instead of MULTIMIX_MCMC:
 cd data/sims_downsample/multimix
-MULTIMIX_MCMCgeno -dir ./input/ -o ./output/ -sourcepops A/ C/ M/ -sampledir Riv2014 \
+# NOTE: need to make output directory before running MULTIMIX -- it won't produce an error
+bees/data/sims_downsample/multimix$ parallel --joblog run_50_or_100_SNP_windows.log \
+"mkdir -p output_{1}; MULTIMIX_MCMCgeno_v1.1.0 -dir ./input/ -o ./output_{1}/ \
+-sourcepops A/ C/ M/ -sampledir Riverside_2014 \
 -misfit 0.95 0.025 0.025 0.025 0.95 0.025 0.025 0.025 0.95 -M -sourcegenos \
 -chr.list 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 \
--iters 200 -burnin 100 -chunk 50
+-iters 500 -burnin 100 -chunk {1}" ::: 50 100 &> run_50_or_100_SNP_windows.out &
+[1] 20249
 # parameters: specify input, output, source pop & admixed sample directories
 # -M estimates the misfit probabilities specified in flattened matrix -misfit
 # -chr.list specifies to run on all 16 bee chromosomes
 # -sourcegenos indicates unphased source pops and MCMCgeno indicates unphased admixed samples
 # -iters sets total number of MCMC iterations, of which -burnin are used for 'burn in'; -chunk sets # SNPs per window
 # I should possibly filter sites near the boundaries of windows because "All of the methods are window-based meaning that the sites of switches in ancestry are restricted to occur only at the boundaries between these windows."
-
+# The output files Local_Samples_indiv*.txt give the chromosome number, window number, then the number of post-burn-in MCMC samples for each ancestry state: AA AC AM CC CM MM . * indicates the Riverside_2014 individual # by order listed in 
+# multimix/input/Samples/genos/Riverside_2014/admix.ind
 
 
 
