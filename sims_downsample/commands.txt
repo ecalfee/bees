@@ -266,6 +266,22 @@ ancestry_hmm -g -e 1e-3 -a 3 0.426 0.376 0.198 \
 # publication: 
 C. Churchhouse and J. Marchini (2013) Multi-way admixture deconvolution using phased or unphased ancestral panels. Genetic Epidemiology
 # file:///home/erin/Software/multimix/index.html: 
+# creating multimix input files:
+# first split bim file into chromosomes:
+bees/data/bees_new_positions$ mkdir ALL_splitbychr
+bees/data/bees_new_positions$ parallel 'plink --bfile ALL --chr {1} --keep-allele-order --make-bed --out ALL_splitbychr/ALL_chr{1}' ::: {1..16}
+# then create position file ('chr*.legend'):
+bees$ parallel 'Rscript bp_scaffold_to_bp_LG_4multimix.R data/bees_new_positions/ALL_splitbychr/ALL_chr{1} {1} data/sims_downsample/multimix' ::: {1..16}
+# create genotype files admix:
+bees$ parallel --joblog data/sims_downsample/multimix/make_admix_input_geno.log 'type={3} bim=data/bees_new_positions/ALL_splitbychr/ALL_chr{2} chr={2} pop={1} out=data/sims_downsample/multimix sims_downsample/make_multimix_input_geno.sh' ::: Riverside_2014 ::: {1..16} ::: admix &> data/sims_downsample/multimix/make_admix_input_geno.out &
+[1] 15890
+# create genotype files ref:
+bees$ parallel --joblog data/sims_downsample/multimix/make_ref_input_geno.log 'type={3} bim=data/bees_new_positions/ALL_splitbychr/ALL_chr{2} chr={2} pop={1} out=data/sims_downsample/multimix sims_downsample/make_multimix_input_geno.sh' ::: A C M ::: {1..16} ::: ref &> data/sims_downsample/multimix/make_ref_input_geno.out &
+[2] 13992
+# finally create an appropriate genetic map file: (doesn't have to include all SNPs, but I do it that way)
+bees$ parallel --joblog data/sims_downsample/multimix/make_recomb_maps.log "Rscript bp_LG_to_r_Wallberg2015_4multimix.R data/sims_downsample/multimix {1} data/recomb_map/Wallberg_2015/recombination_rates/A.rates.1000.201.low_penalty.csv.cM_Mb.windows.100000.csv" ::: {1..16} &> data/sims_downsample/multimix/make_recomb_maps.out &
+[1] 18437
+
 # "To run MCMC-MULTIMIX when the admixed samples are unphased genotypes we use MULTIMIX_MCMCgeno instead of MULTIMIX_MCMC:
 cd data/sims_downsample/multimix
 MULTIMIX_MCMCgeno -dir ./input/ -o ./output/ -sourcepops A/ C/ M/ -sampledir Riv2014 \
