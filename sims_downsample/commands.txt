@@ -287,12 +287,12 @@ bees$ parallel --joblog data/sims_downsample/multimix/make_recomb_maps.log "Rscr
 cd data/sims_downsample/multimix
 # NOTE: need to make output directory before running MULTIMIX -- it won't produce an error
 bees/data/sims_downsample/multimix$ parallel --joblog run_50_or_100_SNP_windows.log \
-"mkdir -p output_{1}; MULTIMIX_MCMCgeno_v1.1.0 -dir ./input/ -o ./output_{1}/ \
--sourcepops A/ C/ M/ -sampledir Riverside_2014 \
+"mkdir -p output_wind{1}_iters{2}; MULTIMIX_MCMCgeno_v1.1.0 -dir ./input/ -o ./output_wind{1}_iters{2}/ \
+-sourcepops A/ C/ M/ -sampledir Riverside_2014/ \
 -misfit 0.95 0.025 0.025 0.025 0.95 0.025 0.025 0.025 0.95 -M -sourcegenos \
 -chr.list 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 \
--iters 500 -burnin 100 -chunk {1}" ::: 50 100 &> run_50_or_100_SNP_windows.out &
-[1] 20249
+-iters {2} -burnin 100 -chunk {1}" ::: 50 100 ::: 200 500 &> run_50_or_100_SNP_windows.out &
+[1] 28128
 # parameters: specify input, output, source pop & admixed sample directories
 # -M estimates the misfit probabilities specified in flattened matrix -misfit
 # -chr.list specifies to run on all 16 bee chromosomes
