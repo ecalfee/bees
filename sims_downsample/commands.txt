@@ -293,6 +293,24 @@ bees/data/sims_downsample/multimix$ parallel --joblog run_50_or_100_SNP_windows.
 -chr.list 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 \
 -iters {2} -burnin 100 -chunk {1}" ::: 50 100 ::: 200 500 &> run_50_or_100_SNP_windows.out &
 [1] 28128
+# got following error: Multivariate Normal Density undefined. Use a larger value of the lambda parameter. (lambda = 0.005)
+# so I re-running with a larger lambda, which sets a small positive prior on the within-pop SNP covariance matrices for each ref. pop.
+# (see Churchhouse & Marchini 2013 for details: https://doi.org/10.1002/gepi.21692 )
+# "The modification of the sample covariance matrix is such that a small positive value λ is added to the variances to ensure the matrix is positive semidefinite and therefore invertible. This modification is the same as is used in ridge regression and can be justified from a Bayesian perspective through the use of a N(0, lambda*I) prior on the parameters being inferred. The parameters alpha_k (pop mean allele freq) and epsilon_k (covariance of SNPs within jth window from kth pop) can also be estimated if the source population data are unphased. Allele frequencies are easily estimated from unphased data. To estimate the haplotypic covariance matrix, we use half the genotypic covariance matrix."
+# Basically, multimix works by estimating ancestry in each window of say 50 or 100 SNPs and accounts for within-pop haplotype LD within, but not between, these windows (a practical approach to minimizing bias/overconfidence in ancestry calls due to background LD).
+# Rather than modeling true haplotypes, it calculates the covariance matrix for SNPs within a window for each reference pop and approximates this discrete haplotype structure with a MVN; switches of ancestry between windows is a regular markov chain.
+parallel --joblog run_50_or_100_SNP_windows_lambda.log \
+"mkdir -p output_wind{2}_iters{3}_lambda{1}; MULTIMIX_MCMCgeno_v1.1.0 -dir ./input/ -o ./output_wind{2}_iters{3}_lambda{1}/ \
+-sourcepops A/ C/ M/ -sampledir Riverside_2014/ \
+-misfit 0.95 0.025 0.025 0.025 0.95 0.025 0.025 0.025 0.95 -M -sourcegenos \
+-chr.list 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 \
+-iters {3} -burnin 100 -chunk {2} -lambda {1}" ::: 0.01 0.05 0.1 ::: 50 100 ::: 200 500 &> run_50_or_100_SNP_windows_lambda.out &
+[1] 29995
+# I am trying again with even larger lambda values (and down to 25 SNPs per window) due to the same error:
+multimix$ parallel --joblog run_50_or_100_SNP_windows_lambdaLarge.log "mkdir -p output_wind{2}_iters{3}_lambda{1}; MULTIMIX_MCMCgeno_v1.1.0 -dir ./input/ -o ./output_wind{2}_iters{3}_lambda{1}/ -sourcepops A/ C/ M/ -sampledir Riverside_2014/ -misfit 0.95 0.025 0.025 0.025 0.95 0.025 0.025 0.025 0.95 -M -sourcegenos -chr.list 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 -iters {3} -burnin 100 -chunk {2} -lambda {1}" ::: 0.2 0.3 0.5 1 ::: 25 50 100 ::: 200 &> run_50_or_100_SNP_windows_lambdaLarge.out &
+
+[1] 1853
+
 # parameters: specify input, output, source pop & admixed sample directories
 # -M estimates the misfit probabilities specified in flattened matrix -misfit
 # -chr.list specifies to run on all 16 bee chromosomes
