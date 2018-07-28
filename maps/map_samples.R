@@ -69,7 +69,7 @@ points(x = coord$x, y = coord$y, col = "yellow", pch = 1, cex = .01) # add to ma
 
 # map of CA bees only
 par(mar = c(1, 1, 1, 1) + 0.1)
-map(database = "county", fill = T, projection = "fisheye", par = "0",
+map(database = "state", fill = T, projection = "fisheye", par = "0",
     col = "darkgreen", bg = "darkblue",
     xlim = c(-124, -118), # long
     ylim = c(28, 38)) # lat
@@ -92,6 +92,7 @@ mapPoints
 # diff background; all Argentina samples
 ggmap(get_map(location = 'Santa Fe, Argentina', 
               maptype = "toner-lite",
+              source = "stamen",
 zoom =  6)) +
   geom_point(aes(x = long, 
                  y = lat,
@@ -121,6 +122,7 @@ ggmap(get_map(location = 'Ojai, California', zoom =  7)) +
 ggmap(get_map(location = 'Ojai, California', 
               #maptype = "watercolor", #nice!
               maptype = "toner-lite",
+              source = "stamen",
               zoom =  7)) +
   geom_point(aes(x = long, 
                  y = lat,
@@ -143,6 +145,7 @@ ggmap(get_map(location = 'Ojai, California',
 # color by individual - add individuals to be sequenced
 ggmap(get_map(location = 'Ojai, California', 
               maptype = "toner-lite",
+              source = "stamen",
               zoom =  7)) +
   geom_point(aes(x = long, 
                  y = lat,
@@ -208,6 +211,7 @@ distm(x = bees[bees$state == "AR" & bees$toSequence & bees$popN %in% c("01", "02
 # Argentina color by pop -- add individuals to be sequenced
 ggmap(get_map(location = 'Santa Fe, Argentina', 
               maptype = "toner-lite",
+              source = "stamen",
               zoom =  6)) +
   geom_point(aes(x = long, 
                  y = lat,
@@ -234,6 +238,7 @@ ggmap(get_map(location = 'Santa Fe, Argentina',
 # look at most Northern pops to decide how to combine -- taking middle 2 of randomly selected ind's from each pop
 ggmap(get_map(location = 'Villa Ocampo, Argentina', 
               maptype = "toner-lite",
+              source = "stamen",
               zoom =  9)) +
   geom_point(aes(x = long, 
                  y = lat,
@@ -273,6 +278,7 @@ plos2 = plos1[!grepl("\"", plos1$lat, fixed =  T) & ! plos1$lat %in% c(" ", "N/A
 # visualize approximate coordinates of the minsec entries:
 ggmap(get_map(location = 'Hollister, California', 
               maptype = "toner-lite",
+              source = "stamen",
               zoom =  9)) +
   geom_point(aes(x = long, 
                  y = lat,
@@ -284,6 +290,7 @@ ggmap(get_map(location = 'Hollister, California',
 
 ggmap(get_map(location = 'Hollister, California', 
               maptype = "toner-lite",
+              source = "stamen",
               zoom =  9)) +
   geom_point(aes(x = long, 
                  y = lat,
@@ -295,8 +302,9 @@ ggmap(get_map(location = 'Hollister, California',
 
 
 # visualize bees Africanization (=p but easier to see 1-p scale)
-ggmap(get_map(location = 'Ojai, California', 
+ggmap(get_map(location = 'Monterey, California', 
               maptype = "toner-lite",
+              source = "stamen",
               zoom =  7)) +
   geom_point(aes(x = long, 
                  y = lat,
@@ -304,13 +312,20 @@ ggmap(get_map(location = 'Ojai, California',
                  cex = Tot), 
              data = plos2,
              alpha = .5) +
-  scale_color_distiller(palette = "RdPu")
+  ggtitle("Africanized bees CA (Lin 2018); p = proportion European mtDNA") + 
+  scale_color_distiller(palette = "RdPu") +
+  ggsave(filename = "CA_mtDNA_Lin_2018.png", device = png(),
+         plot = last_plot(), 
+         width = 8, height = 8, units = "in",
+         dpi = 300)
+  
 #scale_color_gradientn(colours = terrain.colors(15))
 
 
 # zoom in Salinas
 ggmap(get_map(location = 'Salinas, California', 
               maptype = "toner-lite",
+              source = "stamen",
               zoom =  9)) +
   geom_point(aes(x = long, 
                  y = lat,
@@ -323,6 +338,7 @@ ggmap(get_map(location = 'Salinas, California',
 # zoom in San Luis Obispo
 ggmap(get_map(location = 'San Luis Obispo, California', 
               maptype = "toner-lite",
+              source = "stamen",
               zoom =  9)) +
   geom_point(aes(x = long, 
                  y = lat,
@@ -335,6 +351,7 @@ ggmap(get_map(location = 'San Luis Obispo, California',
 # zoom in Lompoc
 ggmap(get_map(location = 'Lompoc, California', 
               maptype = "toner-lite",
+              source = "stamen",
               zoom =  8)) +
   geom_point(aes(x = long, 
                  y = lat,
@@ -344,3 +361,19 @@ ggmap(get_map(location = 'Lompoc, California',
              alpha = .5) +
   scale_color_distiller(palette = "RdPu")
 
+# map of world with all samples
+ggmap(get_map(location = 'Costa Rica', 
+              #maptype = "satellite", #nice!
+              maptype = "watercolor",
+              zoom =  3)) +
+  geom_point(aes(x = long, 
+                 y = lat), #,
+                 #col = popN), 
+             data = bees,
+             cex = .25,
+             col = "black",
+             alpha = .5) +
+  ggsave(filename = "samples_world_watercolor.png", device = png(),
+         plot = last_plot(), 
+         width = 10, height = 10, units = "in",
+         dpi = 300)
