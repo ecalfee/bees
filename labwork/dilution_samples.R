@@ -25,10 +25,10 @@ bufferAndDNA2add = function(x, vol_tot, target){
 #v3 = lapply(x_all, function(x) buffer2add(x = x, vol_x = 3, target = 0.35))
 #v10 = lapply(x_all, function(x) buffer2add(x = x, vol_x = 10, target = 0.35))
 
-# how much buffer and DNA should I add to get ~40 uL at 0.35 ng/uL concentration?
+# how much buffer and DNA should I add to get ~40 uL at 0.5 ng/uL concentration?
 # without having to pippet less than 3uL at any point
 v = lapply(x_all, function(x) t(sapply(x, function(i) 
-  bufferAndDNA2add(x = i, vol_tot = 40, target = 0.35))))
+  bufferAndDNA2add(x = i, vol_tot = 40, target = 0.5))))
 ids = lapply(1:4, function(i) read.table(paste0("../labwork/ids2extract_", i)))
 extract = lapply(1:4, function(i) rep(i, nrow(ids[[i]])))
 extractN = lapply(1:4, function(i) 1:nrow(ids[[i]])) 
@@ -37,5 +37,5 @@ d = data.frame(extract = unlist(extract), N = unlist(extractN),
                do.call(rbind, v))
 rownames(d) <- NULL
 d$tot = round(d$DNA + d$buffer)
-write.table(d, "../labwork/dilution_numbers_extract1-4.txt", 
+write.table(d, "../labwork/dilution0.5_numbers_extract1-4.txt", 
             row.names = F, col.names = T, sep = "\t", quote = F)
