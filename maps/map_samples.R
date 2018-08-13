@@ -377,3 +377,24 @@ ggmap(get_map(location = 'Costa Rica',
          plot = last_plot(), 
          width = 10, height = 10, units = "in",
          dpi = 300)
+
+
+
+ggmap(get_map(location = 'El Cajon, California', 
+              #maptype = "watercolor", #nice!
+              maptype = "roadmap",
+              #source = "stamen",
+              zoom =  12)) +
+  geom_point(aes(x = long, 
+                 y = lat,
+                 col = popN), 
+             data = bees[bees$state == "CA",],
+             cex = 1,
+             #col = "black",
+             alpha = 1) +
+  geom_point(aes(x = long,
+                 y = lat),
+             data = bees[bees$toSequence == T,],
+             cex = 1,
+             pch = 5,
+             col = "black")
