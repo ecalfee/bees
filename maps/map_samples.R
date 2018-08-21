@@ -380,25 +380,15 @@ ggmap(get_map(location = 'Costa Rica',
          width = 10, height = 10, units = "in",
          dpi = 300)
 
-
 # zoom in samples already collected socal
 ggmap(get_map(location = 'El Cajon, California', 
              maptype = "roadmap",
              # source = "stamen",
               zoom =  9)) +
   geom_point(aes(x = long, 
-                 y = lat,
-                 col = indN), 
+                 y = lat), 
              data = bees[bees$state == "CA",],
              cex = 1,
-             #col = "black",
-             alpha = .5) +
-  geom_point(aes(x = long,
-                 y = lat),
-             data = bees[bees$toSequence == T,],
-             cex = 1,
              pch = 5,
-             col = "black") +
-  scalebar(data = bees, dist = 5, dd2km = TRUE, model = "WGS84")
-
-
+             col = "black",
+             alpha = .5)

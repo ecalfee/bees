@@ -337,7 +337,27 @@ multimix$ parallel --joblog run_50_or_100_SNP_windows_lambdaLarge.log "mkdir -p 
 # I will think more about how to pick ancestry-informative reads with high power to distinguish European from African bees
 
 
-# choosing ~2 individuals per pop for sequencing: aiming for 5x coverage at 20% estimated duplication rates = 62 bees/lane
+# choosing ~2 individuals per pop for sequencing: aiming for 5x coverage at 20% estimated duplication rates = 63 bees/lane
 # (see illumina calculations sims_downsample/illumina_seq_est_63beesperlane_5x_20percDup.png)
 # maps of sampled individuals now in new R script: bees/maps/map_samples.R
 # bees for sequencing chosen at random from those spaced by at least 2-3 miles w/in a pop
+
+# due to issues with MULTIMIX, I will try a new ancestry HMM method by Townshend + Simon Myers preprint 2018 bioXiv
+# doi: https://doi.org/10.1101/376137 MOSAIC is an R package: https://maths.ucd.ie/~mst/MOSAIC/
+# install.packages("~/Downloads/MOSAIC_1.0.tar.gz") w/ first installing ff, conbinat & Rcpp dependencies
+# this method requires (imperfect) phasing, for which I will use fastPHASE which is more accurate 
+# than alternatives like Beagle for 
+# small sample size (<100) (Browning & Browning 2011 Review: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3217888/)
+
+# PHASING WITH fastPHASE
+
+-n (omit individual labels separating genotypes .. each individuals still needs two lines, one per allele)
+-ofastPHASE/ACM_Riv2014_chr1 # results prefix, no space is required
+otherwise I use default parameters (e.g. K = 10 or 20 clusters, # EM runs etc.) -- see all with ~$ fastPHASE -H
+input file:
+fastPHASE/ACM_Riv2014_chr1.inp ? for missing data
+
+
+
+
+
