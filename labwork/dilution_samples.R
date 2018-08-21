@@ -39,3 +39,15 @@ rownames(d) <- NULL
 d$tot = round(d$DNA + d$buffer)
 write.table(d, "../labwork/dilution0.5_numbers_extract1-4.txt", 
             row.names = F, col.names = T, sep = "\t", quote = F)
+
+# first measurements were off, I did an initial dilution to get samples in the ~ 5-10ng/uL range
+# and then re-measured DNA concentrations to do a final dilution down to 0.5 concentration
+new <- read.table("../labwork/dilution_new_QUBIT_first_dilution_extract_1-4.txt",
+                  header = T, stringsAsFactors = F)
+new$DNA_2_add = 5
+new$buffer_2_add = buffer2add(x = new$Qubit_HS_ng_uL, vol_x = new$DNA_2_add, target = 0.5)
+new$"DNA:buffer_D1" = paste(new$DNA_added, new$buffer_added, sep = ":")
+#new$"DNA:buffer_D0.5" = paste(new$DNA_2_add, new$buffer_2_add, sep = ":")
+write.table(new[, c("extract", "N", "ids", "DNA:buffer_D1", "Qubit_HS_ng_uL", "DNA_2_add", "buffer_2_add")], "../labwork/dilution0.5_numbers_extract1-4_NEW.txt", 
+            row.names = F, col.names = T, sep = "\t", quote = F)
+

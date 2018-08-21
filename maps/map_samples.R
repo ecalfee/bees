@@ -9,6 +9,8 @@ library(mapproj)
 library(geosphere)
 # another maps package
 library(ggmap)
+# for scale bar
+library(ggsn)
 
 # import bees from field notes
 ca_bees <- read.csv("~/Dropbox/grad school/bee project/CA_Bees/CA_bee_fieldnotes.csv", 
@@ -366,7 +368,7 @@ ggmap(get_map(location = 'Costa Rica',
               #maptype = "satellite", #nice!
               maptype = "watercolor",
               zoom =  3)) +
-  geom_point(aes(x = long, 
+  geom_point(aes(x = long,
                  y = lat), #,
                  #col = popN), 
              data = bees,
@@ -377,3 +379,26 @@ ggmap(get_map(location = 'Costa Rica',
          plot = last_plot(), 
          width = 10, height = 10, units = "in",
          dpi = 300)
+
+
+# zoom in samples already collected socal
+ggmap(get_map(location = 'El Cajon, California', 
+             maptype = "roadmap",
+             # source = "stamen",
+              zoom =  9)) +
+  geom_point(aes(x = long, 
+                 y = lat,
+                 col = indN), 
+             data = bees[bees$state == "CA",],
+             cex = 1,
+             #col = "black",
+             alpha = .5) +
+  geom_point(aes(x = long,
+                 y = lat),
+             data = bees[bees$toSequence == T,],
+             cex = 1,
+             pch = 5,
+             col = "black") +
+  scalebar(data = bees, dist = 5, dd2km = TRUE, model = "WGS84")
+
+
