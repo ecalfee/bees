@@ -344,16 +344,40 @@ multimix$ parallel --joblog run_50_or_100_SNP_windows_lambdaLarge.log "mkdir -p 
 
 # due to issues with MULTIMIX, I will try a new ancestry HMM method by Townshend + Simon Myers preprint 2018 bioXiv
 # doi: https://doi.org/10.1101/376137 MOSAIC is an R package: https://maths.ucd.ie/~mst/MOSAIC/
-# install.packages("~/Downloads/MOSAIC_1.0.tar.gz") w/ first installing ff, conbinat & Rcpp dependencies
+# open R in terminal to install MOSAIC
+# sapply(c("ff", "combinat", "Rcpp", "doParallel", "argparser"), install.packages) #w/ first installing dependencies
+# install.packages("~/Downloads/MOSAIC_1.0.tar.gz") 
+# MOSAIC help: https://maths.ucd.ie/~mst/MOSAIC/README.txt
 # this method requires (imperfect) phasing, for which I will use fastPHASE which is more accurate 
 # than alternatives like Beagle for 
 # small sample size (<100) (Browning & Browning 2011 Review: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3217888/)
+# MOSAIC input requirements:
+Rscript ~/Software/MOSAIC/mosaic.R --help
+There should be a folder with 4 types of input file:
+1. phased haplotypes: "pop.genofile.chr" in the format #snps rows and #haps columns.
+2. pop names: "sample.names" format unimportant apart from first column should have all the population names.
+3. snp files: "snpfile.chr" #snps rowns and 6 columns of rsID, chr, position, distance, allele ?, allele ?. 
+4. recombination map: "rates.chr" 3 rows of #sites, position, recombination rate. 
+data/sims_downsample/MOSAIC$ Rscript /home/erin/Software/MOSAIC/mosaic.R --chromosomes 1:16 --maxcores 4 --ancestries 3 -n 1000 (# target haplotypes = double # diploid individuals; or large number it will take all of them) Riv2014 input
+Riv2014 = target = name of target population (all other populations can be haplotype 'donors')
+input folder containing input data
+# make new sample names file from plink output (just the family file of all included ind's in order)
+# not clear if recombination position in snp file is in M or cM (?) -- last SNP on chr22 is at 0.5 so it's likely Morgans
+# geno files are phased SNPs encoded 0/1. I need to check what is used for missing data.
+# run example data:
+#######  EXAMPLES  ###############################################################################################
+The "example_data" folder contains example data for chromosomes 18 to 22 and a real-data example run of mosaic can be done using:
+> Rscript mosaic.R Moroccan example_data/ -a 2 -n 4 -c 18:22
+or equivalently in an interactive R session:
+> mosaic.result=run_mosaic("Moroccan","example_data/",18:22,2,2)
+# can plink give me recomb. rates for every SNP position based on an rmap?
 
 # PHASING WITH fastPHASE
 
 -oACM_Riv2014_chr1 # results prefix, no space is required
 -g (don't impute genotypes)
--H200 would minimize individual phasing errors (default is 50)
+using default for # posterior samples; -H200 would minimize individual phasing errors (default is 50)
+# but I don't need super high precision because mosaic re-phases data
 -i (estimate individual haplotypes)
 otherwise I use default parameters (e.g. K = 10 or 20 clusters, # EM runs etc.) -- see all with ~$ fastPHASE -H
 
@@ -367,7 +391,9 @@ bees/data/sims_downsample/fastPHASE$ for i in {1..16}; \
 do grep -v "P " ACM_Riv2014.chr-$i.recode.phase.inp >> ACM_Riv2014.chr$i.recode.phase.inp; \
 rm ACM_Riv2014.chr-$i.recode.phase.inp; done
 # now running fastPHASE 1.4.8 for all 16 chromosomes in parallel
-bees/data/sims_downsample/fastPHASE$ nohup parallel --noswap --joblog fastPHASE.log --jobs 8 "fastPHASE -g -i -H200 -oACM_Riv2014_chr{1} ACM_Riv2014.chr{1}.recode.phase.inp" ::: {1..16} &> fastPHASE.out &
+# was running with 8 jobs and H200 but was taking a very long time and using swap; delay start is to not overwhelm memory when new jobs start up together
+bees/data/sims_downsample/fastPHASE$ nohup parallel --delay 10 --noswap --joblog fastPHASE.log --jobs 4 "echo Starting chr{1}; echo date; fastPHASE -g -i -oACM_Riv2014_chr{1} ACM_Riv2014.chr{1}.recode.phase.inp" ::: {1..16} &> fastPHASE.out &
+[1] 28595
 
 
 
