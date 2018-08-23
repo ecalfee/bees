@@ -351,12 +351,23 @@ multimix$ parallel --joblog run_50_or_100_SNP_windows_lambdaLarge.log "mkdir -p 
 
 # PHASING WITH fastPHASE
 
--n (omit individual labels separating genotypes .. each individuals still needs two lines, one per allele)
--ofastPHASE/ACM_Riv2014_chr1 # results prefix, no space is required
+-oACM_Riv2014_chr1 # results prefix, no space is required
+-g (don't impute genotypes)
+-H200 would minimize individual phasing errors (default is 50)
+-i (estimate individual haplotypes)
 otherwise I use default parameters (e.g. K = 10 or 20 clusters, # EM runs etc.) -- see all with ~$ fastPHASE -H
-input file:
-fastPHASE/ACM_Riv2014_chr1.inp ? for missing data
 
+# use plink to filter genotypes for just populations of interest 
+bees/data/sims_downsample/fastPHASE$ for pop in A C M Riverside_2014; do echo $pop >> ACM_Riv2014_families.list; done
+# and to make input files
+bees/data/sims_downsample/fastPHASE$ plink --bfile ../../bees_new_positions/ALL --keep-allele-order --keep-fam ACM_Riv2014_families.list --recode fastphase --out ACM_Riv2014
+# because in default settigns fastPHASE don't use the position information and it was causing errors on input,
+# I manually remove it from input files first
+bees/data/sims_downsample/fastPHASE$ for i in {1..16}; \
+do grep -v "P " ACM_Riv2014.chr-$i.recode.phase.inp >> ACM_Riv2014.chr$i.recode.phase.inp; \
+rm ACM_Riv2014.chr-$i.recode.phase.inp; done
+# now running fastPHASE 1.4.8 for all 16 chromosomes in parallel
+bees/data/sims_downsample/fastPHASE$ nohup parallel --noswap --joblog fastPHASE.log --jobs 8 "fastPHASE -g -i -H200 -oACM_Riv2014_chr{1} ACM_Riv2014.chr{1}.recode.phase.inp" ::: {1..16} &> fastPHASE.out &
 
 
 
