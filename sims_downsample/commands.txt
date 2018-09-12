@@ -367,11 +367,19 @@ input folder containing input data
 # run example data:
 #######  EXAMPLES  ###############################################################################################
 The "example_data" folder contains example data for chromosomes 18 to 22 and a real-data example run of mosaic can be done using:
-> Rscript mosaic.R Moroccan example_data/ -a 2 -n 4 -c 18:22
+> Rscript mosaic.R Moroccan example_data/ -a 2 -n 4 -c 18:22 # note to run just one chromosome I did 21:21
+# and I had to make folders MOSAIC_RESULTS and MOSAIC_PLOTS ahead of time
+# the output is in the form of save .Rdata which I can 'load' and then access individual parts, e.g. localanc
+load("localanc_Moroccan_2way_1-2_21-21_158_60_0.99_100.RData") # from example file
+# I added ?'s for some 0/1 genotypes in all the populations and it ran just fine as soon as I made all the files
+it was looking for (e.g. snpfile too)
+~/Software/MOSAIC$ Rscript mosaic.R Moroccan example_data/ -a 2 -n 4 -c 55:55
+e.g. warning: In lapply(X = X, FUN = FUN, ...) : NAs introduced by coercion
+# I need to ask the interpretation of output files, e.g. local.anc is 2X4X3696 for an original datased with 7087 SNPs and 22 moroccan ind's. I'm pretty sure the 2 is for both ancestries and the 3.6k is for new window boundaries (or center?) but 
+I don't see how this encodes 22 individuals
 or equivalently in an interactive R session:
 > mosaic.result=run_mosaic("Moroccan","example_data/",18:22,2,2)
 # can plink give me recomb. rates for every SNP position based on an rmap?
-
 # PHASING WITH fastPHASE
 
 -oACM_Riv2014_chr1 # results prefix, no space is required
