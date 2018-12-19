@@ -1,0 +1,26 @@
+# command log and scripts to take raw reads, map to reference, and filter to produce filtered bam files
+
+# I will follow the same process from .fq raw reads to .bam mappped reads using bowtie2
+# and filtering (e.g. of duplicates) using picard tools as is described in bioinfo_pipe.txt
+# for the reference panel bee genomes (and earlier CA bees) downloaded as .fq files from NCBI
+
+# First sequencing run from Novogene completed 12/12/18, dowloaded from ftp using FileZilla (interactive) 12/18/18
+# and saved in data/novo_seq/C202SC18101772/. Backups saved to linux on Willowbank and Box.com on cloud.
+# Check MD5 that everything downloaded properly (all good!):
+# bees/data/novo_seq/C202SC18101772/raw_data$ cat */MD5.txt > ALL_MD5_expected.txt # expected md5 values
+# raw_data$ for i in $(awk '{print $2}' ALL_MD5_expected.txt); do md5 */${i} | awk '{print $4}'; done > ALL_MD5_observed.txt # observed md5 values for each .fq file
+# raw_data$ diff -q <(awk '{print $1}' ALL_MD5_expected.txt) <(cat ALL_md5_observed.txt) # outputs 'Files * and * differ' if they differ; outputs nothing if they're the same. Take away -q to see differences.
+
+# Re-downloaded honeybee genome Apis mellifera v4.5 from beebase.org on 12.19.18: data/honeybee_genome/Amel_4.5_scaffolds.fa (note: wasn't .fa.gz)
+
+# Also downloaded Bowtie2 for macs: v2.3.3.1 to match what I used on the Linux machine previously. Downloaded 12.19.18
+# re-indexed v4.5 genome from www.beebase.org (it's not gzipped the genome I downloaded)
+bees/data/honeybee_genome$ bowtie2-build Amel_4.5_scaffolds.fa honeybee_Amel_4.5 
+
+# made a short script that maps reads for new bees just sequenced: map_reads.sh
+# to run alignment in bulk, I first made a list of sample IDs sequenced in this batch C202SC18101772:
+data/novo_seq$ awk '{print $5}' seq1_novogene_index_i7_bee_id_link.txt | tail -n +2 > C202SC18101772/samples.list 
+scripts$ nohup parallel --noswap --joblog ../logs/map_reads_C202SC18101772.log --jobs 4 \
+./map_reads.sh {1} C202SC18101772 :::: ../data/novo_seq/C202SC18101772/samples.list &> ../logs/map_reads_C202SC18101772.out &
+[1] 72328 - RUNNING 12.19.18
+
