@@ -392,3 +392,9 @@ ggmap(get_map(location = 'El Cajon, California',
              pch = 5,
              col = "black",
              alpha = .5)
+
+# sample 10 bees per Northern CA pop for initial morphology analysis
+morph_list10 <- sapply(9:15, function(i) sort(sample(bees[bees$state == "CA" & as.integer(bees$popN) == i, "Bee_ID"], size = 12, replace = F)))
+# note: In my 12 should be the bees that I chose for sequencing..
+write.table(morph_list10, "../labwork/ids2morph_10N_CA", col.names = F, row.names = F, quote = F)
+
