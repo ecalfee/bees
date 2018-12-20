@@ -1,0 +1,6 @@
+MD5 (../data/honeybee_genome/honeybee_Amel_4.5.1.bt2) = fed83457ae33fe02d1f0218f58c5cda0
+MD5 (../data/honeybee_genome/honeybee_Amel_4.5.2.bt2) = 3f3f8377af9ea745a9a04f9c5ab75752
+MD5 (../data/honeybee_genome/honeybee_Amel_4.5.3.bt2) = 334e3faa97a113feb129c5c281fc6e85
+MD5 (../data/honeybee_genome/honeybee_Amel_4.5.4.bt2) = 1066f58680d3809c6fe66f6c9a5c39de
+MD5 (../data/honeybee_genome/honeybee_Amel_4.5.rev.1.bt2) = 9814930a6cc3848e5fc8241dc6df3c38
+MD5 (../data/honeybee_genome/honeybee_Amel_4.5.rev.2.bt2) = b0dc557cb6605714d83fc6ae350e7a03
