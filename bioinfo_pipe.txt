@@ -299,7 +299,9 @@ Harpur_2014_NCBI/bam_files$ nohup parallel --noswap --jobs 7 --joblog picard_mrk
 
 # Sheppard's Kenyan bees
 data/Kenya_Sheppard_NCBI/bam_files$ nohup parallel --noswap --jobs 4 --joblog picard_mrkdup.log 'java -jar ~/Software/picard/picard.jar MarkDuplicates INPUT={1}.sorted.bam OUTPUT={1}.sort.mrkdup.bam REMOVE_DUPLICATES=false METRICS_FILE={1}.mrkdup.metrics.txt; samtools index {1}.sort.mrkdup.bam' :::: IDs.list &> picard_mrkdup.out &
-[1] 5335 - RUNNING 12.19.18
+[1] 5335 - RUNNING 12.19.18 - added java to my path & running again:
+[1] 6001 -- problem in log file. check tmp directory is unique and memory max and potential version issue is same as online (and with other files I've already run) & run again.
+
 
 
 
