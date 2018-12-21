@@ -22,17 +22,20 @@ bees/data/honeybee_genome$ bowtie2-build Amel_4.5_scaffolds.fa honeybee_Amel_4.5
 data/novo_seq$ awk '{print $5}' seq1_novogene_index_i7_bee_id_link.txt | tail -n +2 > C202SC18101772/samples.list 
 scripts$ nohup parallel --noswap --joblog ../logs/map_reads_C202SC18101772.log --jobs 4 \
 ./map_reads.sh {1} C202SC18101772 :::: ../data/novo_seq/C202SC18101772/samples.list &> ../logs/map_reads_C202SC18101772.out &
-[1] 72328 - RUNNING 12.19.18
+[1] 72328 - RUNNING 12.19.18 - DONE (some cancelled because already completed on other computer)
 data/novo_seq/C202SC18101772$ tac samples.list > samples_reversed_order.list
 scripts$ nohup parallel --noswap --joblog ../logs/map_reads_C202SC18101772_reversed_order.log --jobs 8 \
 ./map_reads.sh {1} C202SC18101772 :::: ../data/novo_seq/C202SC18101772/samples_reversed_order.list &> ../logs/map_reads_C202SC18101772_reversed_order.out &
 [1] 7754 - RUNNING 12.19.18 on Barbara - cancelled due to memory. Now rerunning:
-[didn't print new number/overwritten by nano, but it's running] - completed many; I cancelled when every bam was finished on one computer. Moved bams to Nancy's comp.
+[didn't print new number/overwritten by nano, but it's running] - DONE; I cancelled last few when every bam was finished on one computer. Moved bams to Nancy's comp.
 # some bams were completed by both computers and I noticed very small discrepancies in # lines per file (diff. of ~5-30 lines out of thousands)
 # bowtie2 is the same version 2.3.3.1 and random seed is the same (2014) so this must be a small remaining stochasticity affected by compiling the program on mac vs. Ubuntu.
 # for those bams with duplicated efforts I used the ones run on the mac going forward.
 # Now filtering bams with new scripts sort_bams.sh and dedup_baq_bams.sh
-
+scripts$ nohup parallel --noswap --joblog ../logs/filter_bams_C202SC18101772.log --jobs 4 \
+'./sort_bams.sh {1} novo_seq/bam_files; ./dedup_baq_bams.sh {1} filtered_bams/results' \
+:::: ../data/novo_seq/C202SC18101772/samples.list &> ../logs/filter_bams_C202SC18101772.out &
+[1] 27043
 
 
 
