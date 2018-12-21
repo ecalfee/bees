@@ -37,7 +37,8 @@ scripts$ nohup parallel --noswap --joblog ../logs/filter_bams_C202SC18101772.log
 :::: ../data/novo_seq/C202SC18101772/samples.list &> ../logs/filter_bams_C202SC18101772.out &
 [1] 27043 -- typo, try again:
 [1] 29784 -- needed to source ~/.profile to get variable $PICARD
-[1] 31078 -RUNNING 12.20.18 19:00
+[1] 31078 -- failed due to typo in file naming
+[2] 31767 -RUNNING 12.20.18 19:15
 
 
 

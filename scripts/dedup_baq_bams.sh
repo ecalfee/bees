@@ -45,7 +45,7 @@ samtools calmd -SbArE --reference ${REF} - > ${BAM_OUT}
 
 echo "all done removing duplicates and calculating BAQ, now indexing!"
 sleep 5s # because index needs to have a later timestamp
-samtools index filtered_bam/hilo_$SLURM_ARRAY_TASK_ID.sort.dedup.baq.bam
+samtools index ${BAM_OUT}
 echo "done indexing"
 
 
