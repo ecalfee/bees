@@ -10,10 +10,11 @@ d$pop = factor(d$pop, levels = c("A", "C", "M", "Riverside_2014",
                                      "Stanislaus_2014", "Stebbins_2014",
                                      "Davis_2014", "Humboldt_2014"))
 d = d[order(d$pop), ]
-barplot(t(d[, 3:ncol(d)]),col=rainbow(3),
+barplot(t(d[, 3:ncol(d)]),col=c("yellow", "blue", "red"),
         space=0,border=NA,
         xlab="Individuals",
         ylab="admixture")
+legend("topleft", legend = c("M", "C", "A"), col = c("yellow", "blue", "red"), pch = 19)
 
 tapply(d$kA, d$pop, mean)
 tapply(d$kC, d$pop, mean)
