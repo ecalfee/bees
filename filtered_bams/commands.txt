@@ -15,11 +15,11 @@
 
 # Also downloaded Bowtie2 for macs: v2.3.3.1 to match what I used on the Linux machine previously. Downloaded 12.19.18
 # re-indexed v4.5 genome from www.beebase.org (it's not gzipped the genome I downloaded)
-bees/data/honeybee_genome$ bowtie2-build Amel_4.5_scaffolds.fa honeybee_Amel_4.5 
+bees/data/honeybee_genome$ bowtie2-build Amel_4.5_scaffolds.fa honeybee_Amel_4.5
 
 # made a short script that maps reads for new bees just sequenced: map_reads.sh
 # to run alignment in bulk, I first made a list of sample IDs sequenced in this batch C202SC18101772:
-data/novo_seq$ awk '{print $5}' seq1_novogene_index_i7_bee_id_link.txt | tail -n +2 > C202SC18101772/samples.list 
+data/novo_seq$ awk '{print $5}' seq1_novogene_index_i7_bee_id_link.txt | tail -n +2 > C202SC18101772/samples.list
 scripts$ nohup parallel --noswap --joblog ../logs/map_reads_C202SC18101772.log --jobs 4 \
 ./map_reads.sh {1} C202SC18101772 :::: ../data/novo_seq/C202SC18101772/samples.list &> ../logs/map_reads_C202SC18101772.out &
 [1] 72328 - RUNNING 12.19.18 - DONE (some cancelled because already completed on other computer)
@@ -40,5 +40,9 @@ scripts$ nohup parallel --noswap --joblog ../logs/filter_bams_C202SC18101772.log
 [1] 31078 -- failed due to typo in file naming
 [2] 31767 -RUNNING 12.20.18 19:15
 
-
-
+# Now I am re-mapping all reference samples from Harpur 2014:
+Harpur_2014_NCBI$ cat bam_files_old/IDs.list | cut -d'_' -f2 > samples.list
+scripts$ chmod u+x map_reads_single.sh
+scripts$ nohup parallel --noswap --joblog ../logs/map_reads_Harpur_2014_NCBI.log --jobs 4 \
+./map_reads_single.sh {1} Harpur_2014_NCBI :::: ../data/Harpur_2014_NCBI/samples.list \
+&> ../logs/map_reads_Harpur_2014_NCBI.out &
