@@ -12,11 +12,14 @@ library(ggmap)
 # for scale bar
 library(ggsn)
 
+my_api <- read.table("google_maps_api_EC2018.txt",
+                     header = F, stringsAsFactors = F)$V1
+ggmap::register_google(key = my_api)
 # import bees from field notes
-ca_bees <- read.csv("~/Dropbox/grad school/bee project/CA_Bees/CA_bee_fieldnotes.csv", 
+ca_bees <- read.csv("~/Dropbox/grad school/Research/bee project/CA_Bees/CA_bee_fieldnotes.csv", 
                       header = T,
                       stringsAsFactors = F)
-ar_bees <- read.csv("~/Dropbox/grad school/bee project/Argentina/Field Notes Argentina bees/Argentina_fieldnotes_bee_gps_formatted.csv",
+ar_bees <- read.csv("~/Dropbox/grad school/Research/bee project/Argentina/Field Notes Argentina bees/Argentina_fieldnotes_bee_gps_formatted.csv",
                       header = T,
                       stringsAsFactors = F)
 # combine data sets
@@ -55,6 +58,19 @@ extractToDo_AR <- c("AR0302", "AR0311", "AR0501", "AR0511", "AR0602", "AR0617",
 bees$toSequence <- FALSE                 
 bees$toSequence[bees$Bee_ID %in% c(extract1, extract2, extractEnjambre,
                                    extractToDo_CA, extractToDo_AR)] <- TRUE
+bees$enjambre <- bees$Bee_ID %in% extractEnjambre # bee from a feral colony "enjambre"
+
+# make some simple cvs files of bee coordinates:
+bees %>%
+  filter(., state == "AR") %>%
+  select(., Bee_ID, lat, long, popN, indN, Date, Time, toSequence, enjambre) %>%
+  write.csv(., "Arg_bee_lat_long_4_google_maps.csv",
+            quote = F, row.names = F)
+bees %>%
+  filter(., state == "CA") %>%
+  select(., Bee_ID, lat, long, popN, indN, Date, Time, toSequence, enjambre) %>%
+  write.csv(., "CA_bee_lat_long_4_google_maps.csv",
+            quote = F, row.names = F)
 
 
 ##get a map
@@ -80,7 +96,8 @@ coord = mapproject(x = bees$long, y = bees$lat) # convert to flat coordinates
 points(x = coord$x, y = coord$y, col = "yellow", pch = 1, cex = .01) # add to map
 
 # new map with different background
-map <- get_map(location = 'Santa Fe, Argentina', zoom =  6)
+map <- get_map(location = 'Santa Fe, Argentina', 
+               zoom =  6)
 mapPoints <- ggmap(map) +
   geom_point(aes(x = long, 
                      y = lat,
@@ -255,6 +272,28 @@ ggmap(get_map(location = 'Villa Ocampo, Argentina',
              cex = 1,
              pch = 5,
              col = "red")
+
+# zoomed in maps of argentina
+# for marcelo
+arg_map29 <- get_map(location = 'Villa Ocampo, Argentina', 
+                     maptype = "terrain",
+                     source = "stamen",
+                     zoom =  11)
+ggmap(arg_map29) + 
+  geom_point(aes(x = long, 
+                 y = lat,
+                 col = popN), 
+             data = bees[bees$state == "AR" & bees$popN %in% c("26", "27", "29"),],
+             cex = 1,
+             #col = "black",
+             alpha = .5) +
+  geom_point(aes(x = long,
+                 y = lat),
+             data = bees[bees$toSequence == T,],
+             cex = 1,
+             pch = 5,
+             col = "red")
+
 # which bees to extract next:
 write.table(extract1, "../labwork/ids2extract_1", quote = F)
 write.table(extract2, "../labwork/ids2extract_2", quote = F)
