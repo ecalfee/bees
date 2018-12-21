@@ -9,7 +9,7 @@
 set -o pipefail
 set -o errexit
 set -o nounset
-set -x
+#set -x
 
 # move from scripts to data directory
 cd ../data

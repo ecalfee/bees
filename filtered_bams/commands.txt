@@ -35,7 +35,8 @@ scripts$ nohup parallel --noswap --joblog ../logs/map_reads_C202SC18101772_rever
 scripts$ nohup parallel --noswap --joblog ../logs/filter_bams_C202SC18101772.log --jobs 4 \
 './sort_bams.sh {1} novo_seq/bam_files; ./dedup_baq_bams.sh {1} filtered_bams/results' \
 :::: ../data/novo_seq/C202SC18101772/samples.list &> ../logs/filter_bams_C202SC18101772.out &
-[1] 27043
+[1] 27043 -- typo, try again:
+[1] 29784
 
 
 

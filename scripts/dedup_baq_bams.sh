@@ -13,7 +13,7 @@
 set -o pipefail
 set -o errexit
 set -o nounset
-set -x
+#set -x
 
 # move from scripts to data directory
 cd ../data
@@ -37,7 +37,7 @@ echo "working directory:"${PWD} # print current working directory
 
 echo "marking duplicates with PICARD and calculating BAQ with SAMTOOLS"
 java -Xmx8g -jar ${PICARD}/picard.jar MarkDuplicates \
-INPUT=${OUTPUT_DIR}/${ID}.sort.bam OUTPUT=/dev/stdout QUIET=true \
+INPUT=${DIR_OUT}/${ID}.sort.bam OUTPUT=/dev/stdout QUIET=true \
 REMOVE_DUPLICATES=true \
 TMP_DIR=${DIR_TMP} \
 METRICS_FILE=${DIR_METRICS}/${ID}.metrics.txt | \
