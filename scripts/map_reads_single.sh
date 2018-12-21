@@ -9,8 +9,10 @@
 #./map_reads_single.sh {1} Harpur_2014_NCBI :::: ../data/Harpur_2014_NCBI/samples.list \
 # &> ../logs/map_reads_Harpur_2014_NCBI.out &
 
+# note: the fastq files from NCBI end with fastq.gz not fq.gz
+
 # general bash script settings to make sure if any errors in the pipeline fail
-# the it's a 'fail' and it passes all errors to exit and allows no unset variables
+# the it is a "fail' and it passes all errors to exit and allows no unset variables
 # -x is for verbose output of commands as they are run
 set -o pipefail
 set -o errexit
@@ -35,7 +37,7 @@ echo "mapping reads with bowtie2"
 
 bowtie2 --seed 2014 --very-sensitive-local --local \
 -x honeybee_genome/honeybee_Amel_4.5 \
--U ${FASTQ_PREFIX}*_1.fq.gz \
+-U ${FASTQ_PREFIX}_1.fastq.gz \
 --rg-id ${SEQ_RUN} --rg SM:${ID} | \
 samtools view -b - > ${DIR_OUT}/${ID}.bam
 
