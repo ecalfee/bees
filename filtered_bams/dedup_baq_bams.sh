@@ -15,16 +15,17 @@ set -o errexit
 set -o nounset
 #set -x
 
-# move from scripts to data directory
-cd ../data
+# directory to PICARD tools:
+PICARD="/home/erin/Software/picard-2.18.2"
+
 
 # command line arguments:
-# note: all paths relative to ../data/
+# note: all paths relative to bees/filtered_bams/
 ID=$1 # bee ID
 DIR_IN=$2 # directory for input
 BAM_SORTED=${DIR_IN}"/"${ID}".sort.bam" # full path to starting bam
-DIR_OUT="filtered_bams/results" # results directory
-DIR_METRICS="filtered_bams/metrics" # metrics directory
+DIR_OUT="results" # results directory
+DIR_METRICS="metrics" # metrics directory
 BAM_OUT=${DIR_OUT}"/"${ID}".sort.dedup.baq.bam"
 DIR_TMP=${DIR_OUT}"/tmp/"${ID} # for memory overflow
 REF="honeybee_genome/Amel_4.5_scaffolds.fa" # honeybee reference genome (indexed by samtools faidx)
@@ -34,6 +35,7 @@ mkdir -p ${DIR_OUT}
 mkdir -p ${DIR_TMP}
 mkdir -p ${DIR_METRICS}
 echo "working directory:"${PWD} # print current working directory
+echo "picard path:" ${PICARD}
 
 echo "marking duplicates with PICARD and calculating BAQ with SAMTOOLS"
 java -Xmx8g -jar ${PICARD}/picard.jar MarkDuplicates \

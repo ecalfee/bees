@@ -11,15 +11,12 @@ set -o errexit
 set -o nounset
 #set -x
 
-# move from scripts to data directory
-cd ../data
-
 # command line arguments:
-# note: all paths relative to ../data/
+# note: all paths relative to bees/filtered_bams
 ID=$1 # bee ID
-DIR_IN=$2 # directory where bam is stored (pre-filtering)
+DIR_IN=$2 # directory where bam is stored (pre-filtering)..local path from bees/filtered_bams
 BAM_IN=${DIR_IN}"/"${ID}".bam" # full path to starting bam
-DIR_OUT="filtered_bams/results" # results directory
+DIR_OUT="results" # results directory
 BAM_SORTED=${DIR_OUT}"/"${ID}".sort.bam"
 DIR_TMP=${DIR_OUT}"/tmp/"${ID}
 
@@ -27,10 +24,11 @@ DIR_TMP=${DIR_OUT}"/tmp/"${ID}
 mkdir -p ${DIR_OUT}
 mkdir -p ${DIR_TMP}
 echo ${PWD} # print current working directory
+echo "files:" $(ls *)
 
 echo "sorting reads with samtools"
 # (1) SAMTOOLS sort reads by coordinate position
-samtools sort -m 14G -T ${DIR_TMP} \
+samtools sort -m 4G -T ${DIR_TMP} \
 -o ${BAM_SORTED} \
 ${BAM_IN}
 
