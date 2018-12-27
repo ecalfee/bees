@@ -46,3 +46,28 @@ scripts$ chmod u+x map_reads_single.sh
 scripts$ nohup parallel --noswap --joblog ../logs/map_reads_Harpur_2014_NCBI.log --jobs 4 \
 ./map_reads_single.sh {1} Harpur_2014_NCBI :::: ../data/Harpur_2014_NCBI/samples.list \
 &> ../logs/map_reads_Harpur_2014_NCBI.out &
+[1] 32424 - RUNNING 12.20.18 10:30. Reran ones that didn't go:
+First 4 ran without issues, but then I moved the mapping script and they failed, so rerunning those:
+filtered_bams$ nohup parallel --noswap --joblog ../logs/map_reads_Harpur_2014_NCBI_2.log --jobs 4 ./map_reads_single.sh {1} Harpur_2014_NCBI \
+::: $(tail -n +5 ../data/Harpur_2014_NCBI/samples.list) &> ../logs/map_reads_Harpur_2014_NCBI_2.out &
+[1] 14980 - RUNNING 12.21.18 # COMPLETED ALL DONE
+
+# TO DO:
+# and on now running Harpur bees --> put all in one consistent folder in filtered_bams/results
+# run dedup_baq_bams.sh on Kenyan bees --> also put in folder filtered_bams/results
+# delete intermediate bams if you need the space (likely).
+# note: best to put more general scripts, that will be used in multiple analyses, when that comes up, in a scripts/ folder
+# also need a script to calculate coverage distribution and mean coverage (to get 2x and .5x thresholds)
+
+
+# run sort_bams.sh and dedup_baq_bams.sh on 'original' bams from CA_Bees
+# (note inconsistent in CA_Bee/bam_from_Julie naming with *.merged.bam or *.combined.bam)
+# first made symlinks to bams for consistent naming on CA_Bee
+CA_Bee/bam_files$ for i in $(cat ../samples.list); do ln -s ../bam_from_Julie/$i.*.bam $i.bam; done
+# then run filtering steps on CA_Bee bams
+bees/filtered_bams$ nohup parallel --noswap --joblog ../logs/filter_bams_CA_Bee.log --jobs 4 './sort_bams.sh {1} ../data/CA_Bee/bam_files; ./dedup_baq_bams.sh {1} filtered_bams/results' :::: ../data/CA_Bee/samples.list &> ../logs/filter_bams_CA_Bee.out &
+[1] 6017 -- fixed some typos in directory, memory and PICARD variable
+# make logs directory, then run:
+bees/filtered_bams$ mkdir logs
+bees/filtered_bams$ nohup parallel --noswap --joblog logs/filter_bams_CA_Bee.log --jobs 4 './sort_bams.sh {1} ../data/CA_Bee/bam_files; ./dedup_baq_bams.sh {1} results' :::: ../data/CA_Bee/samples.list &> logs/filter_bams_CA_Bee.out &
+[1] 28013 - RUNNING 12.27.18
