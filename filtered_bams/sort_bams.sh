@@ -28,7 +28,7 @@ echo "files:" $(ls *)
 
 echo "sorting reads with samtools"
 # (1) SAMTOOLS sort reads by coordinate position
-samtools sort -m 4G -T ${DIR_TMP} \
+samtools sort -m 6G -T ${DIR_TMP} \
 -o ${BAM_SORTED} \
 ${BAM_IN}
 
