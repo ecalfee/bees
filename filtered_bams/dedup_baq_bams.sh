@@ -8,7 +8,7 @@
 # (e.g. add PICARD=global_path_to_picard) to your bash profile ~/.profile)
 
 # general bash script settings to make sure if any errors in the pipeline fail
-# the it's a 'fail' and it passes all errors to exit and allows no unset variables
+# the it is a 'fail' and it passes all errors to exit and allows no unset variables
 # -x is for verbose output of commands as they are run
 set -o pipefail
 set -o errexit
@@ -28,7 +28,7 @@ DIR_OUT="results" # results directory
 DIR_METRICS="metrics" # metrics directory
 BAM_OUT=${DIR_OUT}"/"${ID}".sort.dedup.baq.bam"
 DIR_TMP=${DIR_OUT}"/tmp/"${ID} # for memory overflow
-REF="honeybee_genome/Amel_4.5_scaffolds.fa" # honeybee reference genome (indexed by samtools faidx)
+REF="../data/honeybee_genome/Amel_4.5_scaffolds.fa" # honeybee reference genome (indexed by samtools faidx)
 
 # make results directory (if necessary)
 mkdir -p ${DIR_OUT}
@@ -38,8 +38,8 @@ echo "working directory:"${PWD} # print current working directory
 echo "picard path:" ${PICARD}
 
 echo "marking duplicates with PICARD and calculating BAQ with SAMTOOLS"
-java -Xmx8g -jar ${PICARD}/picard.jar MarkDuplicates \
-INPUT=${DIR_OUT}/${ID}.sort.bam OUTPUT=/dev/stdout QUIET=true \
+java -Xmx6g -jar ${PICARD}/picard.jar MarkDuplicates \
+INPUT=${BAM_SORTED} OUTPUT=/dev/stdout QUIET=true \
 REMOVE_DUPLICATES=true \
 TMP_DIR=${DIR_TMP} \
 METRICS_FILE=${DIR_METRICS}/${ID}.metrics.txt | \
