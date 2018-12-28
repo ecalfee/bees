@@ -52,14 +52,6 @@ filtered_bams$ nohup parallel --noswap --joblog ../logs/map_reads_Harpur_2014_NC
 ::: $(tail -n +5 ../data/Harpur_2014_NCBI/samples.list) &> ../logs/map_reads_Harpur_2014_NCBI_2.out &
 [1] 14980 - RUNNING 12.21.18 # COMPLETED ALL DONE
 
-# TO DO:
-# and on now running Harpur bees --> put all in one consistent folder in filtered_bams/results
-# run dedup_baq_bams.sh on Kenyan bees --> also put in folder filtered_bams/results
-# delete intermediate bams if you need the space (likely).
-# note: best to put more general scripts, that will be used in multiple analyses, when that comes up, in a scripts/ folder
-# also need a script to calculate coverage distribution and mean coverage (to get 2x and .5x thresholds)
-
-
 # run sort_bams.sh and dedup_baq_bams.sh on 'original' bams from CA_Bees
 # (note inconsistent in CA_Bee/bam_from_Julie naming with *.merged.bam or *.combined.bam)
 # first made symlinks to bams for consistent naming on CA_Bee
@@ -70,4 +62,25 @@ bees/filtered_bams$ nohup parallel --noswap --joblog ../logs/filter_bams_CA_Bee.
 # make logs directory, then run:
 bees/filtered_bams$ mkdir logs
 bees/filtered_bams$ nohup parallel --noswap --joblog logs/filter_bams_CA_Bee.log --jobs 4 './sort_bams.sh {1} ../data/CA_Bee/bam_files; ./dedup_baq_bams.sh {1} results' :::: ../data/CA_Bee/samples.list &> logs/filter_bams_CA_Bee.out &
-[1] 28013 - RUNNING 12.27.18
+[1] 28013 - Low memory & wrong path to reference genome. Maxed all memory to 6G and trying again with 3 threads:
+bees/filtered_bams$ nohup parallel --noswap --joblog logs/filter_bams_CA_Bee.log --jobs 3 './sort_bams.sh {1} ../data/CA_Bee/bam_files; ./dedup_baq_bams.sh {1} results' :::: ../data/CA_Bee/samples.list &> logs/filter_bams_CA_Bee.out &
+[1] 31247 - RUNNING SUCCESSFULLY 12.27.18 -- ap29, ap30 and ap31 will need to be rerun (modified script while running for general case when input isn't from results/ folder)
+bees/filtered_bams$ nohup bash -c "until (( $(wc -l < logs/dedup_bams_Kenya_Sheppard_NCBI.log) == 7 )); do sleep 100; done; echo "done waiting for dedup_bams_Kenya_Sheppard_NCBI to finish. Now running bam filtering for 3 CA_Bees that failed previously:"; parallel --noswap --joblog logs/filter_bams_CA_Bee_2.log --jobs 2 'echo "filtering bam for bee: " {1}; ./sort_bams.sh {1} ../data/CA_Bee/bam_files; ./dedup_baq_bams.sh {1} results' :::: ap29 ap30 ap31 &> logs/filter_bams_CA_Bee_2.out" &
+[3] 862 - WAITING on other file's output
+
+
+# run dedup_baq_bams.sh on Kenyan bees --> also put in folder filtered_bams/results
+# note: these have already been mapped and sorted, just need to be deduped (I did not delete intermediate sorted file from last time)
+bees/data/Kenya_Sheppard_NCBI/bam_files$ cat IDs.list | cut -d'_' -f2 > ../samples.list
+bees/filtered_bams$ nohup parallel --noswap --joblog logs/dedup_bams_Kenya_Sheppard_NCBI.log --jobs 2 './dedup_baq_bams.sh {1} ../data/Kenya_Sheppard_NCBI/bam_files' :::: ../data/Kenya_Sheppard_NCBI/samples.list &> logs/dedup_bams_Kenya_Sheppard_NCBI.out &
+[1] 32097 - fixed typo messing up runs where dir in is not results/:
+[1] 32303 - RUNNING 12.27.18
+
+# run filtering steps on Harpur bees --> put all in one consistent folder in filtered_bams/results
+bees/filtered_bams$ nohup bash -c "until (( $(wc -l < logs/filter_bams_CA_Bee.log) == 76 )); do sleep 100; done; echo "done waiting for filter_bams_CA_Bee to finish. Starting Harpur_2014_NCBI bam filtering:"; parallel --noswap --joblog logs/filter_bams_Harpur_2014_NCBI.log --jobs 5 --delay 3 'echo "now filtering bam for bee ID: " {1}; ./sort_bams.sh {1} ../data/Harpur_2014_NCBI/bam_files; ./dedup_baq_bams.sh {1} results' :::: ../data/Harpur_2014_NCBI/samples.list &> logs/filter_bams_Harpur_2014_NCBI.out" &
+[2] 854 - WAITING on other file's output
+
+# TO DO:
+# delete intermediate bams if you need the space (likely).
+# note: best to put more general scripts, that will be used in multiple analyses, when that comes up, in a scripts/ folder
+# also need a script to calculate coverage distribution and mean coverage (to get 2x and .5x thresholds)
