@@ -33,7 +33,7 @@ echo "working directory:"${PWD} # print current working directory
 echo "picard path:" ${PICARD}
 
 echo "adding readgroup IDs with PICARD"
-java -jar ~/Software/picard/picard.jar AddOrReplaceReadGroups INPUT=${BAM_IN} \
+java -jar ${PICARD}/picard.jar AddOrReplaceReadGroups INPUT=${BAM_IN} \
 OUTPUT=${BAM_OUT} SORT_ORDER=coordinate RGID=${RG_ID} RGLB=${RG_ID} RGPL=illumina \
 RGPU=NA RGSM=${ID}
 
