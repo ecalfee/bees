@@ -1,0 +1,11 @@
+# global ancestry assessed by
+# (1) PCA
+# (2) NGSAdmix
+# All implemented in ANGSD based off of genotype likelihoods at SNPs in low LD
+
+# SNPs need to be in low LD for this analysis.
+# for input files in results/input/, I concatenate the GL for every 1000th SNP for ordered scaffolds:
+# first make a list of gl files in order (different order will give different SNPs):
+bees/global_ancestry$
+# then thin to every 1000th SNP:
+bees/global_ancestry$

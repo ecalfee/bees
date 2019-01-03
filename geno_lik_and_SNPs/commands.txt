@@ -18,11 +18,10 @@ bees/bee_samples_listed$ for i in $(cat pass1.list); do echo ../filtered_bams/re
 
 bees/geno_lik_and_SNPs$ mkdir logs
 bees/geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/pass1_GL_by_scaffold.log --jobs 4 \
-'calc_GL_all_SNPs.sh ../bee_samples_listed/pass1.bams {1} 865 3462 results/pass1_GL_by_scaffold' ::::
+'./calc_GL_all_SNPs.sh ../bee_samples_listed/pass1.bams {1} 865 3462 results/pass1_GL_by_scaffold' :::: \
 ../data/honeybee_genome/ordered_scaffolds.list &> logs/pass1_GL_by_scaffold.out &
-
-
-
+[1] 24545 - COMPLETE 1.3.19 (~10hrs)
 
 # TO DO:
-# Divide honeybee genome into shorter genomic regions to run analysis
+# Divide honeybee genome into shorter genomic regions to run analysis (or just use existing scaffolds..)
+# filter to low LD and run NGSadmix and PCA in angsd
