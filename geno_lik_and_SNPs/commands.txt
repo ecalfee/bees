@@ -1,0 +1,17 @@
+# Analysis of genotype likelihoods (in ANGSD)
+# 2 main SNP sets:
+# (1) variant sites called from genotype likelihood analysis in ANGSD and
+# (2) variant sites pre-identified from reference populations (SNP set from Julie)
+
+# For calling variant sites in ANGSD, we divide the genome into regions
+# and use reference and CA_Bees in addition to first lane of newly sequenced bees, all listed in pass1.list
+# We use a non-HW dependent SNP calling algorithm based on counts of reads in ANGSD
+# and filter out sites with unusually high or low coverage (> 2x or < .5x mean coverage)
+# and where fewer than half the sample has data,
+# then the samtools GL function to get genotype likelihoods for each individual,
+# all filtering out low quality reads and bases
+
+# TO DO:
+# Divide honeybee genome into shorter genomic regions to run analysis
+# make list of included bees for pass1.list, using IDs matching filtered_bams/results/ID.sort.dedup.baq.bam:
+bees/geno_lik_and_SNPs$ cat ../bee_samples_listed/post_1994.list; cat ../data/novo_seq/C202SC18101772/samples.list > pass1.list

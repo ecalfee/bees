@@ -70,10 +70,11 @@ bees/filtered_bams$ nohup bash -c "until (( $(wc -l < logs/dedup_bams_Kenya_Shep
 RERUNNING THOSE THAT CRASHED FROM LACK OF MEMORY; removing intermediate file .sort.bam as each one completes deduping:
 bees/filtered_bams$ nohup parallel --noswap --joblog logs/filter_bams_CA_Bee_rerun2.log --jobs 2 './sort_bams.sh {1} ../data/CA_Bee/bam_files; ./dedup_baq_bams.sh {1} results; rm results/{1}.sort.bam' :::: logs/CA_Bee_samples_rerun2.list &> logs/filter_bams_CA_Bee_rerun2.out &
 [1] 10206 - COMPLETE 1.2.19
-# add readgroups RG to CA bees:
-bees/filtered_bams$ nohup parallel --noswap --jobs 4 --joblog logs/add_RG_CA_Bee.log \
-'add_readgroup_2_bams.sh {1} CA_Bee results :::: ../data/CA_Bee/samples.list \
+# add readgroup IDs to CA_Bees filtered bams ..others already have this from when I mapped with bowtie2
+bees/filtered_bams$ nohup parallel --noswap --delay 3 --jobs 4 --joblog logs/add_RG_CA_Bee.log \
+'./add_readgroup_2_bams.sh {1} CA_Bee results' :::: ../data/CA_Bee/samples.list \
 &> logs/add_RG_CA_Bee.out &
+[2] 14531 - COMPLETE 1.2.19 (note: deleted I intermediate bams for space)
 
 # run dedup_baq_bams.sh on Kenyan bees --> also put in folder filtered_bams/results
 # note: these have already been mapped and sorted, just need to be deduped (I did not delete intermediate sorted file from last time)
@@ -86,12 +87,10 @@ bees/filtered_bams$ nohup parallel --noswap --joblog logs/dedup_bams_Kenya_Shepp
 bees/filtered_bams$ nohup bash -c "until (( $(wc -l < logs/filter_bams_CA_Bee.log) == 76 )); do sleep 100; done; echo "done waiting for filter_bams_CA_Bee to finish. Starting Harpur_2014_NCBI bam filtering:"; parallel --noswap --joblog logs/filter_bams_Harpur_2014_NCBI.log --jobs 5 --delay 3 'echo "now filtering bam for bee ID: " {1}; ./sort_bams.sh {1} ../data/Harpur_2014_NCBI/bam_files; ./dedup_baq_bams.sh {1} results' :::: ../data/Harpur_2014_NCBI/samples.list &> logs/filter_bams_Harpur_2014_NCBI.out" &
 [2] 854 - WAITING on other file's output - KILLED (low memory; other job didn't finish) .. just running 1 job at a time:
 bees/filtered_bams$ nohup parallel --noswap --joblog logs/filter_bams_Harpur_2014_NCBI.log --jobs 1 './sort_bams.sh {1} ../data/Harpur_2014_NCBI/bam_files; ./dedup_baq_bams.sh {1} results; rm results/{1}.sort.bam' :::: ../data/Harpur_2014_NCBI/samples.list &> logs/filter_bams_Harpur_2014_NCBI.out &
-[2] 11441 - COMPLETE 1.2.19
+[2] 11441 - COMPLETE 1.2.19. Deleted intermediate bams to save space (e.g. data/Harpur_2014_NCBI/bam_files/SRR957058.bam)
 # would run more in parallel except one other job w/ 2 threads is running at the same time and $ free -m says I have < 6G RAM available, which is what I've maxed picard and samtools to.
 
 
 # TO DO:
-# add readgroup IDs to CA_Bees filtered bams ..others already have this from when I mapped with bowtie2
-# delete intermediate bams if you need the space (likely).
 # note: best to put more general scripts, that will be used in multiple analyses, when that comes up, in a scripts/ folder
 # also need a script to calculate coverage distribution and mean coverage (to get 2x and .5x thresholds)
