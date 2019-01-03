@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# slurm array task id sets number of genetic clusters, e.g.
-# set an --array=2 for K = 2 or --array=2-4 to test K = 2, 3, 4 etc.
-
 # set VARIABLES
 # The first argument K is the number of clusters
 # and the second argument is the prefix for the genotype likelihood input file (also used to name output file)
 k=$1
-GL_FILE="results/input/$2.beagle.gz"
+PREFIX=$2
+GL_FILE="results/input/${PREFIX}.beagle.gz"
 DIR_OUT="results/NGSAdmix"
-FILE_OUT="${DIR_OUT}/K${k}_$2"
+FILE_OUT="${DIR_OUT}/K${k}_${PREFIX}"
+
+echo "running NGSadmix for K=${k}, on genotype likelihood file ${GL_FILE}"
 
 # general bash script settings to make sure if any errors in the pipeline fail
 # then it’s a ‘fail’ and it passes all errors to exit and allows no unset variables

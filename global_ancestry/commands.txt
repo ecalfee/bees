@@ -6,6 +6,27 @@
 # SNPs need to be in low LD for this analysis.
 # for input files in results/input/, I concatenate the GL for every 1000th SNP for ordered scaffolds:
 # first make a list of gl files in order (different order will give different SNPs):
-bees/global_ancestry$
+bees/global_ancestry$ for i in $(cat ../data/honeybee_genome/ordered_scaffolds.list); do echo "scaffold_$i.beagle.gz"; done > results/input/ordered_scaffolds.GL.files
 # then thin to every 1000th SNP:
-bees/global_ancestry$
+bees/global_ancestry$ nohup ./catBeagleGL_nth.sh 1000 ordered_scaffolds ../geno_lik_and_SNPs/results/pass1_GL_by_scaffold >& logs/prune_ordered_scaffolds_by1000.out &
+[1] 22451 - COMPLETE (few minutes) # about 3k snps
+# also pruning by every 250 SNPs
+bees/global_ancestry$ nohup ./catBeagleGL_nth.sh 250 ordered_scaffolds ../geno_lik_and_SNPs/results/pass1_GL_by_scaffold >& logs/prune_ordered_scaffolds_by250.out &
+[1] 1443 - COMPLETE
+
+# run PCAngsd (note: first need to install pcangsd.py, python2, pip2, and using pip2 all the dependencies, e.g. numpy, listed here: http://www.popgen.dk/software/index.php/PCAngsd)
+bees/global_ancestry$ nohup ./runPCAngsd.sh ordered_scaffolds_prunedBy250 >& logs/runPCA_ordered_scaffolds_prunedBy250.out &
+[1] 14723 - COMPLETE (seconds)
+
+bees/global_ancestry$ nohup ./runPCAngsd.sh ordered_scaffolds_prunedBy1000 >& logs/runPCA_ordered_scaffolds_prunedBy1000.out &
+[2] 15018 - COMPLETE (seconds)
+
+# run NGSAdmix
+bees/global_ancestry$ nohup ./runNGSadmix.sh 3 ordered_scaffolds_prunedBy250 &> logs/runNGSadmix_ordered_scaffolds_prunedBy250.out &
+[1] 13386 - COMPLETE (seconds)
+
+bees/global_ancestry$ nohup ./runNGSadmix.sh 3 ordered_scaffolds_prunedBy1000 &> logs/runNGSadmix_ordered_scaffolds_prunedBy1000.out &
+[1] 13376 - COMPLETE (seconds)
+
+
+

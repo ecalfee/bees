@@ -16,7 +16,7 @@ set –o nounset
 mkdir -p ${DIR_OUT}
 
 # assumes GL data is already filtered for a minimum MAF; doesn't re-filter
-python2 /home/ecalfee/bin/pcangsd/pcangsd.py \
+python2 ~/Software/pcangsd/pcangsd.py \
 -beagle "${GL_FILE}" \
 -threads 2 -iter 100 \
 -minMaf 0 -admix \
