@@ -14,4 +14,4 @@
 # TO DO:
 # Divide honeybee genome into shorter genomic regions to run analysis
 # make list of included bees for pass1.list, using IDs matching filtered_bams/results/ID.sort.dedup.baq.bam:
-bees/geno_lik_and_SNPs$ cat ../bee_samples_listed/post_1994.list; cat ../data/novo_seq/C202SC18101772/samples.list > pass1.list
+bees/bee_samples_listed$ cat post_1994.list > pass1.list; cat ../data/novo_seq/C202SC18101772/samples.list >> pass1.list

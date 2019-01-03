@@ -49,15 +49,17 @@ all <- bind_rows(harpur_incl, kenya_incl, ca_bees_incl) %>%
 #.[order(.$year), ] %>%
 .[order(.$strain), ]
 write.table(all, "bee_samples_listed/harpur_kenya_ca_bees.meta", 
-            row.names = F, col.names = T, sep = "\t")
+            row.names = F, col.names = T, sep = "\t", quote = F)
 
 
 # make a list of the reference individuals + ca_bees post 1994 (CA introduction of Afr. honeybees)
 post_1994 <- all[all$population %in% c("A", "C", "M") | 
                    (all$strain == "unknown" & all$year >= 1994), ]
 write.table(post_1994, "bee_samples_listed/post_1994.meta", 
-            row.names = F, col.names = T, sep = "\t")
+            row.names = F, col.names = T, sep = "\t",
+            quote = F)
 write.table(post_1994$ID, "bee_samples_listed/post_1994.list", 
-            row.names = F, col.names = F)
+            row.names = F, col.names = F,
+            quote = F)
 
 
