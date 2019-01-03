@@ -91,6 +91,12 @@ bees/filtered_bams$ nohup parallel --noswap --joblog logs/filter_bams_Harpur_201
 # would run more in parallel except one other job w/ 2 threads is running at the same time and $ free -m says I have < 6G RAM available, which is what I've maxed picard and samtools to.
 
 
+# Quick calculation of coverage for pass1 individuals: (~3minutes)
+bees/filtered_bams$ angsd -bam ../bee_samples_listed/pass1.bams -doDepth 1 -out results/depth/Group1.1 \
+-doCounts 1 -r Group1.1: -minMapQ 30 -minQ 20 -remove_bads 1 -maxDepth 10000
+# used R to calculate mean depth for this single (large) scaffold to set .5x and 2x approximate cutoffs for angsd GL
+plot_bam_metrics.R # (starting with approximation from scaffold Group1.1 only, cutoffs are 865x and 3462x)
+
 # TO DO:
+# plot rest of mapping metrics, extracting information from picard metrics output file
 # note: best to put more general scripts, that will be used in multiple analyses, when that comes up, in a scripts/ folder
-# also need a script to calculate coverage distribution and mean coverage (to get 2x and .5x thresholds)
