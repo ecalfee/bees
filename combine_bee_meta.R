@@ -15,9 +15,11 @@ harpur_incl <- harpur %>%
                                       ifelse(strain_s == "Apis mellifera carnica", "C",
                                              ifelse(strain_s == "Apis cerana", "Cerana", NA)))))) %>%
   filter(population != "Y") %>%
-  rename(ID = Run_s) %>%
+  rename(Bee_ID = Run_s) %>%
   rename(geographic_location = geographic_location_s) %>%
-  rename(strain = strain_s)
+  rename(strain = strain_s) %>%
+  mutate(year = 2013) %>%
+  mutate(source = "Harpur")
 # more A bees from Kenya, Sheppard collection
 kenya <- read.table("data/Kenya_Sheppard_NCBI/Kenya_SraRunTable.txt",
                     sep = "\t", stringsAsFactors = F,
@@ -27,9 +29,10 @@ kenya_incl <- kenya %>%
   mutate(geographic_location = "Kenya") %>%
   rename(strain = Organism_s) %>%
   mutate(population = "A") %>%
-  rename(ID = Run_s) %>%
+  rename(Bee_ID = Run_s) %>%
   mutate(year = as.integer(collection_date_s)) %>%
-  select(ID, strain, year, geographic_location, population)
+  select(-collection_date_s) %>%
+  mutate(source = "Sheppard")
 
 # CA bees from Ramirez lab
 ca_bees <- read.table("bee_filter.txt",
@@ -40,7 +43,9 @@ ca_bees_incl <- ca_bees %>%
   filter(!(population %in% c("M", "A", "C", "Cerana"))) %>%
   separate(., population, c("geographic_location", "year"), remove = F) %>%
   mutate(strain = "unknown") %>%
-  mutate(year = as.integer(year))
+  mutate(year = as.integer(year)) %>%
+  mutate(source = "Ramirez") %>%
+  rename(Bee_ID = ID)
 
 # metadata for all reference panel bees from prior studies
 # combine and sort into pop. groups before printing to file
@@ -58,8 +63,28 @@ post_1994 <- all[all$population %in% c("A", "C", "M") |
 write.table(post_1994, "bee_samples_listed/post_1994.meta", 
             row.names = F, col.names = T, sep = "\t",
             quote = F)
-write.table(post_1994$ID, "bee_samples_listed/post_1994.list", 
+write.table(post_1994$Bee_ID, "bee_samples_listed/post_1994.list", 
             row.names = F, col.names = F,
             quote = F)
+
+# add in CA and AR bees newly collected:
+newCA <- read.table("maps/CA_bee_lat_long_4_google_maps.csv", sep = ",", stringsAsFactors = F, header = T) %>%
+  mutate(year = 2018) %>%
+  mutate(strain = "unknown") %>%
+  mutate(source = "Calfee") %>%
+  mutate(population = substr(Bee_ID, 1, 4)) %>%
+  mutate(geographic_location = "California")
+newAR <- read.table("maps/Arg_bee_lat_long_4_google_maps.csv", sep = ",", stringsAsFactors = F, header = T) %>%
+  mutate(year = 2018) %>%
+  mutate(strain = "unknown") %>%
+  mutate(source = "Calfee") %>%
+  mutate(population = substr(Bee_ID, 1, 4)) %>%
+  mutate(geographic_location = "Argentina")
+
+w_new_bees <- bind_rows(all, newCA, newAR)
+write.table(w_new_bees, "bee_samples_listed/all.meta", 
+            row.names = F, col.names = F,
+            quote = F)
+
 
 

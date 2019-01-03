@@ -1,114 +1,114 @@
-ID	geographic_location	strain	population	year
-SRR957079	Thailand: Chiang Mai	Apis cerana	Cerana	NA
-SRR957080	North Rhine-Westphalia, Germany	Apis mellifera carnica	C	NA
-SRR957081	North Rhine-Westphalia, Germany	Apis mellifera carnica	C	NA
-SRR957082	Novalija, Pag Island, Croatia	Apis mellifera carnica	C	NA
-SRR957083	Komorovac, Pag Island, Croatia	Apis mellifera carnica	C	NA
-SRR957084	Baric Draga, Croatia	Apis mellifera carnica	C	NA
-SRR957085	Sugarje, Croatia	Apis mellifera carnica	C	NA
-SRR957086	Slovenia	Apis mellifera carnica	C	NA
-SRR957087	Slovenia	Apis mellifera carnica	C	NA
-SRR957088	Slovenia	Apis mellifera carnica	C	NA
-SRR957061	Cordoba, Spain	Apis mellifera iberiensis	M	NA
-SRR957062	Murcia, Spain	Apis mellifera iberiensis	M	NA
-SRR957063	Murcia, Spain	Apis mellifera iberiensis	M	NA
-SRR957064	Cordoba, Spain	Apis mellifera iberiensis	M	NA
-SRR957058	Rudawka, Poland	Apis mellifera mellifera	M	NA
-SRR957059	Sucha Rzeczka, Poland	Apis mellifera mellifera	M	NA
-SRR957060	Sucha Rzeczka, Poland	Apis mellifera mellifera	M	NA
-SRR957089	Zalewo, Poland	Apis mellifera mellifera	M	NA
-SRR957090	Rudawka, Poland	Apis mellifera mellifera	M	NA
-SRR957075	East Cape, South Africa	Apis mellifera scutellata	A	NA
-SRR957076	East Cape, South Africa	Apis mellifera scutellata	A	NA
-SRR957077	NW. Cape, South Africa	Apis mellifera scutellata	A	NA
-SRR957078	N. Cape, South Africa	Apis mellifera scutellata	A	NA
-SRR957091	NW. Cape, South Africa	Apis mellifera scutellata	A	NA
-SRR957092	West Cape, South Africa	Apis mellifera scutellata	A	NA
-SRR957093	Freestate, South Africa	Apis mellifera scutellata	A	NA
-SRR957094	N/NW Cape, South Africa	Apis mellifera scutellata	A	NA
-SRR957095	NW. Cape, South Africa	Apis mellifera scutellata	A	NA
-SRR957096	East Cape, South Africa	Apis mellifera scutellata	A	NA
-SRR957097	East Cape, South Africa	Apis mellifera scutellata	A	NA
-SRR5270366	Kenya	Apis mellifera scutellata	A	1995
-SRR5270367	Kenya	Apis mellifera scutellata	A	1995
-SRR5270368	Kenya	Apis mellifera scutellata	A	1995
-SRR5270369	Kenya	Apis mellifera scutellata	A	1995
-SRR5270370	Kenya	Apis mellifera scutellata	A	1995
-SRR5270371	Kenya	Apis mellifera scutellata	A	1995
-ap24	Avalon	unknown	Avalon_1910	1910
-ap25	Avalon	unknown	Avalon_1910	1910
-SRCD49B	Avalon	unknown	Avalon_2014	2014
-SRCD52A	Avalon	unknown	Avalon_2014	2014
-SRCD8C	Avalon	unknown	Avalon_2014	2014
-SRCD9B	Avalon	unknown	Avalon_2014	2014
-SRCD9C	Avalon	unknown	Avalon_2014	2014
-ap11	Berkeley	unknown	Berkeley_2011	2011
-SRCD54B	Davis	unknown	Davis_1968	1968
-SRCD8B	Davis	unknown	Davis_1968	1968
-SRCD47B	Davis	unknown	Davis_2014	2014
-SRCD49C	Davis	unknown	Davis_2014	2014
-SRCD50B	Davis	unknown	Davis_2014	2014
-SRCD50C	Davis	unknown	Davis_2014	2014
-SRCD53A	Davis	unknown	Davis_2014	2014
-SRCD55A	Domestic	unknown	Domestic_2014	2014
-SRCD55B	Domestic	unknown	Domestic_2014	2014
-SRCD55C	Domestic	unknown	Domestic_2014	2014
-SRCD55D	Domestic	unknown	Domestic_2014	2014
-SRCD55E	Domestic	unknown	Domestic_2014	2014
-SRCD55F	Domestic	unknown	Domestic_2014	2014
-ap20	Humboldt	unknown	Humboldt_1966	1966
-ap22	Humboldt	unknown	Humboldt_1966	1966
-ap29	Humboldt	unknown	Humboldt_1966	1966
-ap30	Humboldt	unknown	Humboldt_1966	1966
-ap31	Humboldt	unknown	Humboldt_1966	1966
-SRCD53C	Humboldt	unknown	Humboldt_1966	1966
-SRCD12A	Humboldt	unknown	Humboldt_2014	2014
-SRCD12B	Humboldt	unknown	Humboldt_2014	2014
-SRCD12C	Humboldt	unknown	Humboldt_2014	2014
-SRCD45A	Humboldt	unknown	Humboldt_2014	2014
-SRCD45B	Humboldt	unknown	Humboldt_2014	2014
-SRCD53B	Humboldt	unknown	Humboldt_2014	2014
-ap41	Placerita	unknown	Placerita_1999	1999
-ap42	Placerita	unknown	Placerita_1999	1999
-ap43	Placerita	unknown	Placerita_1999	1999
-ap45	Placerita	unknown	Placerita_1999	1999
-ap48	Placerita	unknown	Placerita_1999	1999
-SRCD10C	Placerita	unknown	Placerita_2014	2014
-SRCD11A	Placerita	unknown	Placerita_2014	2014
-SRCD11B	Placerita	unknown	Placerita_2014	2014
-SRCD54A	Placerita	unknown	Placerita_2014	2014
-SRCD6B	Placerita	unknown	Placerita_2014	2014
-SRCD6C	Placerita	unknown	Placerita_2014	2014
-ap38	Riverside	unknown	Riverside_1983	1983
-ap39	Riverside	unknown	Riverside_1983	1983
-ap34	Riverside	unknown	Riverside_1999	1999
-ap50	Riverside	unknown	Riverside_1999	1999
-ap50	Riverside	unknown	Riverside_1999	1999
-SRCD10B	Riverside	unknown	Riverside_2014	2014
-SRCD47A	Riverside	unknown	Riverside_2014	2014
-SRCD49A	Riverside	unknown	Riverside_2014	2014
-SRCD51B	Riverside	unknown	Riverside_2014	2014
-SRCD51C	Riverside	unknown	Riverside_2014	2014
-SRCD54C	Riverside	unknown	Riverside_2014	2014
-SRCD6A	Riverside	unknown	Riverside_2014	2014
-SRCD9A	Riverside	unknown	Riverside_2014	2014
-ap35	SanPedro	unknown	SanPedro_2002	2002
-ap36	SanPedro	unknown	SanPedro_2002	2002
-ap05	Stanislaus	unknown	Stanislaus_1976	1976
-SRCD10A	Stanislaus	unknown	Stanislaus_1976	1976
-SRCD11C	Stanislaus	unknown	Stanislaus_2014	2014
-SRCD46B	Stanislaus	unknown	Stanislaus_2014	2014
-SRCD47C	Stanislaus	unknown	Stanislaus_2014	2014
-SRCD50A	Stanislaus	unknown	Stanislaus_2014	2014
-SRCD51A	Stanislaus	unknown	Stanislaus_2014	2014
-SRCD8A	Stanislaus	unknown	Stanislaus_2014	2014
-ap51	Stebbins	unknown	Stebbins_1996	1996
-ap52	Stebbins	unknown	Stebbins_1996	1996
-ap53	Stebbins	unknown	Stebbins_1996	1996
-ap54	Stebbins	unknown	Stebbins_1996	1996
-ap55	Stebbins	unknown	Stebbins_1996	1996
-SRCD45C	Stebbins	unknown	Stebbins_2014	2014
-SRCD46C	Stebbins	unknown	Stebbins_2014	2014
-SRCD48A	Stebbins	unknown	Stebbins_2014	2014
-SRCD48B	Stebbins	unknown	Stebbins_2014	2014
-SRCD48C	Stebbins	unknown	Stebbins_2014	2014
+Bee_ID	geographic_location	strain	population	year	source
+SRR957079	Thailand: Chiang Mai	Apis cerana	Cerana	2013	Harpur
+SRR957080	North Rhine-Westphalia, Germany	Apis mellifera carnica	C	2013	Harpur
+SRR957081	North Rhine-Westphalia, Germany	Apis mellifera carnica	C	2013	Harpur
+SRR957082	Novalija, Pag Island, Croatia	Apis mellifera carnica	C	2013	Harpur
+SRR957083	Komorovac, Pag Island, Croatia	Apis mellifera carnica	C	2013	Harpur
+SRR957084	Baric Draga, Croatia	Apis mellifera carnica	C	2013	Harpur
+SRR957085	Sugarje, Croatia	Apis mellifera carnica	C	2013	Harpur
+SRR957086	Slovenia	Apis mellifera carnica	C	2013	Harpur
+SRR957087	Slovenia	Apis mellifera carnica	C	2013	Harpur
+SRR957088	Slovenia	Apis mellifera carnica	C	2013	Harpur
+SRR957061	Cordoba, Spain	Apis mellifera iberiensis	M	2013	Harpur
+SRR957062	Murcia, Spain	Apis mellifera iberiensis	M	2013	Harpur
+SRR957063	Murcia, Spain	Apis mellifera iberiensis	M	2013	Harpur
+SRR957064	Cordoba, Spain	Apis mellifera iberiensis	M	2013	Harpur
+SRR957058	Rudawka, Poland	Apis mellifera mellifera	M	2013	Harpur
+SRR957059	Sucha Rzeczka, Poland	Apis mellifera mellifera	M	2013	Harpur
+SRR957060	Sucha Rzeczka, Poland	Apis mellifera mellifera	M	2013	Harpur
+SRR957089	Zalewo, Poland	Apis mellifera mellifera	M	2013	Harpur
+SRR957090	Rudawka, Poland	Apis mellifera mellifera	M	2013	Harpur
+SRR957075	East Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur
+SRR957076	East Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur
+SRR957077	NW. Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur
+SRR957078	N. Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur
+SRR957091	NW. Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur
+SRR957092	West Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur
+SRR957093	Freestate, South Africa	Apis mellifera scutellata	A	2013	Harpur
+SRR957094	N/NW Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur
+SRR957095	NW. Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur
+SRR957096	East Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur
+SRR957097	East Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur
+SRR5270366	Kenya	Apis mellifera scutellata	A	1995	Sheppard
+SRR5270367	Kenya	Apis mellifera scutellata	A	1995	Sheppard
+SRR5270368	Kenya	Apis mellifera scutellata	A	1995	Sheppard
+SRR5270369	Kenya	Apis mellifera scutellata	A	1995	Sheppard
+SRR5270370	Kenya	Apis mellifera scutellata	A	1995	Sheppard
+SRR5270371	Kenya	Apis mellifera scutellata	A	1995	Sheppard
+ap24	Avalon	unknown	Avalon_1910	1910	Ramirez
+ap25	Avalon	unknown	Avalon_1910	1910	Ramirez
+SRCD49B	Avalon	unknown	Avalon_2014	2014	Ramirez
+SRCD52A	Avalon	unknown	Avalon_2014	2014	Ramirez
+SRCD8C	Avalon	unknown	Avalon_2014	2014	Ramirez
+SRCD9B	Avalon	unknown	Avalon_2014	2014	Ramirez
+SRCD9C	Avalon	unknown	Avalon_2014	2014	Ramirez
+ap11	Berkeley	unknown	Berkeley_2011	2011	Ramirez
+SRCD54B	Davis	unknown	Davis_1968	1968	Ramirez
+SRCD8B	Davis	unknown	Davis_1968	1968	Ramirez
+SRCD47B	Davis	unknown	Davis_2014	2014	Ramirez
+SRCD49C	Davis	unknown	Davis_2014	2014	Ramirez
+SRCD50B	Davis	unknown	Davis_2014	2014	Ramirez
+SRCD50C	Davis	unknown	Davis_2014	2014	Ramirez
+SRCD53A	Davis	unknown	Davis_2014	2014	Ramirez
+SRCD55A	Domestic	unknown	Domestic_2014	2014	Ramirez
+SRCD55B	Domestic	unknown	Domestic_2014	2014	Ramirez
+SRCD55C	Domestic	unknown	Domestic_2014	2014	Ramirez
+SRCD55D	Domestic	unknown	Domestic_2014	2014	Ramirez
+SRCD55E	Domestic	unknown	Domestic_2014	2014	Ramirez
+SRCD55F	Domestic	unknown	Domestic_2014	2014	Ramirez
+ap20	Humboldt	unknown	Humboldt_1966	1966	Ramirez
+ap22	Humboldt	unknown	Humboldt_1966	1966	Ramirez
+ap29	Humboldt	unknown	Humboldt_1966	1966	Ramirez
+ap30	Humboldt	unknown	Humboldt_1966	1966	Ramirez
+ap31	Humboldt	unknown	Humboldt_1966	1966	Ramirez
+SRCD53C	Humboldt	unknown	Humboldt_1966	1966	Ramirez
+SRCD12A	Humboldt	unknown	Humboldt_2014	2014	Ramirez
+SRCD12B	Humboldt	unknown	Humboldt_2014	2014	Ramirez
+SRCD12C	Humboldt	unknown	Humboldt_2014	2014	Ramirez
+SRCD45A	Humboldt	unknown	Humboldt_2014	2014	Ramirez
+SRCD45B	Humboldt	unknown	Humboldt_2014	2014	Ramirez
+SRCD53B	Humboldt	unknown	Humboldt_2014	2014	Ramirez
+ap41	Placerita	unknown	Placerita_1999	1999	Ramirez
+ap42	Placerita	unknown	Placerita_1999	1999	Ramirez
+ap43	Placerita	unknown	Placerita_1999	1999	Ramirez
+ap45	Placerita	unknown	Placerita_1999	1999	Ramirez
+ap48	Placerita	unknown	Placerita_1999	1999	Ramirez
+SRCD10C	Placerita	unknown	Placerita_2014	2014	Ramirez
+SRCD11A	Placerita	unknown	Placerita_2014	2014	Ramirez
+SRCD11B	Placerita	unknown	Placerita_2014	2014	Ramirez
+SRCD54A	Placerita	unknown	Placerita_2014	2014	Ramirez
+SRCD6B	Placerita	unknown	Placerita_2014	2014	Ramirez
+SRCD6C	Placerita	unknown	Placerita_2014	2014	Ramirez
+ap38	Riverside	unknown	Riverside_1983	1983	Ramirez
+ap39	Riverside	unknown	Riverside_1983	1983	Ramirez
+ap34	Riverside	unknown	Riverside_1999	1999	Ramirez
+ap50	Riverside	unknown	Riverside_1999	1999	Ramirez
+ap50	Riverside	unknown	Riverside_1999	1999	Ramirez
+SRCD10B	Riverside	unknown	Riverside_2014	2014	Ramirez
+SRCD47A	Riverside	unknown	Riverside_2014	2014	Ramirez
+SRCD49A	Riverside	unknown	Riverside_2014	2014	Ramirez
+SRCD51B	Riverside	unknown	Riverside_2014	2014	Ramirez
+SRCD51C	Riverside	unknown	Riverside_2014	2014	Ramirez
+SRCD54C	Riverside	unknown	Riverside_2014	2014	Ramirez
+SRCD6A	Riverside	unknown	Riverside_2014	2014	Ramirez
+SRCD9A	Riverside	unknown	Riverside_2014	2014	Ramirez
+ap35	SanPedro	unknown	SanPedro_2002	2002	Ramirez
+ap36	SanPedro	unknown	SanPedro_2002	2002	Ramirez
+ap05	Stanislaus	unknown	Stanislaus_1976	1976	Ramirez
+SRCD10A	Stanislaus	unknown	Stanislaus_1976	1976	Ramirez
+SRCD11C	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez
+SRCD46B	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez
+SRCD47C	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez
+SRCD50A	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez
+SRCD51A	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez
+SRCD8A	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez
+ap51	Stebbins	unknown	Stebbins_1996	1996	Ramirez
+ap52	Stebbins	unknown	Stebbins_1996	1996	Ramirez
+ap53	Stebbins	unknown	Stebbins_1996	1996	Ramirez
+ap54	Stebbins	unknown	Stebbins_1996	1996	Ramirez
+ap55	Stebbins	unknown	Stebbins_1996	1996	Ramirez
+SRCD45C	Stebbins	unknown	Stebbins_2014	2014	Ramirez
+SRCD46C	Stebbins	unknown	Stebbins_2014	2014	Ramirez
+SRCD48A	Stebbins	unknown	Stebbins_2014	2014	Ramirez
+SRCD48B	Stebbins	unknown	Stebbins_2014	2014	Ramirez
+SRCD48C	Stebbins	unknown	Stebbins_2014	2014	Ramirez
