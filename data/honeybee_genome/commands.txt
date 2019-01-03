@@ -1,0 +1,11 @@
+# commands used to index etc. reference genome downloaded from beebase.org
+
+# Re-downloaded honeybee genome Apis mellifera v4.5 from beebase.org on 12.19.18: data/honeybee_genome/Amel_4.5_scaffolds.fa (note: wasn't .fa.gz)
+# re-indexed v4.5 genome from www.beebase.org (it's not gzipped the genome I downloaded)
+bees/data/honeybee_genome$ bowtie2-build Amel_4.5_scaffolds.fa honeybee_Amel_4.5
+
+# making a list of scaffolds (in order on chromosome) and their lengths (in bp) for Amel 4.5 honey bee genome:
+bees/data/honeybee_genome$ awk '{print $2"\t"$3}' Amel_4.5_scaffolds.dict | tail -n +2 | \
+tr ":" "\t" | cut -f2,4 | sort --version-sort -k1 > ordered_scaffolds.lengths
+bees/data/honeybee_genome$ awk '{print $2"\t"$3}' Amel_4.5_scaffolds.dict \
+| tail -n +2 | tr ":" "\t" | cut -f2,4 | sort --version-sort -k1 | cut -f1 > ordered_scaffolds.list
