@@ -94,8 +94,36 @@ bees/filtered_bams$ nohup parallel --noswap --joblog logs/filter_bams_Harpur_201
 # Quick calculation of coverage for pass1 individuals: (~3minutes)
 bees/filtered_bams$ angsd -bam ../bee_samples_listed/pass1.bams -doDepth 1 -out results/depth/Group1.1 \
 -doCounts 1 -r Group1.1: -minMapQ 30 -minQ 20 -remove_bads 1 -maxDepth 10000
+# Note: doesn't appear to count zero-depth spots
 # used R to calculate mean depth for this single (large) scaffold to set .5x and 2x approximate cutoffs for angsd GL
 plot_bam_metrics.R # (starting with approximation from scaffold Group1.1 only, cutoffs are 865x and 3462x)
+
+# Getting actual depth per chromosome:
+# First list scaffolds within each chromosome (and group Un for scaffolds without a chromosome assignment)
+bees/data/honeybee_genome$ for i in {1..16} Un; do grep Group$i\. ordered_scaffolds.list > ordered_scaffolds.Group$i.list; done
+bees/filtered_bams$ nohup parallel --noswap --joblog logs/depth_by_chr.log --jobs 2 \
+'angsd -bam ../bee_samples_listed/pass1.bams -doDepth 1 -out results/depth/Group{1} \
+-doCounts 1 -rf ../data/honeybee_genome/ordered_scaffolds.Group{1}.list -minMapQ 30 -minQ 20 \
+-remove_bads 1 -maxDepth 20000' ::: {1..16} Un &> logs/depth_by_chr.out &
+[1] 13236 - RUNNING 1.7.19
+
+# extracting mapping metrics, including percent read duplication (e.g. PCR duplicates):
+# counting # reads pre-filtering, and at de-duplication using PICARD metrics.txt output files
+# (to compare effects of filtering across groups/individuals):
+bees/filtered_bams/metrics$ grep 'LIBRARY' $(head -n 1 ../../bee_samples_listed/pass1.list).metrics.txt | \
+awk '{print "StudyID\t"$0}' > pass1.all.metrics.raw.Nreads; \
+for i in $(cat ../../bee_samples_listed/pass1.list); do grep 'Unknown Library' "$i.metrics.txt" | \
+awk -v i="$i" '{print i"\t"$0}' >> pass1.all.metrics.raw.Nreads; done
+
+# get the number of reads remaining after Q30 mapping filters using samtools flagstat:
+bees/filtered_bams$ nohup parallel --noswap --joblog logs/run_flagstat.log --jobs 4 \
+'samtools flagstat results/{1}.sort.dedup.baq.bam > metrics/{1}.flagstat.txt' \
+:::: ../bee_samples_listed/pass1.list &> logs/run_flagstat.out &
+[2] 15291 - COMPLETE 1.8.19
+extract from flagstat metrics the number of reads in final filtered bams:
+bees/filtered_bams/metrics$ for i in $(cat ../../bee_samples_listed/pass1.list); \
+do echo $i$'\t'$(cat $i.flagstat.txt | grep 'total' | cut -d' ' -f1); \
+done > pass1.all.metrics.Q30.Nreads
 
 # TO DO:
 # plot rest of mapping metrics, extracting information from picard metrics output file

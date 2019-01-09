@@ -60,7 +60,7 @@ bees$toSequence[bees$Bee_ID %in% c(extract1, extract2, extractEnjambre,
                                    extractToDo_CA, extractToDo_AR)] <- TRUE
 bees$enjambre <- bees$Bee_ID %in% extractEnjambre # bee from a feral colony "enjambre"
 
-# make some simple cvs files of bee coordinates:
+# make some simple csv files of bee coordinates:
 bees %>%
   filter(., state == "AR") %>%
   select(., Bee_ID, lat, long, popN, indN, Date, Time, toSequence, enjambre) %>%
@@ -226,6 +226,34 @@ lapply(sort(unique(bees[bees$state == "AR" & bees$toSequence, "popN"])),
                          fun = distGeo)/1000)
 distm(x = bees[bees$state == "AR" & bees$toSequence & bees$popN %in% c("01", "02", "27", "29"), 
                c("long", "lat")], fun = distGeo)/1000
+
+# distance between all Argentina samples:
+ar_dist <- distm(x = bees[bees$state == "AR", 
+               c("long", "lat")], fun = distGeo)/1000
+ar_dist_1 <- distm(x = bees[bees$state == "AR" & bees$popN == "01",
+                            c("long", "lat")], 
+                   fun = distGeo)/1000
+heatmap(ar_dist_1)
+hist(ar_dist_1)
+
+ar_dist_29 <- distm(x = bees[bees$state == "AR" & bees$popN == "29",
+                            c("long", "lat")], 
+                   fun = distGeo)/1000
+heatmap(ar_dist_29)
+hist(ar_dist_29)
+# attempt to make a non-duplicate GPS location
+# set of bees w/ minimum distance for sequencing:
+set.seed(8293)
+no_dup_ar <- filter(bees, state == "AR") %>%
+  .[sample(1:nrow(.)), ] %>% # randomize order so bees w/ duplicate gps coordinates are selected out at random
+  arrange(., !toSequence) %>% # always include bees already specified to sequence
+  mutate(., duplicate = duplicated(.[ , c("lat", "long")])) %>%
+  filter(., !duplicate)
+#no_dup_ar_dist_byPop <- lapply
+no_dup_ar_dist <- distm(x = no_dup_ar[ ,
+                             c("long", "lat")], 
+                    fun = distGeo)/1000
+heatmap(no_dup_ar_dist, scale = "none")
 
 # Argentina color by pop -- add individuals to be sequenced
 ggmap(get_map(location = 'Santa Fe, Argentina', 
