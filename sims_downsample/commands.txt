@@ -429,6 +429,13 @@ Died at /home/erin/bin/fastPHASE2VCF.pl line 102, <FPOUTPUT> line 170.
 # It also didn't fix the problem to replace null characters with ?'s in the fastPHASE output:
 sed 's/\x0/?/g' ACM_Riv2014_chr16_hapguess_indiv.out > TEST_ACM_Riv2014_chr16_hapguess_indiv.out
 bees/data/sims_downsample/fastPHASE$ fastPHASE2VCF.pl ACM_Riv2014.chr16.recode.phase.inp TEST_ACM_Riv2014_chr16_hapguess_indiv.out ACM_Riv2014_chr16.vcf TEST_ACM_Riv2014_chr16.indiv.phased.out 16 # same error
+## I don't understand source of the error: input and output fastPHASE files as well as input VCF appear to have = # sites
+ACM_Riv2014_chr10.vcf has 334171 lines and 334164 variants
+bees/data/sims_downsample/fastPHASE$ sed '25!d' ACM_Riv2014_chr10_hapguess_indiv.out | tr -d [:blank:] | wc -m 
+### returns 334165 
+data/sims_downsample/fastPHASE$ sed '4!d' ACM_Riv2014.chr10.recode.phase.inp | tr -d [:blank:] | wc -m
+### also returns 334165 (maybe +1 due to end of line character? not sure)
+
 # others have also had this error: https://www.biostars.org/p/265377/
 # I'm not sure the problem of if I should just try to use -Z fastphase output (simple, no dividing ind. Id's),
 and pre-assign one allele to 0 vs. 1 in plink and filtering for invariant sites before passing input files to fastPHASE

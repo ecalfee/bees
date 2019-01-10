@@ -34,7 +34,7 @@ d <- bind_cols(bees, admix)  %>%
   arrange(., group)
   
 # plot 'STRUCTURE-like' ancestry plots
-png(paste0("plots/", name, ".png"), # saves plot as pin in ../plots/
+png(paste0("plots/", name, ".png"), # saves plot as ping in ../plots/
       height = 5, width = 8, units = "in", res = 150)
 d %>%
   select(., colnames(admix)) %>%

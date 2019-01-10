@@ -5,7 +5,7 @@ library(tidyr)
 library(ggplot2)
 library(RColorBrewer)# for color palette
 
-# get metadata for individuals included in NGSadmix analysis
+# get metadata for individuals included in analysis
 meta <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F, 
                    header = T, sep = "\t")
 
