@@ -28,5 +28,7 @@ bees/global_ancestry$ nohup ./runNGSadmix.sh 3 ordered_scaffolds_prunedBy250 &> 
 bees/global_ancestry$ nohup ./runNGSadmix.sh 3 ordered_scaffolds_prunedBy1000 &> logs/runNGSadmix_ordered_scaffolds_prunedBy1000.out &
 [1] 13376 - COMPLETE (seconds)
 
-
-
+# made multiple R scripts for plotting results:
+plot_PCA.R
+plot_NGSadmix.R
+plot_admixture_by_PCA.R # shows congruence between these two global ancestry analyses
