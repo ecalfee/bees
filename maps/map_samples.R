@@ -60,6 +60,16 @@ bees$toSequence[bees$Bee_ID %in% c(extract1, extract2, extractEnjambre,
                                    extractToDo_CA, extractToDo_AR)] <- TRUE
 bees$enjambre <- bees$Bee_ID %in% extractEnjambre # bee from a feral colony "enjambre"
 
+# assign bees to sequence (which lane) & not as well as to the morphology study
+# load set of random bees with wings already measured
+wing_done <- unlist(read.table("../labwork/ids2morph_10N_CA", stringsAsFactors = F,
+                        sep = " ", header = F))
+bees$wingAnalysis <- ifelse(bees$Bee_ID %in% wing_done)
+
+
+
+
+
 # make some simple csv files of bee coordinates:
 bees %>%
   filter(., state == "AR") %>%
