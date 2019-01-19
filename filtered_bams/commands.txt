@@ -11,7 +11,8 @@
 # raw_data$ for i in $(awk '{print $2}' ALL_MD5_expected.txt); do md5 */${i} | awk '{print $4}'; done > ALL_MD5_observed.txt # observed md5 values for each .fq file
 # raw_data$ diff -q <(awk '{print $1}' ALL_MD5_expected.txt) <(cat ALL_md5_observed.txt) # outputs 'Files * and * differ' if they differ; outputs nothing if they're the same. Take away -q to see differences.
 # checking data on barbara:
-# raw_data$ for i in $(awk '{print $2}' ALL_MD5_expected.txt); do md5sum */${i} | awk '{print $4}'; done > ALL_MD5_observed_barbara_1.18.19.txt # observed md5 values for each .fq file
+# raw_data$ for i in $(awk '{print $2}' ALL_MD5_expected.txt); do md5sum */${i}; done > ALL_MD5_observed_barbara_1.18.19.txt # observed md5 values for each .fq file
+
 
 # Re-downloaded honeybee genome Apis mellifera v4.5 from beebase.org on 12.19.18: data/honeybee_genome/Amel_4.5_scaffolds.fa (note: wasn't .fa.gz)
 
@@ -134,7 +135,9 @@ done > pass1.all.metrics.dedup.mapped.Nreads
 
 
 # TO DO:
-# check ALL_MD5_observed_barbara_1.18.19.txt against expected checksums
+# check ALL_MD5_observed_barbara_1.18.19.txt against expected checksums by running:
+# raw_data$ diff -q <(awk '{print $1}' ALL_MD5_expected.txt) (awk '{print $1}' ALL_MD5_observed_barbara_1.18.19.txt) # outputs 'Files * and * differ' if they differ; outputs nothing if they're the same. Take away -q to see differences.
+
 # Use FastQ screen to assess why some samples have high % unmapped reads -- do I have contamination? FastQ screen attempts to map reads to multiple references of your choice, e.g. honeybee, human, PhiX, E. coli, adapter sequences, Vectors
 # Download and map reads from Wallberg 2014 for A/C/M/O populations using pipeline for SOLiD data 
 # deduplicate and run BAQ for Wallberg 2014 bees
