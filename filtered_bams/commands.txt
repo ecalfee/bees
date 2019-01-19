@@ -115,16 +115,24 @@ awk '{print "StudyID\t"$0}' > pass1.all.metrics.raw.Nreads; \
 for i in $(cat ../../bee_samples_listed/pass1.list); do grep 'Unknown Library' "$i.metrics.txt" | \
 awk -v i="$i" '{print i"\t"$0}' >> pass1.all.metrics.raw.Nreads; done
 
-# get the number of reads remaining after Q30 mapping filters using samtools flagstat:
+# get the total number of reads, and total # mapped (any quality) AFTER removing duplicates:
+# I don't actually filter for Q30 (or even unmapped); wanted to leave options open.
+# first count reads using samtools flagstat:
 bees/filtered_bams$ nohup parallel --noswap --joblog logs/run_flagstat.log --jobs 4 \
 'samtools flagstat results/{1}.sort.dedup.baq.bam > metrics/{1}.flagstat.txt' \
 :::: ../bee_samples_listed/pass1.list &> logs/run_flagstat.out &
 [2] 15291 - COMPLETE 1.8.19
-extract from flagstat metrics the number of reads in final filtered bams:
+extract from flagstat metrics the number of reads in final filtered (no duplicates) bams:
 bees/filtered_bams/metrics$ for i in $(cat ../../bee_samples_listed/pass1.list); \
 do echo $i$'\t'$(cat $i.flagstat.txt | grep 'total' | cut -d' ' -f1); \
-done > pass1.all.metrics.Q30.Nreads
+done > pass1.all.metrics.dedup.total.Nreads
+bees/filtered_bams/metrics$ for i in $(cat ../../bee_samples_listed/pass1.list); \
+do echo $i$'\t'$(cat $i.flagstat.txt | grep '+ 0 mapped (' | cut -d' ' -f1); \
+done > pass1.all.metrics.dedup.mapped.Nreads
+
 
 # TO DO:
-# plot rest of mapping metrics, extracting information from picard metrics output file
+# Use FastQ screen to assess why some samples have high % unmapped reads -- do I have contamination? FastQ screen attempts to map reads to multiple references of your choice, e.g. honeybee, human, PhiX, E. coli, adapter sequences, Vectors
+# Download and map reads from Wallberg 2014 for A/C/M/O populations using pipeline for SOLiD data 
+# deduplicate and run BAQ for Wallberg 2014 bees
 # note: best to put more general scripts, that will be used in multiple analyses, when that comes up, in a scripts/ folder
