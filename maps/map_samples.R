@@ -23,11 +23,12 @@ ar_bees <- read.csv("~/Dropbox/grad school/Research/bee project/Argentina/Field 
                       header = T,
                       stringsAsFactors = F)
 # combine data sets
-bees <- full_join(ca_bees, ar_bees) %>%
+bees_raw <- full_join(ca_bees, ar_bees) %>%
   separate(., col = Bee_ID, sep = c(2,4), 
            into = c("state", "popN", "indN"),
-           remove = F) 
-bees <- bees %>%
+           remove = F) %>%
+  filter(., Bee_ID!="") # exclude empty records
+bees <- bees_raw %>%
   # convert degree/min/sec to decimal-based lat & long while keeping those already converted
   # which have min/sec = NA or blank in data
   mutate(., lat = ifelse(is.na(Min_Lat), Deg_Lat, Deg_Lat + Min_Lat/60 + Sec_Lat/3600) * 
@@ -64,11 +65,61 @@ bees$enjambre <- bees$Bee_ID %in% extractEnjambre # bee from a feral colony "enj
 # load set of random bees with wings already measured
 wing_done <- unlist(read.table("../labwork/ids2morph_10N_CA", stringsAsFactors = F,
                         sep = " ", header = F))
-bees$wingAnalysis <- ifelse(bees$Bee_ID %in% wing_done)
+bees$wingPass1 <- bees$Bee_ID %in% wing_done
+set.seed(341)
+bees_random_order_CA <- filter(bees, state == "CA") %>%
+  .[sample(1:nrow(.)), ] %>% # randomize order so bees w/ duplicate gps coordinates are selected out at random
+  arrange(., !wingPass1) %>%
+  arrange(., !toSequence) %>% # always include bees already specified to sequence
+  mutate(., duplicate = duplicated(.[ , c("lat", "long")]))
+no_dup_CA <- filter(bees_random_order_CA, !duplicate)
+n_wing = 12 # select twelve bees per population for wing analysis
+n_seq = 9 # select 9 bees per population for sequencing
+wing_to_do_CA <- unlist(lapply(unique(no_dup_CA$popN), function(pop)
+                               no_dup_CA[no_dup_CA$popN == pop, 
+                                         "Bee_ID"][1:n_wing]))
+seq_to_do_CA <- unlist(lapply(unique(no_dup_CA$popN), 
+                              function(pop) no_dup_CA[no_dup_CA$popN == pop & no_dup_CA$popN != "15", # skip population 15 for sequencing
+            "Bee_ID"][1:n_seq]))
+# random subset argentina bees:
+set.seed(342)
+bees_random_order_AR <- filter(bees, state == "AR") %>%
+  .[sample(1:nrow(.)), ] %>% # randomize order so bees w/ duplicate gps coordinates are selected out at random
+  arrange(., !wingPass1) %>%
+  arrange(., !toSequence) %>% # always include bees already specified to sequence
+  mutate(., duplicate = duplicated(.[ , c("lat", "long")]))
+no_dup_AR <- filter(bees_random_order_AR, !duplicate)
+n_wing = 12 # select twelve bees per population for wing analysis
+n_seq = 9 # select 9 bees per population for sequencing
+wing_to_do_AR <- unlist(lapply(unique(no_dup_AR$popN), function(pop)
+  no_dup_AR[no_dup_AR$popN == pop, 
+            "Bee_ID"][1:n_wing]))
+seq_to_do_AR <- unlist(lapply(unique(no_dup_AR$popN), 
+                              function(pop) no_dup_AR[no_dup_AR$popN == pop & no_dup_AR$popN != "15", # skip population 15 for sequencing
+                                                      "Bee_ID"][1:n_seq]))
+
+# add labels to dataframe
+bees$duplicate <- F
+bees$toWing <- F
+bees$duplicate[bees$Bee_ID %in% bees_random_order_CA$Bee_ID[bees_random_order_CA$duplicate]] <- T
+bees$duplicate[bees$Bee_ID %in% bees_random_order_AR$Bee_ID[bees_random_order_AR$duplicate]] <- T
+
+bees$toWing[bees$Bee_ID %in% wing_to_do_CA] <- T
+bees$toWing[bees$Bee_ID %in% wing_to_do_AR] <- T
 
 
 
-
+# write file with bees to do for CA wing analysis:
+wing_print_CA2 <- do.call(cbind, lapply(unique(filter(bees, toWing & state == "CA")$popN),
+                                       function(i)
+                                       filter(bees, toWing & state == "CA" & popN == i)$Bee_ID))
+write.table(wing_print_CA, "../labwork/CA_wing_bee_ids.txt", sep = "\t",
+            row.names = F, col.names = F, quote = F)
+# find out which bees have pop "" (!)
+# select 9 per pop for sequencing. Then select 1 from every other pop for last round/contingent on funds.
+# plot distances, and distances between bees by state and popN
+# randomize order of bees for next set of extractions and sequencing lanes
+# add sequencing lane (1-5) and extraction group to list
 
 # make some simple csv files of bee coordinates:
 bees %>%
