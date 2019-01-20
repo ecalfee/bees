@@ -135,9 +135,38 @@ bees/filtered_bams/metrics$ for i in $(cat ../../bee_samples_listed/pass1.list);
 do echo $i$'\t'$(cat $i.flagstat.txt | grep '+ 0 mapped (' | cut -d' ' -f1); \
 done > pass1.all.metrics.dedup.mapped.Nreads
 
+# another way to quickly visualize results from samtools flagstat output and picard's markduplicates is multiQC:
+pip3 install multiqc # install
+bees/filtered_bams/metrics$ multiqc . # created summary output file: gitErin/bees/filtered_bams/metrics/multiqc_report.html
+# from this I see that a few of Ramirez bees, e.g. ap41, and some of my newer bees have very low mapping rates. In general my duplication rate is fine.
+
+# Use FastQ screen to assess why some samples have high % unmapped reads -- do I have contamination? FastQ screen attempts to map reads to multiple references of your choice, to check for contamination
+# I downloaded fastq_screen program and multiple reference genomes to ~/Software/fastQ_screen
+# made a configuration file including the following genomes for mapping as possible sources of contamination: honeybee, honeybee mtdna, human, PhiX, E. coli (bacteria proxy), Adapter sequences, Arabidopsis (angiosperm proxy for possible pollen contamination), Vectors, plus some additional commonly sequenced things that could contribute to sequencer contamination, lambda, worm, yeast, drosophila, rat, mouse, (human?) mitochondria: fastq_screen_honeybee.conf
+# made symlink to fastq_Screen_v0.13.0 folder because needs to have .conf file in that folder:
+bees/filtered_bams/fastQ_screen$ ln -s fastq_screen_honeybee.conf ~/Software/fastQ_screen/fastq_screen_v0.13.0/fastq_screen.conf
+# ran test (mouse data -- looks good! deleted output after checking)
+bees/filtered_bams/fastQ_screen$ ~/Software/fastQ_screen/fastq_screen_v0.13.0/fastq_screen --aligner BOWTIE2 --conf fastq_screen_honeybee.conf ~/Software/fastQ_screen/fastq_screen_test_dataset/fqs_test_dataset.fastq.gz
+# just one of my files to test:
+bees/filtered_bams/fastQ_screen$ ~/Software/fastQ_screen/fastq_screen_v0.13.0/fastq_screen --aligner BOWTIE2 --conf fastq_screen_honeybee.conf ../../data/novo_seq/C202SC18101772/raw_data/CA0102/CA0102_USPD16090569-AK1956-AK389_HTMNTCCXY_L6_1.fq.gz
+# Running fastQ_screen on all my fastq's sequenced thus far:
+bees/filtered_bams/fastQ_screen$ nohup parallel --noswap --delay 2 --jobs 4 --joblog ../logs/run_fastQ_screen_C202SC18101772.log '~/Software/fastQ_screen/fastq_screen_v0.13.0/fastq_screen --aligner BOWTIE2 --conf fastq_screen_honeybee.conf --outdir output $(ls ../../data/novo_seq/C202SC18101772/raw_data/{1}/{1}_*_{2}.fq.gz)' :::: ../../data/novo_seq/C202SC18101772/samples.list ::: 1 2 &> ../logs/run_fastQ_screen_C202SC18101772.out &
+[1] 28891 - RUNNING 1.19.19
+# I summarize these multi-genome mapping results using multiQC:
+bees/filtered_bams/fastQ_screen/output$ multiqc .
+# this searched for parsable output files (here from fastq_screen) and summarized results in one file: bees/filtered_bams/fastQ_screen/output/multiqc_report.html
+# From this I conclude that a small number of samples have a majority or reads that don't map to anything, e.g. AR1115, AR2202 and AR2913.
+# These samples could have contamination for which I have no close reference -- they do, e.g., have a little more E. coli mapping than others, 
+# but I think maybe adapter contamination is worth investigating.
+# See TO DO below for next steps to solving this mystery.
+
+
 
 # TO DO:
-# Use FastQ screen to assess why some samples have high % unmapped reads -- do I have contamination? FastQ screen attempts to map reads to multiple references of your choice, e.g. honeybee, human, PhiX, E. coli, adapter sequences, Vectors
+# Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered?
+# Perhaps more likely, are they on average shorter reads, from libraries where the enzyme cut more and the sequencer read past the sample DNA into the adapter (?) 
+# I can use fastq_screen with a limit on # reads subsampled to create a small file with a sample of unmapped reads and see what they look like and their lengths. 
+# If adapter contamination seems likely, I can use something like SeqPurge to trim off adapter sequences. (Sturm et al. 2016, https://doi.org/10.1186/s12859-016-1069-7)
 # Download and map reads from Wallberg 2014 for A/C/M/O populations using pipeline for SOLiD data 
 # deduplicate and run BAQ for Wallberg 2014 bees
 # note: best to put more general scripts, that will be used in multiple analyses, when that comes up, in a scripts/ folder
