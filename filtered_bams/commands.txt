@@ -161,6 +161,17 @@ bees/filtered_bams/fastQ_screen/output$ multiqc .
 # See TO DO below for next steps to solving this mystery.
 
 
+# Downloading additional A/C/M/ and new O reference bees in addition to one male haploid drone and several Africanized bees from Brazil from Wallberg 2014
+# These require their own bioinformatics pipeline because they were sequenced on an older platform, ABI SOLiD technology, at ~4-6x coverage each
+# First get SSR ID's for NCBI download from all bees in Wallberg 2014
+data/Wallberg_2014$ Wallberg_2014 ecalfee$ (awk -F"\t" '$10 != "USA" && $10 != "Japan" && $10 != "geo_loc_name" {print $7}' SraRunTable.txt; awk -F"\t" '$12 == "male" {print $7}' SraRunTable.txt) > SRR_Acc_to_get.list
+# Note: many of the bees have multiple files representing different sequencing runs
+# Download files from NCBI onto Nancy's computer:
+data/Wallberg_2014$ nohup parallel --joblog ../../logs/download_Wallberg_2014_NCBI.log --delay 2.5 --noswap 'fastq-dump --split-files -clip \
+--gzip --skip-technical -O fastq_files/ "{1}"' :::: SRR_Acc_to_get.list &> ../../logs/download_Wallberg_2014_NCBI.out &
+[1] 19643 - oops fastq-dump not installed...I'm installing sratoolkit with homebrew
+[2] 40694 - RUNNING 1.19.19
+# the next step is to align this SOLiD data using SHRiMP (Rumble et al. 2009). Then I can remove duplicates and adjust by BAQ. And ultimately merge files/runs for the same sample before incorporating these samples into ANGSD variant calling and genotype likelihoods.
 
 # TO DO:
 # Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered?
