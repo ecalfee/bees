@@ -16,7 +16,7 @@ set -o nounset
 SRA=$1 # unique NCBI SRA accession number (could be many per sample due to diff. lanes)
 ID=$2 # unique bee sample ID
 DIR_OUT="SOLiD/"${ID} # results directory
-DIR_TMP="/tmp/"${SRA}
+DIR_TMP="tmp/"${SRA}
 REF="../data/honeybee_genome/Amel_4.5_scaffolds.fa"
 
 # make results and temporary directory (if necessary)
@@ -33,6 +33,7 @@ echo "re-formating fastq file with cutadapt"
 cutadapt -c --format=sra-fastq ${DIR_OUT}/${SRA}_1.fastq > ${DIR_OUT}/${SRA}.fastq
 
 echo "delete intermediate file here: "${DIR_OUT}"/"${SRA}"_1.fastq"
+#rm ${DIR_OUT}"/"${SRA}"_1.fastq"
 
 echo "map reads with SHRiMP"
 /Users/ecalfee/Software/SHRiMP_2_2_2/bin/gmapper-cs --sam --fastq --single-best-mapping \
@@ -40,6 +41,7 @@ ${DIR_OUT}/${SRA}.fastq --read-group ${SRA},${ID} ${REF} | \
 samtools view -b - > ${DIR_OUT}/${SRA}.bam
 
 echo "delete intermediate file here: "${DIR_OUT}"/"${SRA}".fastq"
+#rm ${DIR_OUT}"/"${SRA}".fastq"
 
 # SAMTOOLS sort reads by coordinate position
 echo "sorting reads with samtools"
@@ -48,5 +50,6 @@ samtools sort -m 6G -T ${DIR_TMP} \
 ${DIR_OUT}/${SRA}.bam
 
 echo "delete intermediate file here: "${DIR_OUT}"/"${SRA}".bam"
+#rm ${DIR_OUT}"/"${SRA}".bam"
 
 echo "all done!"

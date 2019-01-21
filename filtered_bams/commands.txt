@@ -174,8 +174,9 @@ data/Wallberg_2014$ nohup parallel --joblog ../../logs/download_Wallberg_2014_NC
 # the next step is to align this SOLiD data using SHRiMP (Rumble et al. 2009). Then I can remove duplicates and adjust by BAQ. And ultimately merge files/runs for the same sample before incorporating these samples into ANGSD variant calling and genotype likelihoods.
 
 # testing my script for downloading aligning and sorting SOLiD data from Wallberg study:
-filtered_bams$ chmod u+x myScript.sh download_map_sort_SOLiD_reads.sh
-filtered_bams$ nohup parallel --joblog logs/test_download_filter_Wallberg_2014_NCBI.log --noswap './download_map_sort_SOLiD_reads.sh {1} {2}' ::: SRR1151485 ::: SRS549155 &> test_download_filter_Wallberg_2014_NCBI.out &
+filtered_bams$ chmod u+x download_map_sort_SOLiD_reads.sh
+filtered_bams$ nohup parallel --joblog logs/test_download_filter_Wallberg_2014_NCBI.log --noswap './download_map_sort_SOLiD_reads.sh {1} {2}' ::: SRR1151485 ::: SRS549155 &> logs/test_download_filter_Wallberg_2014_NCBI.out &
+[1] 72364 - killed, fixed typo in tmp directory, restarting:
 
 # TO DO:
 # run all Wallberg 2014 data through pipeline. Make new script to merge bams by sample ID, markduplicates, calculate BAQ and index bams.
