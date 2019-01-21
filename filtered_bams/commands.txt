@@ -156,7 +156,7 @@ bees/filtered_bams/fastQ_screen$ nohup parallel --noswap --delay 2 --jobs 4 --jo
 bees/filtered_bams/fastQ_screen/output$ multiqc .
 # this searched for parsable output files (here from fastq_screen) and summarized results in one file: bees/filtered_bams/fastQ_screen/output/multiqc_report.html
 # From this I conclude that a small number of samples have a majority or reads that don't map to anything, e.g. AR1115, AR2202 and AR2913.
-# These samples could have contamination for which I have no close reference -- they do, e.g., have a little more E. coli mapping than others, 
+# These samples could have contamination for which I have no close reference -- they do, e.g., have a little more E. coli mapping than others,
 # but I think maybe adapter contamination is worth investigating.
 # See TO DO below for next steps to solving this mystery.
 
@@ -173,11 +173,16 @@ data/Wallberg_2014$ nohup parallel --joblog ../../logs/download_Wallberg_2014_NC
 [2] 40694 - RUNNING 1.19.19
 # the next step is to align this SOLiD data using SHRiMP (Rumble et al. 2009). Then I can remove duplicates and adjust by BAQ. And ultimately merge files/runs for the same sample before incorporating these samples into ANGSD variant calling and genotype likelihoods.
 
+# testing my script for downloading aligning and sorting SOLiD data from Wallberg study:
+filtered_bams$ chmod u+x myScript.sh download_map_sort_SOLiD_reads.sh
+filtered_bams$ nohup parallel --joblog logs/test_download_filter_Wallberg_2014_NCBI.log --noswap './download_map_sort_SOLiD_reads.sh {1} {2}' ::: SRR1151485 ::: SRS549155 &> test_download_filter_Wallberg_2014_NCBI.out &
+
 # TO DO:
+# run all Wallberg 2014 data through pipeline. Make new script to merge bams by sample ID, markduplicates, calculate BAQ and index bams.
 # Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered?
-# Perhaps more likely, are they on average shorter reads, from libraries where the enzyme cut more and the sequencer read past the sample DNA into the adapter (?) 
-# I can use fastq_screen with a limit on # reads subsampled to create a small file with a sample of unmapped reads and see what they look like and their lengths. 
+# Perhaps more likely, are they on average shorter reads, from libraries where the enzyme cut more and the sequencer read past the sample DNA into the adapter (?)
+# I can use fastq_screen with a limit on # reads subsampled to create a small file with a sample of unmapped reads and see what they look like and their lengths.
 # If adapter contamination seems likely, I can use something like SeqPurge to trim off adapter sequences. (Sturm et al. 2016, https://doi.org/10.1186/s12859-016-1069-7)
-# Download and map reads from Wallberg 2014 for A/C/M/O populations using pipeline for SOLiD data 
+# Download and map reads from Wallberg 2014 for A/C/M/O populations using pipeline for SOLiD data
 # deduplicate and run BAQ for Wallberg 2014 bees
 # note: best to put more general scripts, that will be used in multiple analyses, when that comes up, in a scripts/ folder
