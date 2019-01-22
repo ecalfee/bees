@@ -37,8 +37,12 @@ echo "delete intermediate file here: "${DIR_OUT}"/"${SRA}"_1.fastq"
 
 echo "map reads with SHRiMP"
 /Users/ecalfee/Software/SHRiMP_2_2_2/bin/gmapper-cs --sam --fastq --single-best-mapping \
-${DIR_OUT}/${SRA}.fastq --read-group ${SRA},${ID} ${REF} | \
-samtools view -b - > ${DIR_OUT}/${SRA}.bam
+${DIR_OUT}/${SRA}.fastq --read-group ${SRA},${ID} ${REF} > ${DIR_OUT}/${SRA}.sam
+#${DIR_OUT}/${SRA}.fastq --read-group ${SRA},${ID} ${REF} | \
+#samtools view -b - > ${DIR_OUT}/${SRA}.bam
+
+# converting sam to bam -- trying to troubleshoot the lack of EOF marker in bam
+samtools view -b ${DIR_OUT}/${SRA}.sam > ${DIR_OUT}/${SRA}.bam
 
 echo "delete intermediate file here: "${DIR_OUT}"/"${SRA}".fastq"
 #rm ${DIR_OUT}"/"${SRA}".fastq"

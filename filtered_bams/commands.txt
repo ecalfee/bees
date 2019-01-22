@@ -164,19 +164,27 @@ bees/filtered_bams/fastQ_screen/output$ multiqc .
 # Downloading additional A/C/M/ and new O reference bees in addition to one male haploid drone and several Africanized bees from Brazil from Wallberg 2014
 # These require their own bioinformatics pipeline because they were sequenced on an older platform, ABI SOLiD technology, at ~4-6x coverage each
 # First get SSR ID's for NCBI download from all bees in Wallberg 2014
-data/Wallberg_2014$ Wallberg_2014 ecalfee$ (awk -F"\t" '$10 != "USA" && $10 != "Japan" && $10 != "geo_loc_name" {print $7}' SraRunTable.txt; awk -F"\t" '$12 == "male" {print $7}' SraRunTable.txt) > SRR_Acc_to_get.list
-# Note: many of the bees have multiple files representing different sequencing runs
+data/Wallberg_2014$ (awk -F"\t" '$10 != "USA" && $10 != "Japan" && $10 != "geo_loc_name" {print $7}' SraRunTable.txt; awk -F"\t" '$12 == "male" {print $7}' SraRunTable.txt) > SRR_Acc_to_get.list
+data/Wallberg_2014$ (awk -F"\t" '$10 != "USA" && $10 != "Japan" && $10 != "geo_loc_name" {print $8}' SraRunTable.txt; awk -F"\t" '$12 == "male" {print $8}' SraRunTable.txt) > sample_IDs_to_get.list
+# Note: many of the bees have multiple files representing different sequencing runs, which creates repeats in sample_IDs_to_get.list
 # Download files from NCBI onto Nancy's computer:
 data/Wallberg_2014$ nohup parallel --joblog ../../logs/download_Wallberg_2014_NCBI.log --delay 2.5 --noswap 'fastq-dump --split-files -clip \
 --gzip --skip-technical -O fastq_files/ "{1}"' :::: SRR_Acc_to_get.list &> ../../logs/download_Wallberg_2014_NCBI.out &
 [1] 19643 - oops fastq-dump not installed...I'm installing sratoolkit with homebrew
 [2] 40694 - RUNNING 1.19.19
-# the next step is to align this SOLiD data using SHRiMP (Rumble et al. 2009). Then I can remove duplicates and adjust by BAQ. And ultimately merge files/runs for the same sample before incorporating these samples into ANGSD variant calling and genotype likelihoods.
 
+# the next step is to align this SOLiD data using SHRiMP (Rumble et al. 2009). Then I can remove duplicates and adjust by BAQ. And ultimately merge files/runs for the same sample before incorporating these samples into ANGSD variant calling and genotype likelihoods.
 # testing my script for downloading aligning and sorting SOLiD data from Wallberg study:
 filtered_bams$ chmod u+x download_map_sort_SOLiD_reads.sh
 filtered_bams$ nohup parallel --joblog logs/test_download_filter_Wallberg_2014_NCBI.log --noswap './download_map_sort_SOLiD_reads.sh {1} {2}' ::: SRR1151485 ::: SRS549155 &> logs/test_download_filter_Wallberg_2014_NCBI.out &
 [1] 72364 - killed, fixed typo in tmp directory, restarting:
+[2] 72570 - finished running & all looked good (except see below!). Now modified to delete intermediate files & running whole set:
+# ACTUALLY, there was an issue with truncated bam file. I think next step in script is proceeding without finishing first step...need to resolve.
+filtered_bams$ nohup parallel --joblog logs/test2_download_filter_Wallberg_2014_NCBI.log --noswap './download_map_sort_SOLiD_reads.sh {1} {2}' ::: SRR1151485 SRR1151486 ::: SRS549155 &> logs/test2_download_filter_Wallberg_2014_NCBI.out &
+[1] - RUNNING 1.21.19
+# TO RUN (once fixed!): script on all Wallberg 2014 samples:
+# note: parallel --link option means each SRR and sample_ID are run together only once (not every possible combination!)
+filtered_bams$ nohup parallel --joblog logs/download_filter_Wallberg_2014_NCBI.log --noswap --delay 5s --link './download_map_sort_SOLiD_reads.sh {1} {2}' :::: SRR_Acc_to_get.list :::: sample_IDs_to_get.list &> logs/download_filter_Wallberg_2014_NCBI.out &
 
 # TO DO:
 # run all Wallberg 2014 data through pipeline. Make new script to merge bams by sample ID, markduplicates, calculate BAQ and index bams.
