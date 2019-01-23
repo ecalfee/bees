@@ -32,20 +32,16 @@ fastq-dump --dumpcs --skip-technical --split-files -O ${DIR_OUT} "${SRA}"
 echo "re-formating fastq file with cutadapt"
 cutadapt -c --format=sra-fastq ${DIR_OUT}/${SRA}_1.fastq > ${DIR_OUT}/${SRA}.fastq
 
-echo "delete intermediate file here: "${DIR_OUT}"/"${SRA}"_1.fastq"
-#rm ${DIR_OUT}"/"${SRA}"_1.fastq"
+echo "deleting intermediate file: "${DIR_OUT}"/"${SRA}"_1.fastq"
+rm ${DIR_OUT}"/"${SRA}"_1.fastq"
 
-echo "map reads with SHRiMP"
+echo "mapping reads with SHRiMP"
 /Users/ecalfee/Software/SHRiMP_2_2_2/bin/gmapper-cs --sam --fastq --single-best-mapping \
-${DIR_OUT}/${SRA}.fastq --read-group ${SRA},${ID} ${REF} > ${DIR_OUT}/${SRA}.sam
-#${DIR_OUT}/${SRA}.fastq --read-group ${SRA},${ID} ${REF} | \
-#samtools view -b - > ${DIR_OUT}/${SRA}.bam
+${DIR_OUT}/${SRA}.fastq --read-group ${SRA},${ID} ${REF} | \
+samtools view -b - > ${DIR_OUT}/${SRA}.bam
 
-# converting sam to bam -- trying to troubleshoot the lack of EOF marker in bam
-samtools view -b ${DIR_OUT}/${SRA}.sam > ${DIR_OUT}/${SRA}.bam
-
-echo "delete intermediate file here: "${DIR_OUT}"/"${SRA}".fastq"
-#rm ${DIR_OUT}"/"${SRA}".fastq"
+echo "deleting intermediate file: "${DIR_OUT}"/"${SRA}".fastq"
+rm ${DIR_OUT}"/"${SRA}".fastq"
 
 # SAMTOOLS sort reads by coordinate position
 echo "sorting reads with samtools"
@@ -53,7 +49,7 @@ samtools sort -m 6G -T ${DIR_TMP} \
 -o ${DIR_OUT}/${SRA}.sort.bam \
 ${DIR_OUT}/${SRA}.bam
 
-echo "delete intermediate file here: "${DIR_OUT}"/"${SRA}".bam"
-#rm ${DIR_OUT}"/"${SRA}".bam"
+echo "deleting intermediate file: "${DIR_OUT}"/"${SRA}".bam"
+rm ${DIR_OUT}"/"${SRA}".bam"
 
 echo "all done!"
