@@ -3,7 +3,7 @@
 # A script to download SOLiD data from NCBI, map using SHRiMP, sort by coordinate,
 # and output a sorted bam file
 # to run:
-#filtered_bams$ ./download_map_sort_SOLiD_reads.sh SRR1151485 SRS549155
+#filtered_bams$ ./download_map_sort_SOLiD_reads.sh SRR1151485 SRS549155 /Users/ecalfee/Software/SHRiMP_2_2_2/bin
 
 # general bash script settings to make sure if any errors in the pipeline fail
 # the it's a 'fail' and it passes all errors to exit and allows no unset variables
@@ -15,6 +15,7 @@ set -o nounset
 # note: all paths relative to bees/filtered_bams
 SRA=$1 # unique NCBI SRA accession number (could be many per sample due to diff. lanes)
 ID=$2 # unique bee sample ID
+SHRIMP_DIR=$3
 DIR_OUT="SOLiD/"${ID} # results directory
 DIR_TMP="tmp/"${SRA}
 REF="../data/honeybee_genome/Amel_4.5_scaffolds.fa"
@@ -36,7 +37,7 @@ echo "deleting intermediate file: "${DIR_OUT}"/"${SRA}"_1.fastq"
 rm ${DIR_OUT}"/"${SRA}"_1.fastq"
 
 echo "mapping reads with SHRiMP"
-/Users/ecalfee/Software/SHRiMP_2_2_2/bin/gmapper-cs --sam --fastq --single-best-mapping \
+${SHRIMP_DIR}/gmapper-cs --sam --fastq --single-best-mapping \
 ${DIR_OUT}/${SRA}.fastq --read-group ${SRA},${ID} ${REF} | \
 samtools view -b - > ${DIR_OUT}/${SRA}.bam
 

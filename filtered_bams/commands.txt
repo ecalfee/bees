@@ -182,16 +182,17 @@ filtered_bams$ nohup parallel --joblog logs/test_download_filter_Wallberg_2014_N
 # ACTUALLY, there was an issue with truncated bam file. I think next step in script is proceeding without finishing first step...need to resolve.
 filtered_bams$ nohup parallel --joblog logs/test2_download_filter_Wallberg_2014_NCBI.log --noswap './download_map_sort_SOLiD_reads.sh {1} {2}' ::: SRR1151485 SRR1151486 ::: SRS549155 &> logs/test2_download_filter_Wallberg_2014_NCBI.out &
 [1] 91045 - COMPLETED 1.22.19 - ran without errors. I will add to code commands to delete intermediate files. Unclear what issue may have been. Moved test files to filtered_bams/test/SOLiD
-# moved results of test to Barbara comp.: filtered_bams$ rsync -rV ecalfee@169.237.66.166:~/Documents/gitErin/bees/filtered_bams/test/ test/
+# moved results of test to Barbara comp.: filtered_bams/test/SOLiD/SRS549155
 
 # index honeybee genome and save for all calls to SHRiMP 1.22.19:
 honeybee_genome$ /Users/ecalfee/Software/SHRiMP_2_2_2/bin/gmapper-cs --save Amel_4.5_scaffolds.fa Amel_4.5_scaffolds.fa
-Saving genome map to Amel_4.5_scaffolds.fa # saves .genome and .seed.0 .seed.1 .seed.2 files. BUT this doesn't load when I use this genome for SHRiMP, so I deleted these files.
+Saving genome map to Amel_4.5_scaffolds.fa # saves .genome and .seed.0 .seed.1 .seed.2 files.
+#BUT this doesn't load when I use this genome for SHRiMP, so I deleted these files.
 
 # Run mapping script on all Wallberg 2014 samples 1.22.19:
 # note: parallel --link option means each SRR and sample_ID are run together only once (not every possible combination!)
-filtered_bams$ nohup parallel --joblog logs/download_filter_Wallberg_2014_NCBI.log --noswap --delay 5s --link './download_map_sort_SOLiD_reads.sh {1} {2}' :::: SRR_Acc_to_get.list :::: sample_IDs_to_get.list &> logs/download_filter_Wallberg_2014_NCBI.out &
-
+filtered_bams$ nohup parallel --joblog logs/download_filter_Wallberg_2014_NCBI.log --noswap --delay 5s --link './download_map_sort_SOLiD_reads.sh {1} {2}' :::: ../data/Wallberg_2014/SRR_Acc_to_get.list :::: ../data/Wallberg_2014/sample_IDs_to_get.list &> logs/download_filter_Wallberg_2014_NCBI.out &
+[1] 22588 - RUNNING 1.23.19
 
 # TO DO:
 # run all Wallberg 2014 data through pipeline. Make new script to merge bams by sample ID, markduplicates, calculate BAQ and index bams.
