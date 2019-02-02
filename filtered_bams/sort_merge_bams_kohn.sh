@@ -22,7 +22,7 @@ echo "working directory:"${PWD} # print current working directory
 echo "sorting reads with samtools"
 
 for RG in L006 L007 L008
-mkdir tmp/${ID}_${RG} # for memory overflow from sort
+mkdir -p tmp/${ID}_${RG} # for memory overflow from sort
 do samtools sort -m 2G -T tmp/${ID}_${RG} \
 -o ${RG}/${ID}.sort.bam ${RG}/${ID}.bam
 done
