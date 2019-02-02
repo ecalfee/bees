@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# A script to sort reads, calculate base adjusted quality scores (BAQ)
+# A script to sort reads, before calculating base adjusted quality scores (BAQ)
 # and filter out PCR duplicates (while saving a stats log for % duplication)
 
 # general bash script settings to make sure if any errors in the pipeline fail

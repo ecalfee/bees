@@ -192,7 +192,26 @@ Saving genome map to Amel_4.5_scaffolds.fa # saves .genome and .seed.0 .seed.1 .
 # Run mapping script on all Wallberg 2014 samples 1.22.19:
 # note: parallel --link option means each SRR and sample_ID are run together only once (not every possible combination!)
 filtered_bams$ nohup parallel --joblog logs/download_filter_Wallberg_2014_NCBI.log --noswap --delay 5s --link './download_map_sort_SOLiD_reads.sh {1} {2}' :::: ../data/Wallberg_2014/SRR_Acc_to_get.list :::: ../data/Wallberg_2014/sample_IDs_to_get.list &> logs/download_filter_Wallberg_2014_NCBI.out &
-[1] 22588 - RUNNING 1.23.19
+[1] 22588 - RUNNING 1.23.19 - DID NOT WORK (STALLED OUT)
+
+# making list of just the M/C/O/A reference bees from Wallberg (no admixed Brazil and no high-coverage drone -- can add these in later)
+data/Wallberg_2014$ (awk -F"\t" '$10 != "USA" && $10 != "Japan" && $10 != "geo_loc_name" && $10 != "Brazil" {print $7}' SraRunTable.txt) > SRR_Acc_to_get_ACMO.list
+data/Wallberg_2014$ (awk -F"\t" '$10 != "USA" && $10 != "Japan" && $10 != "geo_loc_name" && $10 != "Brazil" {print $8}' SraRunTable.txt) > sample_IDs_to_get_ACMO.list
+
+# Kohn data - 2 San Diego bees and 1 Mexico bee sample
+# map data (multiple lanes of illumina reads per bee):
+nohup parallel --noswap --joblog logs/map_reads_and_sort_kohn_San_Diego.log --jobs 3 \
+'./map_reads_kohn.sh SanDiego{1} {2} San_Diego_Honeybee_{1}; \
+./sort_reads.sh SanDiego{1} {2}' ::: 001 002 ::: L006 L007 L008 \
+&> logs/map_reads_and_sort_kohn_San_Diego.out &
+nohup parallel --noswap --joblog logs/map_reads_and_sort_kohn_Mexico.log --jobs 1 \
+./map_reads_kohn.sh Mexico{1} {2} Mexico_Honeybee_{1}; \
+./sort_reads.sh Mexico{1} {2} ::: 001 ::: L006 L007 \
+&> logs/map_reads_and_sort_kohn_Mexico.out &
+# TO DO: after sorting, I need to merge bams:
+# e.g. L006/SanDiego001.sort.bam L007/SanDiego001.sort.bam L008/SanDiego001.sort.bam into merged/SanDiego001.sort.bam
+# then run dedup_baq_bams.sh on the resulting merged bam file
+
 
 # TO DO:
 # run all Wallberg 2014 data through pipeline. Make new script to merge bams by sample ID, markduplicates, calculate BAQ and index bams.
