@@ -219,6 +219,7 @@ nohup parallel --delay 3 --noswap --joblog logs/sort_merge_dedup_kohn.log --jobs
 './sort_merge_bams_kohn.sh {1}; ./dedup_baq_bams.sh {1} merged' \
 ::: SanDiego001 SanDiego002 Mexico001 &> logs/sort_merge_dedup_kohn.out &
 [2] 29013 - couldn't allocate memory .. so reduced memory:
+[2] 29327 - RUNNING (not sure why there's > 4 samtools threads running at once)
 
 # note that Mexico honeybee I'm only using 2/3 (no L008 file) of the data but that's ok coverage
 

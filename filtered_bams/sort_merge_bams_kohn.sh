@@ -14,7 +14,6 @@ set -o nounset
 # command line arguments:
 # note: all paths relative to bees/filtered_bams/
 ID=$1 # bee ID
-DIR_TMP="tmp/"${ID} # for memory overflow
 
 # make results directory (if necessary)
 mkdir -p ${DIR_TMP}
@@ -24,7 +23,8 @@ echo "working directory:"${PWD} # print current working directory
 echo "sorting reads with samtools"
 
 for RG in L006 L007 L008
-do samtools sort -m 2G -T ${DIR_TMP} \
+mkdir tmp/${ID}_${RG} # for memory overflow from sort
+do samtools sort -m 2G -T tmp/${ID}_${RG} \
 -o ${RG}/${ID}.sort.bam ${RG}/${ID}.bam
 done
 
@@ -32,6 +32,6 @@ echo "all sorted! merging sorted bams"
 ls L*/${ID}.sort.bam > merged/${ID}.list # list of bams to merge
 # merging
 samtools merge -b merged/${ID}.list \
--O merged/${ID}.sort.bam
+-o merged/${ID}.sort.bam
 
 echo "all done!"
