@@ -10,7 +10,7 @@
 set -o pipefail
 set -o errexit
 set -o nounset
-set -x
+#set -x
 
 # command line arguments:
 ID=$1 # bee ID, e.g. SanDiego001
@@ -24,7 +24,7 @@ echo ${PWD} # print current working directory
 
 echo "mapping reads with bowtie2"
 bowtie2 --seed 2014 --very-sensitive-local --local \
--x honeybee_genome/honeybee_Amel_4.5 \
+-x ../data/honeybee_genome/honeybee_Amel_4.5 \
 -1 ../data/kohn_data/${PREFIX}*${SEQ_RUN}_R1_001.fastq.gz \
 -2 ../data/kohn_data/${PREFIX}*${SEQ_RUN}_R2_001.fastq.gz \
 --rg-id ${SEQ_RUN} --rg SM:${ID} | \
