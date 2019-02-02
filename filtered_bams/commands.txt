@@ -215,12 +215,12 @@ nohup parallel --noswap --joblog logs/map_reads_and_sort_kohn_Mexico.log --jobs 
 # After sorting, I merge bams:
 # e.g. L006/SanDiego001.sort.bam L007/SanDiego001.sort.bam L008/SanDiego001.sort.bam into merged/SanDiego001.sort.bam
 # then run dedup_baq_bams.sh on the resulting merged bam file
-nohup parallel --noswap --joblog logs/sort_merge_dedup_kohn.log --jobs 3 \
+nohup parallel --delay 3 --noswap --joblog logs/sort_merge_dedup_kohn.log --jobs 3 \
 './sort_merge_bams_kohn.sh {1}; ./dedup_baq_bams.sh {1} merged' \
 ::: SanDiego001 SanDiego002 Mexico001 &> logs/sort_merge_dedup_kohn.out &
+[2] 29013 - couldn't allocate memory .. so reduced memory:
 
 # note that Mexico honeybee I'm only using 2/3 (no L008 file) of the data but that's ok coverage
-
 
 # TO DO:
 # run all Wallberg 2014 data through pipeline. Make new script to merge bams by sample ID, markduplicates, calculate BAQ and index bams.
