@@ -16,7 +16,6 @@ set -o nounset
 ID=$1 # bee ID
 
 # make results directory (if necessary)
-mkdir -p ${DIR_TMP}
 mkdir -p merged
 echo "working directory:"${PWD} # print current working directory
 
