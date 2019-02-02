@@ -204,13 +204,21 @@ nohup parallel --noswap --joblog logs/map_reads_and_sort_kohn_San_Diego.log --jo
 './map_reads_kohn.sh SanDiego{1} {2} San_Diego_Honeybee_{1}; \
 ./sort_reads.sh SanDiego{1} {2}' ::: 001 002 ::: L006 L007 L008 \
 &> logs/map_reads_and_sort_kohn_San_Diego.out &
+[1] 19236 - Map completed. Sort script was misspelled -- sort_BAMS.sh. Will sort below. 2.1.19
+
 nohup parallel --noswap --joblog logs/map_reads_and_sort_kohn_Mexico.log --jobs 1 \
-./map_reads_kohn.sh Mexico{1} {2} Mexico_Honeybee_{1}; \
-./sort_reads.sh Mexico{1} {2} ::: 001 ::: L006 L007 \
+'./map_reads_kohn.sh Mexico{1} {2} Mexico_Honeybee_{1}; \
+./sort_reads.sh Mexico{1} {2}' ::: 001 ::: L006 L007 \
 &> logs/map_reads_and_sort_kohn_Mexico.out &
-# TO DO: after sorting, I need to merge bams:
+[2] 19347 - COMPLETED (but not sorted, see below)
+
+# After sorting, I merge bams:
 # e.g. L006/SanDiego001.sort.bam L007/SanDiego001.sort.bam L008/SanDiego001.sort.bam into merged/SanDiego001.sort.bam
 # then run dedup_baq_bams.sh on the resulting merged bam file
+nohup parallel --noswap --joblog logs/sort_merge_dedup_kohn.log --jobs 3 \
+'./sort_merge_bams_kohn.sh {1}; ./dedup_baq_bams.sh {1} results' \
+::: SanDiego001 SanDiego002 Mexico001 &> logs/sort_merge_dedup_kohn.out &
+# note that Mexico honeybee I'm only using 2/3 (no L008 file) of the data but that's ok coverage
 
 
 # TO DO:
@@ -219,6 +227,6 @@ nohup parallel --noswap --joblog logs/map_reads_and_sort_kohn_Mexico.log --jobs 
 # Perhaps more likely, are they on average shorter reads, from libraries where the enzyme cut more and the sequencer read past the sample DNA into the adapter (?)
 # I can use fastq_screen with a limit on # reads subsampled to create a small file with a sample of unmapped reads and see what they look like and their lengths.
 # If adapter contamination seems likely, I can use something like SeqPurge to trim off adapter sequences. (Sturm et al. 2016, https://doi.org/10.1186/s12859-016-1069-7)
-# Download and map reads from Wallberg 2014 for A/C/M/O populations using pipeline for SOLiD data
-# deduplicate and run BAQ for Wallberg 2014 bees
+# Download and map reads from Wallberg 2014 for A/C/M/O populations using pipeline for SOLiD data; sort
+# merge then deduplicate and run BAQ for Wallberg 2014 bees
 # note: best to put more general scripts, that will be used in multiple analyses, when that comes up, in a scripts/ folder
