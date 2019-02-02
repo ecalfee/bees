@@ -24,7 +24,7 @@ echo "working directory:"${PWD} # print current working directory
 echo "sorting reads with samtools"
 
 for RG in L006 L007 L008
-samtools sort -m 6G -T ${DIR_TMP} \
+do samtools sort -m 6G -T ${DIR_TMP} \
 -o $RG/{1}.sort.bam $RG/{1}.bam
 done
 
