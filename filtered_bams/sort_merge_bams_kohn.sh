@@ -25,7 +25,7 @@ echo "sorting reads with samtools"
 
 for RG in L006 L007 L008
 do samtools sort -m 6G -T ${DIR_TMP} \
--o $RG/{1}.sort.bam $RG/{1}.bam
+-o $RG/${ID}.sort.bam $RG/${ID}.bam
 done
 
 echo "all sorted! merging sorted bams"
