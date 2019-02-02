@@ -14,7 +14,7 @@ set -o nounset
 # command line arguments:
 # note: all paths relative to bees/filtered_bams/
 ID=$1 # bee ID
-DIR_TMP="/tmp/"${ID} # for memory overflow
+DIR_TMP="tmp/"${ID} # for memory overflow
 
 # make results directory (if necessary)
 mkdir -p ${DIR_TMP}
