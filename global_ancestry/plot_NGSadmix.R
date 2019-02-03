@@ -37,7 +37,7 @@ d <- bind_cols(bees, admix)  %>%
 png(paste0("plots/", name, ".png"), # saves plot as ping in ../plots/
       height = 5, width = 8, units = "in", res = 150)
 d %>%
-  select(., colnames(admix)) %>%
+  dplyr::select(., colnames(admix)) %>%
   t(.) %>%
   barplot(height = .,
           col = colorsK[1:K],
@@ -50,75 +50,74 @@ dev.off()
 
 # ggplot2 need 'tidy' formatted data
 p1 <- d %>% 
-  tidyr::gather(., "ancestry", "p", c("anc1", "anc2", "anc3")) %>%
+  tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   ggplot(., aes(fill=ancestry, y=p, x=Bee_ID)) +
   geom_bar(stat = "identity", position = "fill") + facet_wrap(~group)
 plot(p1)
-ggsave("plots/NGS_admix_all.png", 
+ggsave(paste0("plots/NGS_admix_all_K", K, ".png"), 
        plot = p1, 
-       device = png(), 
+       device = png, 
        width = 15, height = 8, units = "in",
        dpi = 200)
 
-p2 <- d %>% tidyr::gather(., "ancestry", "p", c("anc1", "anc2", "anc3")) %>%
+p2 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "CA_2018") %>%
   ggplot(., aes(fill=ancestry, y=p, x=Bee_ID)) +
   geom_bar(stat = "identity", position = "fill") + 
   ggtitle("California 2018 bee samples")
 plot(p2)
-ggsave("plots/NGS_admix_CA_2018.png", 
+ggsave(paste0("plots/NGS_admix_CA_2018_K", K, ".png"), 
        plot = p2, 
-       device = png(), 
+       device = png, 
        width = 15, height = 8, units = "in",
        dpi = 200)
 
-p3 <- d %>% tidyr::gather(., "ancestry", "p", c("anc1", "anc2", "anc3")) %>%
+p3 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "AR_2018") %>%
   ggplot(., aes(fill=ancestry, y=p, x=Bee_ID)) +
   geom_bar(stat = "identity", position = "fill") + 
   ggtitle("Argentina 2018 bee samples")
 plot(p3)
-ggsave("plots/NGS_admix_AR_2018.png", 
+ggsave(paste0("plots/NGS_admix_AR_2018_K", K, ".png"), 
        plot = p3, 
-       device = png(), 
+       device = png, 
        width = 15, height = 8, units = "in",
        dpi = 200)
 
-p4 <- d %>% tidyr::gather(., "ancestry", "p", c("anc1", "anc2", "anc3")) %>%
+p4 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "S_CA") %>%
   ggplot(., aes(fill=ancestry, y=p, x=Bee_ID)) +
   geom_bar(stat = "identity", position = "fill") + 
   facet_wrap(~population) +
   ggtitle("Southern CA 1994-2015 samples")
 plot(p4)
-ggsave("plots/NGS_admix_S_CA_1994-2015.png", 
+ggsave(paste0("plots/NGS_admix_S_CA_1994-2015_K", K, ".png"), 
        plot = p4, 
-       device = png(), 
+       device = png, 
        width = 15, height = 8, units = "in",
        dpi = 200)
 
-p5 <- d %>% tidyr::gather(., "ancestry", "p", c("anc1", "anc2", "anc3")) %>%
+p5 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "N_CA") %>%
   ggplot(., aes(fill=ancestry, y=p, x=Bee_ID)) +
   geom_bar(stat = "identity", position = "fill") +
   facet_wrap(~population) +
   ggtitle("Northern CA 1994-2015 samples")
 plot(p5)
-ggsave("plots/NGS_admix_N_CA_1994-2015.png", 
+ggsave(paste0("plots/NGS_admix_N_CA_1994-2015_K", K, ".png"), 
        plot = p5, 
-       device = png(), 
+       device = png, 
        width = 15, height = 8, units = "in",
        dpi = 200)
 
-p6 <- d %>% tidyr::gather(., "ancestry", "p", c("anc1", "anc2", "anc3")) %>%
+p6 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group %in% c("A", "C", "M")) %>%
   ggplot(., aes(fill=ancestry, y=p, x=Bee_ID)) +
   geom_bar(stat = "identity", position = "fill") +
   facet_wrap(~group)
 plot(p6)
-ggsave("plots/NGS_admix_A_C_M_Ref.png", 
+ggsave(paste0("plots/NGS_admix_A_C_M_Ref_K", K, ".png"), 
        plot = p6, 
-       device = png(), 
+       device = png, 
        width = 15, height = 8, units = "in",
        dpi = 200)
-

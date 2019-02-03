@@ -28,6 +28,12 @@ bees/global_ancestry$ nohup ./runNGSadmix.sh 3 ordered_scaffolds_prunedBy250 &> 
 bees/global_ancestry$ nohup ./runNGSadmix.sh 3 ordered_scaffolds_prunedBy1000 &> logs/runNGSadmix_ordered_scaffolds_prunedBy1000.out &
 [1] 13376 - COMPLETE (seconds)
 
+# checking for O ancestry with NGSAdmix K = 4
+bees/global_ancestry$ nohup ./runNGSadmix.sh 4 ordered_scaffolds_prunedBy1000 &> logs/runNGSadmix_ordered_scaffolds_prunedBy1000_K4.out &
+[2] 3597 - COMPLETED (seconds)
+bees/global_ancestry$ nohup ./runNGSadmix.sh 4 ordered_scaffolds_prunedBy250 &> logs/runNGSadmix_ordered_scaffolds_prunedBy250_K4.out &
+[2] 3639 - COMPLETED (seconds)
+
 # made multiple R scripts for plotting results:
 plot_PCA.R
 plot_NGSadmix.R
