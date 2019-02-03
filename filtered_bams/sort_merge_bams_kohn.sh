@@ -30,7 +30,6 @@ done
 echo "all sorted! merging sorted bams"
 ls L*/${ID}.sort.bam > merged/${ID}.list # list of bams to merge
 # merging
-samtools merge -b merged/${ID}.list \
--o merged/${ID}.sort.bam
+samtools merge -b merged/${ID}.list merged/${ID}.sort.bam
 
 echo "all done!"

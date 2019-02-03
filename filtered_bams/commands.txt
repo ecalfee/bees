@@ -218,10 +218,14 @@ nohup parallel --noswap --joblog logs/map_reads_and_sort_kohn_Mexico.log --jobs 
 nohup parallel --delay 3 --noswap --joblog logs/sort_merge_dedup_kohn.log --jobs 3 \
 './sort_merge_bams_kohn.sh {1}; ./dedup_baq_bams.sh {1} merged' \
 ::: SanDiego001 SanDiego002 Mexico001 &> logs/sort_merge_dedup_kohn.out &
-[2] 29013 - couldn't allocate memory .. so reduced memory:
-[2] 29327 - RUNNING (not sure why there's > 4 samtools threads running at once)
-
-# note that Mexico honeybee I'm only using 2/3 (no L008 file) of the data but that's ok coverage
+[2] 29013 - couldn't allocate memory .. so reduced memory. also possibly had lingering jobs running .. oops:
+[1] 30349 - RAN but error in merge 2.1.19. Rerunning merge and dedup:
+nohup parallel --delay 3 --noswap --joblog logs/merge_dedup_kohn2.log --jobs 3 \
+'ls L*/{1}.sort.bam > merged/{1}.list;
+samtools merge -b merged/{1}.list merged/{1}.sort.bam;
+./dedup_baq_bams.sh {1} merged' ::: SanDiego001 SanDiego002 Mexico001 &> logs/merge_dedup_kohn2.out &
+[1] 3391 - RUNNING 2.2.19 and also fixed sort_merge_bams_kohn.sh to reflect these fixes to samtools merge.
+# note that Mexico honeybee I'm only using 2/3 (no L008 file) of the data but that's ok coverage for a quick ngsADMIX analysis
 
 # TO DO:
 # run all Wallberg 2014 data through pipeline. Make new script to merge bams by sample ID, markduplicates, calculate BAQ and index bams.
