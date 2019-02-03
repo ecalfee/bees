@@ -22,6 +22,18 @@ bees/geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/pass1_GL_by_scaffo
 ../data/honeybee_genome/ordered_scaffolds.list &> logs/pass1_GL_by_scaffold.out &
 [1] 24545 - COMPLETE 1.3.19 (~10hrs)
 
+# turns out I had a duplicated record in pass1.list (ap50). Moved old bam lists to bee_samples_listed/with_duplicated_ap50
+# and created new nonduplicated lists for all.meta post_1994.meta post_1994.list and pass1.list, e.g.:
+bee_samples_listed$ uniq with_duplicated_ap50/pass1.list > pass1.list
+
+# then added Kohn bees to make new GL and SNP files including these bees:
+# note: I did not re-calculate coverage, so these are just estimates for about .5x and 2x cutoffs based on adding 2 bees of ~20x coverage (and ~15x for Mex bee)
+bee_samples_listed$ cp pass1.list pass1_plus_kohn.list; for i in SanDiego001 SanDiego002 Mexico001; do echo $i >> pass1_plus_kohn.list; done
+geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/pass1_plus_kohn_GL_by_scaffold.log --jobs 4 \
+'./calc_GL_all_SNPs.sh ../bee_samples_listed/pass1_plus_kohn.bams {1} 875 3600 results/pass1_plus_kohn_GL_by_scaffold' :::: \
+../data/honeybee_genome/ordered_scaffolds.list &> logs/pass1_plus_kohn_GL_by_scaffold.out &
+
+
 # TO DO:
-# Divide honeybee genome into shorter genomic regions to run analysis (or just use existing scaffolds..)
-# filter to low LD and run NGSadmix and PCA in angsd
+# Add in Wallberg 2014 reference bees too, filtering for SOLiD/SHRiMP normodds mapping quality score.
+# Re-calculate cutoffs for coverage to exclude SNPs with low coverage and likely mapping errors 

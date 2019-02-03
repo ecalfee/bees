@@ -7,10 +7,10 @@ library(tidyr)
 harpur <- read.table("data/Harpur_2014_NCBI/Harpur_SraRunTable.txt",
                      sep = "\t", stringsAsFactors = F,
                      header = T)
-harpur_incl <- harpur %>% 
+harpur_incl <- harpur %>%
   select(Run_s, geographic_location_s, strain_s) %>%
   mutate(population = ifelse(strain_s == "Apis mellifera mellifera" | strain_s == "Apis mellifera iberiensis", "M",
-                        ifelse(strain_s == "Apis mellifera scutellata", "A", 
+                        ifelse(strain_s == "Apis mellifera scutellata", "A",
                                ifelse(strain_s == "Apis mellifera yemenitica", "Y",
                                       ifelse(strain_s == "Apis mellifera carnica", "C",
                                              ifelse(strain_s == "Apis cerana", "Cerana", NA)))))) %>%
@@ -25,7 +25,7 @@ harpur_incl <- harpur %>%
 kenya <- read.table("data/Kenya_Sheppard_NCBI/Kenya_SraRunTable.txt",
                     sep = "\t", stringsAsFactors = F,
                     header = T)
-kenya_incl <- kenya %>% 
+kenya_incl <- kenya %>%
   select(Run_s, Organism_s, collection_date_s) %>%
   mutate(geographic_location = "Kenya") %>%
   rename(strain = Organism_s) %>%
@@ -58,17 +58,17 @@ all <- bind_rows(harpur_incl, kenya_incl, ca_bees_incl) %>%
 .[order(.$population), ] %>%
 #.[order(.$year), ] %>%
 .[order(.$strain), ]
-write.table(all, "bee_samples_listed/harpur_kenya_ca_bees.meta", 
+write.table(all, "bee_samples_listed/harpur_kenya_ca_bees.meta",
             row.names = F, col.names = T, sep = "\t", quote = F)
 
 
 # make a list of the reference individuals + ca_bees post 1994 (CA introduction of Afr. honeybees)
-post_1994 <- all[all$population %in% c("A", "C", "M") | 
+post_1994 <- all[all$population %in% c("A", "C", "M") |
                    (all$strain == "unknown" & all$year >= 1994), ]
-write.table(post_1994, "bee_samples_listed/post_1994.meta", 
+write.table(post_1994, "bee_samples_listed/post_1994.meta",
             row.names = F, col.names = T, sep = "\t",
             quote = F)
-write.table(post_1994$Bee_ID, "bee_samples_listed/post_1994.list", 
+write.table(post_1994$Bee_ID, "bee_samples_listed/post_1994.list",
             row.names = F, col.names = F,
             quote = F)
 
@@ -90,9 +90,6 @@ newAR <- read.table("maps/Arg_bee_lat_long_4_google_maps.csv", sep = ",", string
 
 w_new_bees <- bind_rows(all, newCA, newAR)
 w_new_bees <- w_new_bees[!duplicated(w_new_bees),] # temporary patch to remove duplicated ap50 entry
-write.table(w_new_bees, "bee_samples_listed/all.meta", 
+write.table(w_new_bees, "bee_samples_listed/all.meta",
             row.names = F, col.names = T, sep = "\t",
             quote = F)
-
-
-

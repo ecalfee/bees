@@ -224,8 +224,14 @@ nohup parallel --delay 3 --noswap --joblog logs/merge_dedup_kohn2.log --jobs 3 \
 'ls L*/{1}.sort.bam > merged/{1}.list;
 samtools merge -b merged/{1}.list merged/{1}.sort.bam;
 ./dedup_baq_bams.sh {1} merged' ::: SanDiego001 SanDiego002 Mexico001 &> logs/merge_dedup_kohn2.out &
-[1] 3391 - RUNNING 2.2.19 and also fixed sort_merge_bams_kohn.sh to reflect these fixes to samtools merge.
+[1] 3391 - COMPLETED 2.2.19 and also fixed sort_merge_bams_kohn.sh to reflect these fixes to samtools merge.
+
 # note that Mexico honeybee I'm only using 2/3 (no L008 file) of the data but that's ok coverage for a quick ngsADMIX analysis
+# basic metrics for kohn bees:
+nohup parallel --noswap --joblog logs/run_flagstat_kohn.log --jobs 3 \
+'samtools flagstat results/{1}.sort.dedup.baq.bam > metrics/{1}.flagstat.txt' \
+::: SanDiego001 SanDiego002 Mexico001 &> logs/run_flagstat_kohn.out &
+[1] 4548 - COMPLETED 2.2.19
 
 # TO DO:
 # run all Wallberg 2014 data through pipeline. Make new script to merge bams by sample ID, markduplicates, calculate BAQ and index bams.
