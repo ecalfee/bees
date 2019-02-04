@@ -34,6 +34,19 @@ bees/global_ancestry$ nohup ./runNGSadmix.sh 4 ordered_scaffolds_prunedBy1000 &>
 bees/global_ancestry$ nohup ./runNGSadmix.sh 4 ordered_scaffolds_prunedBy250 &> logs/runNGSadmix_ordered_scaffolds_prunedBy250_K4.out &
 [2] 3639 - COMPLETED (seconds)
 
+
+# (1) pruning new GL's pass1 plus kohn, take every nth SNP:
+global_ancestry$ nohup ./catBeagleGL_nth.sh 1000 ordered_scaffolds_pass1_plus_kohn ../geno_lik_and_SNPs/results/pass1_plus_kohn_GL_by_scaffold >& logs/prune_ordered_scaffolds_pass1_plus_kohn_by1000.out &
+[1] 10392 - COMPLETED 2.4.19
+# also pruning by every 250 SNPs
+global_ancestry$ nohup ./catBeagleGL_nth.sh 251 ordered_scaffolds_pass1_plus_kohn ../geno_lik_and_SNPs/results/pass1_plus_kohn_GL_by_scaffold >& logs/prune_ordered_scaffolds_pass1_plus_kohn_by251.out &
+[2] 11094 - COMPLETED 2.4.19
+
+# (2) running NGSadmix on pass1 plus kohn dataset:
+global_ancestry$ nohup parallel --no-swap --jobs 4 --joblog logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn.log './runNGSadmix.sh {1} ordered_scaffolds_pass1_plus_kohn_prunedBy{2}' ::: 2 3 4 ::: 1000 251 &> logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn.out &
+[1] 1250 - RUNNING 2.4.19
+
+
 # made multiple R scripts for plotting results:
 plot_PCA.R
 plot_NGSadmix.R

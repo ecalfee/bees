@@ -41,7 +41,7 @@ geno_lik_and_SNPs$ sleep 2h; nohup parallel --noswap --joblog logs/pass1_plus_ko
 geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/pass1_plus_kohn_GL_by_scaffold_rerun2.log --jobs 4 \
 './calc_GL_all_SNPs.sh ../bee_samples_listed/pass1_plus_kohn.bams {1} 900 3600 results/pass1_plus_kohn_GL_by_scaffold' :::: \
 ../data/honeybee_genome/ordered_scaffolds.list &> logs/pass1_plus_kohn_GL_by_scaffold_rerun2.out &
-[1] 9607 - RUNNING 2.3.19
+[1] 1277 - RUNNING 2.3.19
 
 # TO DO:
 # Add in Wallberg 2014 reference bees too, filtering for SOLiD/SHRiMP normodds mapping quality score.

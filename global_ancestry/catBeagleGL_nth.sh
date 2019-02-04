@@ -4,7 +4,7 @@
 # can change which subset is selected by choosing a different order of scaffolds/regions in input file SCAFFOLDS_LIST
 N=$1
 PREFIX=$2
-GL_FILE_LIST="results/input/${PREFIX}.GL.files"
+GL_FILE_LIST="results/input/ordered_scaffolds.GL.files"
 DIR_GL_IN=$3
 DIR_OUT="results/input"
 FILE_OUT="${DIR_OUT}/${PREFIX}_prunedBy${N}.beagle.gz"
