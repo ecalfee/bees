@@ -27,13 +27,22 @@ bees/geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/pass1_GL_by_scaffo
 bee_samples_listed$ uniq with_duplicated_ap50/pass1.list > pass1.list
 
 # then added Kohn bees to make new GL and SNP files including these bees:
-# note: I did not re-calculate coverage, so these are just estimates for about .5x and 2x cutoffs based on adding 2 bees of ~20x coverage (and ~15x for Mex bee)
+# note: I did not re-calculate coverage, so these are just estimates for about .5x and 2x cutoffs based on adding 3 bees of ~20x coverage
 bee_samples_listed$ cp pass1.list pass1_plus_kohn.list; for i in SanDiego001 SanDiego002 Mexico001; do echo $i >> pass1_plus_kohn.list; done
-geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/pass1_plus_kohn_GL_by_scaffold.log --jobs 4 \
-'./calc_GL_all_SNPs.sh ../bee_samples_listed/pass1_plus_kohn.bams {1} 875 3600 results/pass1_plus_kohn_GL_by_scaffold' :::: \
+bee_samples_listed$ for i in $(cat pass1_plus_kohn.list); do echo ../filtered_bams/results/$i.sort.dedup.baq.bam; done > pass1_plus_kohn.bams
+geno_lik_and_SNPs$ sleep 2h; nohup parallel --noswap --joblog logs/pass1_plus_kohn_GL_by_scaffold.log --jobs 4 \
+'./calc_GL_all_SNPs.sh ../bee_samples_listed/pass1_plus_kohn.bams {1} 900 3600 results/pass1_plus_kohn_GL_by_scaffold' :::: \
 ../data/honeybee_genome/ordered_scaffolds.list &> logs/pass1_plus_kohn_GL_by_scaffold.out &
-
+[1] 22384 -- ERRORS 2.2.19 - file SRCD12B was empty. re-running after remaking that filtered bam (added sleep 4h to wait for remaking bam):
+-- SLEEPING 2 hour delay to send in job (will install 'at' later)
+# COMPLETED. but with multiple warnings (because I forgot to copy over index from RG added file.):
+# [W::hts_idx_load2] The index file is older than the data file: ../filtered_bams/results/SRCD12B.sort.dedup.baq.bam.bai
+# So, saved to pass1_plus_kohn_GL_by_scaffold_backup and rerunning:
+geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/pass1_plus_kohn_GL_by_scaffold_rerun2.log --jobs 4 \
+'./calc_GL_all_SNPs.sh ../bee_samples_listed/pass1_plus_kohn.bams {1} 900 3600 results/pass1_plus_kohn_GL_by_scaffold' :::: \
+../data/honeybee_genome/ordered_scaffolds.list &> logs/pass1_plus_kohn_GL_by_scaffold_rerun2.out &
+[1] 9607 - RUNNING 2.3.19
 
 # TO DO:
 # Add in Wallberg 2014 reference bees too, filtering for SOLiD/SHRiMP normodds mapping quality score.
-# Re-calculate cutoffs for coverage to exclude SNPs with low coverage and likely mapping errors 
+# Re-calculate cutoffs for coverage to exclude SNPs with low coverage and likely mapping errors

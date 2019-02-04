@@ -233,6 +233,16 @@ nohup parallel --noswap --joblog logs/run_flagstat_kohn.log --jobs 3 \
 ::: SanDiego001 SanDiego002 Mexico001 &> logs/run_flagstat_kohn.out &
 [1] 4548 - COMPLETED 2.2.19
 
+# results/SRCD12B.sort.dedup.baq.bam is now an empty file -- I'm not sure why it was written over.
+# Re-doing filtering of SRCD12B from original bam in CA_bee/bam_files/ :
+nohup parallel --noswap --joblog logs/filter_bams_CA_Bee_rerun_SRCD12B.log --jobs 1 \
+'./sort_bams.sh {1} ../data/CA_Bee/bam_files; ./dedup_baq_bams.sh {1} results; \
+cp results/{1}.sort.dedup.baq.bam results/SRCD12B.backup.sort.dedup.baq.bam; \
+./add_readgroup_2_bams.sh {1} CA_Bee results;
+cp results/RG_added/{1}.sort.dedup.baq.bam results/{1}.sort.dedup.baq.bam' \
+::: SRCD12B &> logs/filter_bams_CA_Bee_rerun_SRCD12B.out &
+[1] 7740 - RUNNING 2.2.19 - COMPLETED. Forgot to cp over .bai file too, so copied to results/ by hand. deleted RG_added/ and all intermediate files 
+
 # TO DO:
 # run all Wallberg 2014 data through pipeline. Make new script to merge bams by sample ID, markduplicates, calculate BAQ and index bams.
 # Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered?
