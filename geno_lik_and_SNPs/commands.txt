@@ -43,6 +43,23 @@ geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/pass1_plus_kohn_GL_by_s
 ../data/honeybee_genome/ordered_scaffolds.list &> logs/pass1_plus_kohn_GL_by_scaffold_rerun2.out &
 [1] 1277 - RUNNING 2.3.19
 
+
+# Adding in Wallberg 2014 bees:
+
+# first make list of bams:
+bee_samples_listed$ cat pass1_plus_kohn.list Wallberg_12O_6M_6C_5A.list > pass1_plus_kohn_and_wallberg.list
+bee_samples_listed$ for i in $(cat pass1_plus_kohn_and_wallberg.list); do echo ../filtered_bams/results/$i.sort.dedup.baq.bam; done > pass1_plus_kohn_and_wallberg.bams
+
+# what is an average depth per bee in Wallberg (for cutoffs)?
+# using flagstat for the first few files I get # reads, multiply by 75bp/read, and for these first files
+# see 1.6-4.5x coverage. If I use on average 4x coverage, that's 112x over 28 bees, or very loosely:
++50 for lower (.5x) bound, and + 250 for upper (2x) bound -- I should just recalculate this from flagstat after it runs
+
+# TO DO: then run GL script again (maybe change bounds):
+geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/pass1_plus_kohn_and_wallberg_GL_by_scaffold.log --jobs 4 \
+'./calc_GL_all_SNPs.sh ../bee_samples_listed/pass1_plus_kohn_and_wallberg.bams {1} 950 3850 results/pass1_plus_kohn_and_wallberg_GL_by_scaffold' :::: \
+../data/honeybee_genome/ordered_scaffolds.list &> logs/pass1_plus_kohn_and_wallberg_GL_by_scaffold.out &
+
+
 # TO DO:
-# Add in Wallberg 2014 reference bees too.
 # Re-calculate cutoffs for coverage to exclude SNPs with low coverage and likely mapping errors

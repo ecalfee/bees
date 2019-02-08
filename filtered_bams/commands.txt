@@ -254,7 +254,8 @@ filtered_bams$ nohup parallel --joblog logs/download_filter_Wallberg_2014_NCBI_A
 [1] 4881 - COMPLETE 2.5.19 BUT I forgot one:
 filtered_bams$ nohup parallel --joblog logs/download_filter_Wallberg_2014_NCBI_ACMO_SRS549663.log --noswap --jobs 1 './download_map_sort_SOLiD_reads.sh {1} {2} \
 /Users/ecalfee/Software/SHRiMP_2_2_2/bin' ::: SRR1152376 ::: SRS549663 &> logs/download_filter_Wallberg_2014_NCBI_ACMO_SRS549663.out &
-[1] 85166 - RUNNING 2.7.19
+[1] 85166 - COMPLETED 2.7.19
+
 # merge and deduplicate other files:
 filtered_bams$ mkdir SOLiD/merged
 filtered_bams$ nohup parallel --delay 3 --noswap --joblog logs/merge_dedup_Wallberg_ACMO_subset.log --jobs 5 \
@@ -263,13 +264,27 @@ samtools merge -b merged/{1}.list merged/{1}.sort.bam;
 ./dedup_baq_bams.sh {1} merged;
 samtools flagstat results/{1}.sort.dedup.baq.bam > metrics/{1}.flagstat.txt' \
 ::: $(ls SOLiD/) &> logs/merge_dedup_Wallberg_ACMO_subset.out &
-[2] 85441 - RUNNING 2.7.19. will need to do dedup on other computer. rerunning merge on one missing file:
+[2] 85441 - COMPLETED 2.7.19. will need to do dedup on other computer. rerunning merge on one missing file:
 filtered_bams$ nohup parallel --joblog logs/merge_Wallberg_ACMO_subset_SRS549663.log \
 'ls SOLiD/{1}/*.sort.bam > merged/{1}.list;
-samtools merge -b merged/{1}.list merged/{1}.sort.bam \
+samtools merge -b merged/{1}.list merged/{1}.sort.bam' \
 ::: SRS549663 &> logs/merge_Wallberg_ACMO_subset_SRS549663.out &
+[1] 90429 - COMPLETED 2.8.19
 
+# made list of files that includes n=28 total Wallberg 2014 reference bees: 
+# 6 O turkey, 6 O jordan, 6 M (spain, sweden, norway), 2 C carnica (austria), 4 C ling (italy), 5 A scuttelatta (S. Africa). 
+# I'm ignoring additional C I aligned from Italy for now, to not give that group undue weight:
+data/Wallberg_2014$ cut -f2 C_ling_and_A_done.txt | uniq | tail -n 5 | head -n 4 > Wallberg_12O_6M_6C_5A.list; cut -f2 ACMO_subset_todo.txt | uniq >> Wallberg_12O_6M_6C_5A.list; mv Wallberg_12O_6M_6C_5A.list ../../bee_samples_listed/.
 
+# saved all meta data from Wallber 2014 together:
+Wallberg_2014$ cut -f8,10,12,13,26,27 SraRunTable.txt > ../../bee_samples_listed/Wallberg_2014_all.meta
+
+# now deduplicating & adding BAQ:
+filtered_bams$ nohup parallel --delay 3 --noswap --joblog logs/dedup_baq_Wallberg_ACMO_subset.log --jobs 3 \
+'./dedup_baq_bams.sh {1} merged;
+samtools flagstat results/{1}.sort.dedup.baq.bam > metrics/{1}.flagstat.txt' \
+:::: ../bee_samples_listed/Wallberg_12O_6M_6C_5A.list &> logs/dedup_baq_Wallberg_ACMO_subset.out &
+[1] 9080 - RUNNING 2.8.19
 
 # Kohn data - 2 San Diego bees and 1 Mexico bee sample
 # map data (multiple lanes of illumina reads per bee):
@@ -318,11 +333,7 @@ cp results/RG_added/{1}.sort.dedup.baq.bam results/{1}.sort.dedup.baq.bam' \
 [1] 7740 - RUNNING 2.2.19 - COMPLETED. Forgot to cp over .bai file too, so copied to results/ by hand. deleted RG_added/ and all intermediate files
 
 # TO DO:
-# run all Wallberg 2014 data through pipeline. Make new script to merge bams by sample ID, markduplicates, calculate BAQ and index bams.
 # Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered? Yes - likely gut symbionts
 # Adapter contamination at a low (~1-3%) is also there. I don't think this is having a large effect on my intial analysis, but I could filter out adapters e.g. with cutadapt, and check if my bams have adapter sequences that made it past filtering (?)
 # If adapter contamination seems likely, I can use something like SeqPurge to trim off adapter sequences. (Sturm et al. 2016, https://doi.org/10.1186/s12859-016-1069-7)
 # I can also check that sequences for the reference bees don't have adapter contamination.
-# Download and map reads from Wallberg 2014 for A/C/M/O populations using pipeline for SOLiD data; sort
-# merge then deduplicate and run BAQ for Wallberg 2014 bees
-# note: best to put more general scripts, that will be used in multiple analyses, when that comes up, in a scripts/ folder
