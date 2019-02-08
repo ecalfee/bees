@@ -160,6 +160,36 @@ bees/filtered_bams/fastQ_screen/output$ multiqc .
 # but I think maybe adapter contamination is worth investigating.
 # See TO DO below for next steps to solving this mystery.
 
+# take a subset of reads from problem files and one ok file (CA1410) to see which reads do and don't match
+filtered_bams/fastQ_screen$ nohup parallel --noswap --jobs 4 --joblog ../logs/subset_no_hits_fastQ_screen_low_mapping.log '~/Software/fastQ_screen/fastq_screen_v0.13.0/fastq_screen --subset 100000 --aligner BOWTIE2 --conf fastq_screen_honeybee.conf --nohits --outdir nohits ../../data/novo_seq/C202SC18101772/raw_data/{1}/*_1.fq.gz' ::: AR1115 AR2202 AR2913 CA1410 &> subset_no_hits_fastQ_screen_low_mapping.log &
+fastQ_screen$ mv subset_no_hits_fastQ_screen_low_mapping.log ../logs/.
+[1] 9332 - COMPLETED. oops overwritten .log file but ran ok.
+
+# and take a subset of reads that map to honeybee (for comparison). okay if they don't map uniquely
+filtered_bams/fastQ_screen$ nohup parallel --noswap --jobs 4 --joblog ../logs/subset_do_map_fastQ_screen_low_mapping.log '~/Software/fastQ_screen/fastq_screen_v0.13.0/fastq_screen --subset 100000 --aligner BOWTIE2 --conf fastq_screen_honeybee.conf --tag --filter --------------3- --outdir domap ../../data/novo_seq/C202SC18101772/raw_data/{1}/*_1.fq.gz' ::: AR1115 AR2202 AR2913 CA1410 &> ../logs/subset_do_map_fastQ_screen_low_mapping.out &
+COMPLETED 2.4.19.
+# also running fastQC to look at read quality on a subset of samples:
+filtered_bams$ nohup parallel --noswap --jobs 5 --joblog logs/run_fastQC_low_mapping.log '~/Software/FastQC/fastqc ../data/novo_seq/C202SC18101772/raw_data/{1}/*.fq.gz --outdir=fastQC' ::: AR1115 AR2202 AR2913 CA1410 AR0302 &> logs/run_fastQC_low_mapping.out &
+[1] 13648 - COMPLETED 2.4.19
+# NOTE: I don't see any obvious quality issues for the libraries with low mapping %
+# In all libraries, there's bias in base content for the first ~10 bases,
+# which is likely a result of tagmentation in the Nextera kit because the enzyme cuts at certain sequence patterns.
+# Some libraries have .1-.2% repeated sequences, many of which are simple repeats, e.g. AACCTAACCTAACCTAACCTAACCTAACCTAACCTAACCTAACCTAACCT
+# resulting .tagged.fastq.gz have a subset of 100000 random reads while .tagged_filter.fastq.gz files have just reads meeting filter criteria from that subset
+# Also I have minor adapter contamination -- about 1-3% of my reads have adapter sequences, e.g.
+# to find my search sequence I used the reverse complement of the adapter sequence Anne gave me:
+https://www.bioinformatics.org/sms/rev_comp.html of CAAGCAGAAGACGGCATACGAGATGTCGGTAAAGTCTCGTGGGCTCGG for index TTTACCGAC
+filtered_bams/fastQ_screen/nohits$ zgrep --color 'CCGAGCCCACGAGACT' AR1115*_1.tagged.fastq.gz
+# this can be filtered out but is true of low mapping and high mapping files
+filtered_bams/fastQ_screen/nohits$ zgrep --color 'CCGAGCCCACGAGACT' CA1410*_1.tagged.fastq.gz | wc -l
+# I also tested for adapter contamination in reads that do map, and it's about the same 1.5%:
+filtered_bams/fastQ_screen/domap$ zgrep --color 'CCGAGCCCACGAGACT' CA1410*_1.tagged_filter.fastq.gz | wc -l
+
+# I also did a blastN search in NCBI for some of the reads that were not hits
+fastQ_screen/nohits$ bioawk -c fastx '{print $name}' AR1115_USPD16090569-AK4210-AK389_HTMNTCCXY_L6_1.tagged_filter.fastq
+# From the results I conclude that I have some contamination from the gut for the low mapping samples
+# because I get hits to a common honeybee gut symbiont Gilliamella apicola https://blast.ncbi.nlm.nih.gov
+
 
 # Downloading additional A/C/M/ and new O reference bees in addition to one male haploid drone and several Africanized bees from Brazil from Wallberg 2014
 # These require their own bioinformatics pipeline because they were sequenced on an older platform, ABI SOLiD technology, at ~4-6x coverage each
@@ -192,21 +222,64 @@ Saving genome map to Amel_4.5_scaffolds.fa # saves .genome and .seed.0 .seed.1 .
 # Run mapping script on all Wallberg 2014 samples 1.22.19:
 # note: parallel --link option means each SRR and sample_ID are run together only once (not every possible combination!)
 filtered_bams$ nohup parallel --joblog logs/download_filter_Wallberg_2014_NCBI.log --noswap --delay 5s --link './download_map_sort_SOLiD_reads.sh {1} {2}' :::: ../data/Wallberg_2014/SRR_Acc_to_get.list :::: ../data/Wallberg_2014/sample_IDs_to_get.list &> logs/download_filter_Wallberg_2014_NCBI.out &
-[1] 22588 - RUNNING 1.23.19 - DID NOT WORK (STALLED OUT)
+[1] 22588 - RUNNING 1.23.19 - DID NOT WORK (STALLED OUT) -- trying again (see below) with just ACMO bees
 
 # making list of just the M/C/O/A reference bees from Wallberg (no admixed Brazil and no high-coverage drone -- can add these in later)
 data/Wallberg_2014$ (awk -F"\t" '$10 != "USA" && $10 != "Japan" && $10 != "geo_loc_name" && $10 != "Brazil" {print $7}' SraRunTable.txt) > SRR_Acc_to_get_ACMO.list
 data/Wallberg_2014$ (awk -F"\t" '$10 != "USA" && $10 != "Japan" && $10 != "geo_loc_name" && $10 != "Brazil" {print $8}' SraRunTable.txt) > sample_IDs_to_get_ACMO.list
 
+# mapping Wallberg 2014 ACMO reference bees:
+filtered_bams$ nohup parallel --joblog logs/download_filter_Wallberg_2014_NCBI_ACMO.log --noswap --jobs 6 --delay 2s --link './download_map_sort_SOLiD_reads.sh {1} {2} /Users/ecalfee/Software/SHRiMP_2_2_2/bin' :::: ../data/Wallberg_2014/SRR_Acc_to_get_ACMO.list :::: ../data/Wallberg_2014/sample_IDs_to_get_ACMO.list &> logs/download_filter_Wallberg_2014_NCBI_ACMO.out &
+[1] 73180 - RUNNING 2.4.19
+72488(0) swapins, 152460(0) swapouts at 11:44 am 2.5.19
+79832(0) swapins, 152460(0) swapouts at 14:38 pm 2.5.19 (not growing)
+
+# I don't actually need to run all of these samples, so I cancelled this job:
+
+# instead, I'll make a list in this order of O (anatoliaca), A (scutellata), C (ligustica -- already done), and M (iberiensis) to run (I may want to exclude the 3 super high coverage individuals too.. tbd):
+# first 27 files ran, which is 12 bees. What if I get 5 O (anatoliaca), 5 A (scutellata), 5 O (syrica), 2 M (ibiriensis), 2 M (mellifera sweden), 2 M (carnica):
+Wallberg_2014$ (awk -F"\t" '$10 != "USA" && $10 != "Japan" && $10 != "geo_loc_name" && $10 != "Brazil" && $13 != "EU domestic" {print $7"\t"$8"\t"$13"\t"$10"\t"$26}' SraRunTable.txt) > all_ACMO.txt
+# finish scutellata SRS549639 and run 3 more (total = 5)
+head -n 27 all_ACMO.txt > C_ling_and_A_done.txt
+grep 'scutellata' all_ACMO.txt | tail -n +8 | head -n 23 > A_scut_complete_5.txt
+grep 'Turkey' all_ACMO.txt | tail -n +11 | head -n 36 > O_turkey_5.txt
+grep 'Jordan' all_ACMO.txt | head -n 35 > O_jordan_5.txt
+for i in Spain Sweden Norway; do grep $i all_ACMO.txt | head -n 12; done > M_spain_sweden_norway_6.txt
+grep 'Austria' all_ACMO.txt | head -n 12 > C_austria_2.txt
+cat O_turkey_5.txt A_scut_complete_5.txt O_jordan_5.txt M_spain_sweden_norway_6.txt C_austria_2.txt > ACMO_subset_todo.txt
+Wallberg_2014$ cut -f1 ACMO_subset_todo.txt > SRR_Acc_ACMO_subset_todo.list
+Wallberg_2014$ cut -f2 ACMO_subset_todo.txt > sample_IDs_ACMO_subset_todo.list
+# running this subset with 8 threads:
+filtered_bams$ nohup parallel --joblog logs/download_filter_Wallberg_2014_NCBI_ACMO_subset.log --noswap --jobs 8 --delay 60s --link './download_map_sort_SOLiD_reads.sh {1} {2} /Users/ecalfee/Software/SHRiMP_2_2_2/bin' :::: ../data/Wallberg_2014/SRR_Acc_ACMO_subset_todo.list :::: ../data/Wallberg_2014/sample_IDs_ACMO_subset_todo.list &> logs/download_filter_Wallberg_2014_NCBI_ACMO_subset.out &
+[1] 4881 - COMPLETE 2.5.19 BUT I forgot one:
+filtered_bams$ nohup parallel --joblog logs/download_filter_Wallberg_2014_NCBI_ACMO_SRS549663.log --noswap --jobs 1 './download_map_sort_SOLiD_reads.sh {1} {2} \
+/Users/ecalfee/Software/SHRiMP_2_2_2/bin' ::: SRR1152376 ::: SRS549663 &> logs/download_filter_Wallberg_2014_NCBI_ACMO_SRS549663.out &
+[1] 85166 - RUNNING 2.7.19
+# merge and deduplicate other files:
+filtered_bams$ mkdir SOLiD/merged
+filtered_bams$ nohup parallel --delay 3 --noswap --joblog logs/merge_dedup_Wallberg_ACMO_subset.log --jobs 5 \
+'ls SOLiD/{1}/*.sort.bam > merged/{1}.list;
+samtools merge -b merged/{1}.list merged/{1}.sort.bam;
+./dedup_baq_bams.sh {1} merged;
+samtools flagstat results/{1}.sort.dedup.baq.bam > metrics/{1}.flagstat.txt' \
+::: $(ls SOLiD/) &> logs/merge_dedup_Wallberg_ACMO_subset.out &
+[2] 85441 - RUNNING 2.7.19. will need to do dedup on other computer. rerunning merge on one missing file:
+filtered_bams$ nohup parallel --joblog logs/merge_Wallberg_ACMO_subset_SRS549663.log \
+'ls SOLiD/{1}/*.sort.bam > merged/{1}.list;
+samtools merge -b merged/{1}.list merged/{1}.sort.bam \
+::: SRS549663 &> logs/merge_Wallberg_ACMO_subset_SRS549663.out &
+
+
+
 # Kohn data - 2 San Diego bees and 1 Mexico bee sample
 # map data (multiple lanes of illumina reads per bee):
-nohup parallel --noswap --joblog logs/map_reads_and_sort_kohn_San_Diego.log --jobs 3 \
+filtered_bams$ nohup parallel --noswap --joblog logs/map_reads_and_sort_kohn_San_Diego.log --jobs 3 \
 './map_reads_kohn.sh SanDiego{1} {2} San_Diego_Honeybee_{1}; \
 ./sort_reads.sh SanDiego{1} {2}' ::: 001 002 ::: L006 L007 L008 \
 &> logs/map_reads_and_sort_kohn_San_Diego.out &
 [1] 19236 - Map completed. Sort script was misspelled -- sort_BAMS.sh. Will sort below. 2.1.19
 
-nohup parallel --noswap --joblog logs/map_reads_and_sort_kohn_Mexico.log --jobs 1 \
+filtered_bams$ nohup parallel --noswap --joblog logs/map_reads_and_sort_kohn_Mexico.log --jobs 1 \
 './map_reads_kohn.sh Mexico{1} {2} Mexico_Honeybee_{1}; \
 ./sort_reads.sh Mexico{1} {2}' ::: 001 ::: L006 L007 \
 &> logs/map_reads_and_sort_kohn_Mexico.out &
@@ -226,6 +299,7 @@ samtools merge -b merged/{1}.list merged/{1}.sort.bam;
 ./dedup_baq_bams.sh {1} merged' ::: SanDiego001 SanDiego002 Mexico001 &> logs/merge_dedup_kohn2.out &
 [1] 3391 - COMPLETED 2.2.19 and also fixed sort_merge_bams_kohn.sh to reflect these fixes to samtools merge.
 
+
 # note that Mexico honeybee I'm only using 2/3 (no L008 file) of the data but that's ok coverage for a quick ngsADMIX analysis
 # basic metrics for kohn bees:
 nohup parallel --noswap --joblog logs/run_flagstat_kohn.log --jobs 3 \
@@ -241,14 +315,14 @@ cp results/{1}.sort.dedup.baq.bam results/SRCD12B.backup.sort.dedup.baq.bam; \
 ./add_readgroup_2_bams.sh {1} CA_Bee results;
 cp results/RG_added/{1}.sort.dedup.baq.bam results/{1}.sort.dedup.baq.bam' \
 ::: SRCD12B &> logs/filter_bams_CA_Bee_rerun_SRCD12B.out &
-[1] 7740 - RUNNING 2.2.19 - COMPLETED. Forgot to cp over .bai file too, so copied to results/ by hand. deleted RG_added/ and all intermediate files 
+[1] 7740 - RUNNING 2.2.19 - COMPLETED. Forgot to cp over .bai file too, so copied to results/ by hand. deleted RG_added/ and all intermediate files
 
 # TO DO:
 # run all Wallberg 2014 data through pipeline. Make new script to merge bams by sample ID, markduplicates, calculate BAQ and index bams.
-# Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered?
-# Perhaps more likely, are they on average shorter reads, from libraries where the enzyme cut more and the sequencer read past the sample DNA into the adapter (?)
-# I can use fastq_screen with a limit on # reads subsampled to create a small file with a sample of unmapped reads and see what they look like and their lengths.
+# Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered? Yes - likely gut symbionts
+# Adapter contamination at a low (~1-3%) is also there. I don't think this is having a large effect on my intial analysis, but I could filter out adapters e.g. with cutadapt, and check if my bams have adapter sequences that made it past filtering (?)
 # If adapter contamination seems likely, I can use something like SeqPurge to trim off adapter sequences. (Sturm et al. 2016, https://doi.org/10.1186/s12859-016-1069-7)
+# I can also check that sequences for the reference bees don't have adapter contamination.
 # Download and map reads from Wallberg 2014 for A/C/M/O populations using pipeline for SOLiD data; sort
 # merge then deduplicate and run BAQ for Wallberg 2014 bees
 # note: best to put more general scripts, that will be used in multiple analyses, when that comes up, in a scripts/ folder
