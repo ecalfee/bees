@@ -44,5 +44,5 @@ geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/pass1_plus_kohn_GL_by_s
 [1] 1277 - RUNNING 2.3.19
 
 # TO DO:
-# Add in Wallberg 2014 reference bees too, filtering for SOLiD/SHRiMP normodds mapping quality score.
+# Add in Wallberg 2014 reference bees too.
 # Re-calculate cutoffs for coverage to exclude SNPs with low coverage and likely mapping errors
