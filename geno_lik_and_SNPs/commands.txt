@@ -50,16 +50,36 @@ geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/pass1_plus_kohn_GL_by_s
 bee_samples_listed$ cat pass1_plus_kohn.list Wallberg_12O_6M_6C_5A.list > pass1_plus_kohn_and_wallberg.list
 bee_samples_listed$ for i in $(cat pass1_plus_kohn_and_wallberg.list); do echo ../filtered_bams/results/$i.sort.dedup.baq.bam; done > pass1_plus_kohn_and_wallberg.bams
 
-# what is an average depth per bee in Wallberg (for cutoffs)?
+# what is an average depth per bee in Wallberg (for low & high depth cutoffs)?
 # using flagstat for the first few files I get # reads, multiply by 75bp/read, and for these first files
 # see 1.6-4.5x coverage. If I use on average 4x coverage, that's 112x over 28 bees, or very loosely:
 +50 for lower (.5x) bound, and + 250 for upper (2x) bound -- I should just recalculate this from flagstat after it runs
+geno_lik_and_SNPs$ bedtools genomecov -ibam ../filtered_bams/results/SRS549709.sort.dedup.baq.bam -g ../data/honeybee_genome/ordered_scaffolds.lengths > coverage/SRS549709.coverage
+Group10.15      0       51707   243982  0.21193
+Group10.15      1*0.246567 + 2*0.218364 + 3*0.155036 + 4*0.0880393 + 5*0.0471879
+-- about 1.66 coverage
+data/honeybee_genome$ samtools view -H ../../filtered_bams/results/SRS549754.sort.dedup.baq.bam | grep 'SQ' | tr ":" "\t" | cut -f3,5 > genome_order_scaffolds.lengths # used bam header to get correct scaffold order to match genome
+data/honeybee_genome$ awk '{print $1"\t"0"\t"$2}' ordered_scaffolds.lengths > ordered_scaffolds.bed
+# had to reorder by hand to match genome:
+data/honeybee_genome$ awk '{print $1"\t"0"\t"$2}' genome_order_scaffolds.lengths > genome_order_scaffolds.bed
+
+# let's look at coverage for a subset of sites across the genome:
+# make a short bed file with 100 random regions 100bp each:
+data/honeybee_genome$ bedtools random -g genome_order_scaffolds.lengths -n 100 | sort --version-sort | cut -f1,2,3 > random_100_regions.bed
+# reordered by hand to match genome scaffold order (ugh)
+
+# calculate coverage across these regions:
+geno_lik_and_SNPs$ bedtools coverage -a ../data/honeybee_genome/random_100_regions.bed -b $(cat ../bee_samples_listed/pass1_plus_kohn_and_wallberg.bams) -sorted -g ../data/honeybee_genome/genome_order_scaffolds.lengths -hist > coverage/pass1_plus_kohn_and_wallberg_random_100_regions.coverage &
+[1] 3362 - RUNNING (takes a few hours..)
+
+# use R script to calculate coverage: calc_coverage_from_bedtools_hist.R
+# There is about a mean of 2000x coverage in the whole sample (looking at just the first 27 regions)
 
 # TO DO: then run GL script again (maybe change bounds):
 geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/pass1_plus_kohn_and_wallberg_GL_by_scaffold.log --jobs 4 \
-'./calc_GL_all_SNPs.sh ../bee_samples_listed/pass1_plus_kohn_and_wallberg.bams {1} 950 3850 results/pass1_plus_kohn_and_wallberg_GL_by_scaffold' :::: \
+'./calc_GL_all_SNPs.sh ../bee_samples_listed/pass1_plus_kohn_and_wallberg.bams {1} 900 4000 results/pass1_plus_kohn_and_wallberg_GL_by_scaffold' :::: \
 ../data/honeybee_genome/ordered_scaffolds.list &> logs/pass1_plus_kohn_and_wallberg_GL_by_scaffold.out &
-
+[2] 4225 - RUNNING 2.8.19
 
 # TO DO:
 # Re-calculate cutoffs for coverage to exclude SNPs with low coverage and likely mapping errors
