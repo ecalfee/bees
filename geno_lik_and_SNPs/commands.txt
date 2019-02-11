@@ -75,11 +75,11 @@ geno_lik_and_SNPs$ bedtools coverage -a ../data/honeybee_genome/random_100_regio
 # use R script to calculate coverage: calc_coverage_from_bedtools_hist.R
 # There is about a mean of 2000x coverage in the whole sample (looking at just the first 27 regions)
 
-# TO DO: then run GL script again (maybe change bounds):
+# running GL scripts with Kohn and Wallberg bees:
 geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/pass1_plus_kohn_and_wallberg_GL_by_scaffold.log --jobs 4 \
 './calc_GL_all_SNPs.sh ../bee_samples_listed/pass1_plus_kohn_and_wallberg.bams {1} 900 4000 results/pass1_plus_kohn_and_wallberg_GL_by_scaffold' :::: \
 ../data/honeybee_genome/ordered_scaffolds.list &> logs/pass1_plus_kohn_and_wallberg_GL_by_scaffold.out &
-[2] 4225 - RUNNING 2.8.19
+[2] 4225 - RUNNING 2.8.19 - COMPLETED
 
 # TO DO:
 # Re-calculate cutoffs for coverage to exclude SNPs with low coverage and likely mapping errors

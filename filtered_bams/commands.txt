@@ -271,7 +271,7 @@ samtools merge -b merged/{1}.list merged/{1}.sort.bam' \
 ::: SRS549663 &> logs/merge_Wallberg_ACMO_subset_SRS549663.out &
 [1] 90429 - COMPLETED 2.8.19
 
-# made list of files that includes n=28 total Wallberg 2014 reference bees: 
+# made list of files that includes n=28 total Wallberg 2014 reference bees:
 # 6 O turkey, 6 O jordan, 6 M (spain, sweden, norway), 2 C carnica (austria), 4 C ling (italy), 5 A scuttelatta (S. Africa). 
 # I'm ignoring additional C I aligned from Italy for now, to not give that group undue weight:
 data/Wallberg_2014$ cut -f2 C_ling_and_A_done.txt | uniq | tail -n 5 | head -n 4 > Wallberg_12O_6M_6C_5A.list; cut -f2 ACMO_subset_todo.txt | uniq >> Wallberg_12O_6M_6C_5A.list; mv Wallberg_12O_6M_6C_5A.list ../../bee_samples_listed/.

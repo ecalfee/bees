@@ -3,7 +3,9 @@
 # (2) NGSAdmix
 # All implemented in ANGSD based off of genotype likelihoods at SNPs in low LD
 
-# SNPs need to be in low LD for this analysis.
+
+# Pass 1 analysis with Harpur reference A/C/M plus some previous CA bees and new CA/AR 2018 bees:
+# (0) SNPs need to be in low LD for this analysis.
 # for input files in results/input/, I concatenate the GL for every 1000th SNP for ordered scaffolds:
 # first make a list of gl files in order (different order will give different SNPs):
 bees/global_ancestry$ for i in $(cat ../data/honeybee_genome/ordered_scaffolds.list); do echo "scaffold_$i.beagle.gz"; done > results/input/ordered_scaffolds.GL.files
@@ -14,14 +16,14 @@ bees/global_ancestry$ nohup ./catBeagleGL_nth.sh 1000 ordered_scaffolds ../geno_
 bees/global_ancestry$ nohup ./catBeagleGL_nth.sh 250 ordered_scaffolds ../geno_lik_and_SNPs/results/pass1_GL_by_scaffold >& logs/prune_ordered_scaffolds_by250.out &
 [1] 1443 - COMPLETE
 
-# run PCAngsd (note: first need to install pcangsd.py, python2, pip2, and using pip2 all the dependencies, e.g. numpy, listed here: http://www.popgen.dk/software/index.php/PCAngsd)
+# (1) run PCAngsd (note: first need to install pcangsd.py, python2, pip2, and using pip2 all the dependencies, e.g. numpy, listed here: http://www.popgen.dk/software/index.php/PCAngsd)
 bees/global_ancestry$ nohup ./runPCAngsd.sh ordered_scaffolds_prunedBy250 >& logs/runPCA_ordered_scaffolds_prunedBy250.out &
 [1] 14723 - COMPLETE (seconds)
 
 bees/global_ancestry$ nohup ./runPCAngsd.sh ordered_scaffolds_prunedBy1000 >& logs/runPCA_ordered_scaffolds_prunedBy1000.out &
 [2] 15018 - COMPLETE (seconds)
 
-# run NGSAdmix
+# (2) run NGSAdmix
 bees/global_ancestry$ nohup ./runNGSadmix.sh 3 ordered_scaffolds_prunedBy250 &> logs/runNGSadmix_ordered_scaffolds_prunedBy250.out &
 [1] 13386 - COMPLETE (seconds)
 
@@ -35,19 +37,54 @@ bees/global_ancestry$ nohup ./runNGSadmix.sh 4 ordered_scaffolds_prunedBy250 &> 
 [2] 3639 - COMPLETED (seconds)
 
 
-# (1) pruning new GL's pass1 plus kohn, take every nth SNP:
+
+# Adding in 3 bees from Kohn's new dataset - Mexico and San Diego
+
+# (0) pruning new GL's pass1 plus kohn, take every nth SNP:
 global_ancestry$ nohup ./catBeagleGL_nth.sh 1000 ordered_scaffolds_pass1_plus_kohn ../geno_lik_and_SNPs/results/pass1_plus_kohn_GL_by_scaffold >& logs/prune_ordered_scaffolds_pass1_plus_kohn_by1000.out &
 [1] 10392 - COMPLETED 2.4.19
 # also pruning by every 250 SNPs
 global_ancestry$ nohup ./catBeagleGL_nth.sh 251 ordered_scaffolds_pass1_plus_kohn ../geno_lik_and_SNPs/results/pass1_plus_kohn_GL_by_scaffold >& logs/prune_ordered_scaffolds_pass1_plus_kohn_by251.out &
 [2] 11094 - COMPLETED 2.4.19
 
+# (1) did not run PCA on this set of data
+
 # (2) running NGSadmix on pass1 plus kohn dataset:
 global_ancestry$ nohup parallel --no-swap --jobs 4 --joblog logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn.log './runNGSadmix.sh {1} ordered_scaffolds_pass1_plus_kohn_prunedBy{2}' ::: 2 3 4 ::: 1000 251 &> logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn.out &
-[1] 1250 - RUNNING 2.4.19
+[1] 1250 - COMPLETED 2.4.19
 
+
+# Added Wallberg 2014 reference bees:
+# (0) prune LD = take every nth SNP:
+global_ancestry$ nohup parallel --noswap --joblog logs/prune_ordered_scaffolds_pass1_plus_kohn_and_wallberg_byN.log './catBeagleGL_nth.sh {1} ordered_scaffolds_pass1_plus_kohn_and_wallberg ../geno_lik_and_SNPs/results/pass1_plus_kohn_and_wallberg_GL_by_scaffold' ::: 1000 251 >& logs/prune_ordered_scaffolds_pass1_plus_kohn_and_wallberg_byN.out &
+[1] 22197 - COMPLETED 2.10.19
+
+# (1) run PCAngsd
+global_ancestry$ nohup parallel --noswap --joblog logs/runPCA_ordered_scaffolds_pass1_plus_kohn_and_wallberg.log './runPCAngsd.sh ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy{1}' ::: 1000 251 &> logs/runPCA_ordered_scaffolds_pass1_plus_kohn_and_wallberg.out &
+[1] 12839 - COMPLETED 2.10.19
+
+# (2) run NGSadmix:
+global_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn_and_wallberg.log './runNGSadmix.sh {1} ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy{2}' ::: 2 3 4 ::: 1000 251 &> logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn_and_wallberg.out &
+[1] 13525 - COMPLETED 2.10.19
+
+
+# excluding O bees from Jordan (because appear admixed):
+
+# (0) cut those columns out of genotype likelihood files:
+global_ancestry/results/input$ zcat ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy251.beagle.gz | cut -f1-534,553-576 | gzip > ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy251.beagle.gz
+global_ancestry/results/input$ zcat ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy1000.beagle.gz | cut -f1-534,553-576 | gzip > ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy1000.beagle.gz
+
+# (1) run PCAngsd
+global_ancestry$ nohup parallel --noswap --joblog logs/runPCA_ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO.log './runPCAngsd.sh ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy{1}' ::: 1000 251 &> logs/runPCA_ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO.out &
+[1] 16247 - COMPLETED 2.10.19
+
+# (2) run NGSadmix:
+global_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO.log './runNGSadmix.sh {1} ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy{2}' ::: 2 3 4 ::: 1000 251 &> logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO.out &
+[1] ? - COMPLETED 2.10.19
 
 # made multiple R scripts for plotting results:
 plot_PCA.R
 plot_NGSadmix.R
 plot_admixture_by_PCA.R # shows congruence between these two global ancestry analyses
+
+# TO DO: plot PCA's. Make NGSAdmix plots more interpretable by making anc1 always A etc. (using A group)

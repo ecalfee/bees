@@ -17,25 +17,57 @@ kohn_meta <- data.frame(Bee_ID = c("SanDiego001", "SanDiego002", "Mexico001"),
                         geographic_location = c("San Diego", "San Diego", "Mexico"),
                         population = c("SanDiego_2015", "SanDiego_2015", "Mexico_2015"),
                         stringsAsFactors = F)
-meta <- bind_rows(meta1, kohn_meta)
+# get wallberg meta data
+wallberg_ACMO = data.frame(geographic_location = c("Italy", "Austria", 
+                             "Jordan", "Turkey",
+                             "South Africa", "Nigeria",
+                             "Norway", "Sweden", "Spain"),
+                           group = c("C", "C",
+                                     "O", "O",
+                                     "A", "A",
+                                     "M", "M", "M"),
+                           stringsAsFactors = F)
+wallberg_meta <- read.table("../bee_samples_listed/Wallberg_2014_all.meta",
+                            header = T, sep = "\t", stringsAsFactors = F) %>%
+  unique(.) %>%
+  dplyr::select(c("SRA_Sample", "geo_loc_name")) %>%
+  rename(Bee_ID = SRA_Sample,
+         geographic_location = geo_loc_name) %>%
+  mutate(source = "Wallberg",
+         year = 2014) %>%
+  left_join(., wallberg_ACMO, by = "geographic_location")
+
+# merge all meta data
+meta <- bind_rows(meta1, kohn_meta, wallberg_meta)
 
 # get ID's for PCA data (CAUTION - bam list order and admix results MUST MATCH!)
 #IDs <- read.table("../bee_samples_listed/with_duplicated_ap50/pass1.list", stringsAsFactors = F,
 #                  header = F) # note ap50 is duplicated in the GL file output of ANGSD and NGSadmix results
-IDs <- read.table("../bee_samples_listed/pass1_plus_kohn.list", stringsAsFactors = F,
-                  header= F)
+#IDs <- read.table("../bee_samples_listed/pass1_plus_kohn.list", stringsAsFactors = F,
+#                  header= F)
+IDs <- read.table("../bee_samples_listed/pass1_plus_kohn_and_wallberg.list", stringsAsFactors = F)
 colnames(IDs) <- c("Bee_ID")
 bees <- dplyr::left_join(IDs, meta, by = "Bee_ID") 
 
-K = 3 # 3 admixing populations
-#K = 4
+# which bees are O from Jordan (admixed)?
+bees_Jordan_O <- which(bees$geographic_location=="Jordan")
+# I will cut out these rows from the GL file to re-run NGSAdmix.
+rows_to_exclude_Jordan_O = sapply((which(bees$geographic_location=="Jordan"))*3, function(x) x + 1:3)
+bees_noJordanO = bees[-bees_Jordan_O,]
+bees <- bees_noJordanO
+
+#K = 3 # 3 admixing populations
+K = 4
 colorsK=c("red", "cornflowerblue", "navy")
 
 # starting with pass1 analysis from 1st round of sequencing
 #prefix = "ordered_scaffolds_prunedBy250"
 #prefix = "ordered_scaffolds_prunedBy1000" # minor differences
 #prefix = "ordered_scaffolds_pass1_plus_kohn_prunedBy251"
-prefix = "ordered_scaffolds_pass1_plus_kohn_prunedBy1000"
+#prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy1000"
+#prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy251"
+prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy251"
+
 name = paste0("K", K, "_", prefix)
 file = paste0("results/NGSAdmix/", name, ".qopt")
 #admix <- read.table(file)[,3:1] # switched arbitrary order of ancestries to make visual comparison with pruneby250 easy
