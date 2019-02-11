@@ -82,9 +82,15 @@ global_ancestry$ nohup parallel --noswap --joblog logs/runPCA_ordered_scaffolds_
 global_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO.log './runNGSadmix.sh {1} ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy{2}' ::: 2 3 4 ::: 1000 251 &> logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO.out &
 [1] ? - COMPLETED 2.10.19
 
+# NGSadmix with wallberg bees, want to see K=5,6,7 results, for O group including and excluding Jordan's O bees:
+global_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn_and_wallberg_K567.log './runNGSadmix.sh {1} ordered_scaffolds_pass1_plus_{3}_prunedBy{2}' ::: 5 6 7 ::: 1000 251 ::: kohn_and_wallberg kohn_and_wallberg_noJordanO &> logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn_and_wallberg_K567.out &
+[1] 18920 - RUNNING 2.10.19
+
 # made multiple R scripts for plotting results:
 plot_PCA.R
 plot_NGSadmix.R
 plot_admixture_by_PCA.R # shows congruence between these two global ancestry analyses
 
-# TO DO: plot PCA's. Make NGSAdmix plots more interpretable by making anc1 always A etc. (using A group)
+
+# NOTE: pruning by every 1000th snp leaves about 3k snps, and pruning by every 251 snps leaves ~12k snps (on avg. ~80kb and ~19kb spacing, respectively)
+# TO DO: Make NGSAdmix plots more interpretable by making anc1 always A etc. (using A group)

@@ -8,7 +8,7 @@ library(RColorBrewer)# for color palette
 # get metadata for individuals included in NGSadmix analysis
 meta1 <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F, 
                    header = T, sep = "\t")
-# NOTE: quick fix to view kohn bees (need meta):
+# quick kohn metadata:
 kohn_meta <- data.frame(Bee_ID = c("SanDiego001", "SanDiego002", "Mexico001"),
                         source = "Kohn",
                         strain = "unknown",
@@ -54,10 +54,12 @@ bees_Jordan_O <- which(bees$geographic_location=="Jordan")
 # I will cut out these rows from the GL file to re-run NGSAdmix.
 rows_to_exclude_Jordan_O = sapply((which(bees$geographic_location=="Jordan"))*3, function(x) x + 1:3)
 bees_noJordanO = bees[-bees_Jordan_O,]
-bees <- bees_noJordanO
+#bees <- bees_noJordanO
 
-#K = 3 # 3 admixing populations
-K = 4
+K = 3 # 3 admixing populations
+#K = 4
+K = 5
+K = 6
 colorsK=c("red", "cornflowerblue", "navy")
 
 # starting with pass1 analysis from 1st round of sequencing
@@ -66,7 +68,8 @@ colorsK=c("red", "cornflowerblue", "navy")
 #prefix = "ordered_scaffolds_pass1_plus_kohn_prunedBy251"
 #prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy1000"
 #prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy251"
-prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy251"
+prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy1000"
+#prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy251"
 
 name = paste0("K", K, "_", prefix)
 file = paste0("results/NGSAdmix/", name, ".qopt")
@@ -158,13 +161,19 @@ ggsave(paste0("plots/NGS_admix_N_CA_1994-2015_", name, ".png"),
        dpi = 200)
 
 p6 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
-  filter(group %in% c("A", "C", "M")) %>%
+  filter(group %in% c("A", "C", "M", "O")) %>%
   ggplot(., aes(fill=ancestry, y=p, x=Bee_ID)) +
-  geom_bar(stat = "identity", position = "fill") +
-  facet_wrap(~group)
-plot(p6)
-ggsave(paste0("plots/NGS_admix_A_C_M_Ref_", name, ".png"), 
-       plot = p6, 
+  geom_bar(stat = "identity", position = "fill")
+plot(p6 + facet_wrap(~group))
+ggsave(paste0("plots/NGS_admix_Ref_", name, ".png"), 
+       plot = p6 + facet_wrap(~group), 
+       device = "png", 
+       width = 15, height = 8, units = "in",
+       dpi = 200)
+
+plot(p6 + facet_wrap(~source))
+ggsave(paste0("plots/NGS_admix_Ref_bySource", name, ".png"), 
+       plot = p6 + facet_wrap(~source), 
        device = "png", 
        width = 15, height = 8, units = "in",
        dpi = 200)
