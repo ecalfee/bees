@@ -37,7 +37,6 @@ bees/global_ancestry$ nohup ./runNGSadmix.sh 4 ordered_scaffolds_prunedBy250 &> 
 [2] 3639 - COMPLETED (seconds)
 
 
-
 # Adding in 3 bees from Kohn's new dataset - Mexico and San Diego
 
 # (0) pruning new GL's pass1 plus kohn, take every nth SNP:
@@ -84,7 +83,29 @@ global_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/runNGSadmix_orde
 
 # NGSadmix with wallberg bees, want to see K=5,6,7 results, for O group including and excluding Jordan's O bees:
 global_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn_and_wallberg_K567.log './runNGSadmix.sh {1} ordered_scaffolds_pass1_plus_{3}_prunedBy{2}' ::: 5 6 7 ::: 1000 251 ::: kohn_and_wallberg kohn_and_wallberg_noJordanO &> logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn_and_wallberg_K567.out &
-[1] 18920 - RUNNING 2.10.19
+[1] 18920 - COMPLETED 2.10.19
+
+
+# The Wallberg A group is less differentiated on the PCA than other A bees from Harpur and Sheppard.
+# Can I replicate Kohn's results by only including Wallberg's A's? This would give me an explanation.
+
+# (0) cut those columns out of genotype likelihood files:
+global_ancestry/results/input$ zcat ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy251.beagle.gz | cut -f1-57,109-576 | gzip > ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergA_prunedBy251.beagle.gz
+
+# (1) run PCAngsd
+global_ancestry$ nohup parallel --noswap --joblog logs/runPCA_ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergA.log './runPCAngsd.sh ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergA_prunedBy{1}' ::: 251 &> logs/runPCA_ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergA.out &
+[1] 30706 - COMPLETED 2.11.19
+
+# (2) run NGSadmix:
+global_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergA.log './runNGSadmix.sh {1} ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergA_prunedBy{2}' ::: 2 3 4 5 ::: 251 &> logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergA.out &
+[2] ? - COMPLETED 2.11.19
+
+
+# What if I only use the Wallberg reference bees? Exclude all Harpur and Sheppard reference bees:
+global_ancestry/results/input$ zcat ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy251.beagle.gz | cut -f1-3,109-576 | gzip > ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergREF_prunedBy251.beagle.gz
+global_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergREF.log './runNGSadmix.sh {1} ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergREF_prunedBy{2}' ::: 2 3 4 5 ::: 251 &> logs/runNGSadmix_ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergREF.out &
+[1] 31303 - COMPLETED 2.11.19 - Still could not replicate low A ancestry in San Diego finding.
+
 
 # made multiple R scripts for plotting results:
 plot_PCA.R

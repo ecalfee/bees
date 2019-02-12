@@ -89,7 +89,7 @@ p12 = d %>%
   ggplot(., aes(PC1, PC2)) + 
   xlab(paste0("PC1 (", PC_var_explained[1], "%)")) +
   ylab(paste0("PC2 (", PC_var_explained[2], "%)")) +
-  ggtitle(paste0("PCA ", prefix, " every 1000th snp"))
+  ggtitle(paste0("PCA ", prefix, " every ", n, "th snp"))
 plot(p12 + geom_point(aes(color = strain), alpha = .5))
 ggsave(paste0("plots/PCA_12_", prefix, ".png"), 
        plot = p12 + geom_point(aes(color = strain), alpha = .5), 
@@ -133,6 +133,19 @@ ggsave(paste0("plots/PCA_REF_34_", prefix, "_byLocationSource.png"),
        width = 12, height = 8, units = "in",
        dpi = 200)
 
+p34 = d %>%
+  ggplot(., aes(PC3, PC4)) + 
+  geom_point(aes(shape = source, color = geographic_location_short)) +
+  xlab(paste0("PC3 (", PC_var_explained[3], "%)")) +
+  ylab(paste0("PC4 (", PC_var_explained[4], "%)")) +
+  ggtitle(paste0("PCA ref ", prefix, " every ", n, "th snp"))
+plot(p34)
+ggsave(paste0("plots/PCA_34_", prefix, "_byLocationSource.png"), 
+       plot = p34, 
+       device = "png", 
+       width = 12, height = 8, units = "in",
+       dpi = 200)
+
 # Use vars() to supply faceting variables:
 plot(p12 + geom_point(aes(color = population), alpha = .5) + facet_wrap(~group))
 ggsave(paste0("plots/PCA_", prefix, "facet_by_population.png"), 
@@ -170,6 +183,20 @@ p34 = d %>%
   ylab(paste0("PC4 (", PC_var_explained[4], "%)")) +
   ggtitle(paste0("PCA 34", prefix, " every ", n, "th snp"))
 plot(p34 + geom_point(aes(color = group), alpha = .5))
+table(d$population)
+plot(p34 + facet_wrap(~group) + geom_point(aes(color = population), alpha = .5))
+ggsave(paste0("plots/PCA_34_", prefix, "by_population.png"), 
+       plot = p34 + facet_wrap(~group) + geom_point(aes(color = population), alpha = .5),
+       device = "png", 
+       width = 12, height = 8, units = "in",
+       dpi = 200)
+plot(p12 + facet_wrap(~group) + geom_point(aes(color = population), alpha = .5))
+ggsave(paste0("plots/PCA_12_", prefix, "by_population.png"), 
+       plot = p12 + facet_wrap(~group) + geom_point(aes(color = population), alpha = .5),
+       device = "png", 
+       width = 12, height = 8, units = "in",
+       dpi = 200)
+
 # PC 5,6
 p56 = d %>%
   ggplot(., aes(PC5, PC6)) + 

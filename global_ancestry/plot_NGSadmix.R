@@ -56,10 +56,24 @@ rows_to_exclude_Jordan_O = sapply((which(bees$geographic_location=="Jordan"))*3,
 bees_noJordanO = bees[-bees_Jordan_O,]
 #bees <- bees_noJordanO
 
-K = 3 # 3 admixing populations
-#K = 4
-K = 5
-K = 6
+# which A bees are not Wallberg A bees?
+bees_A_not_wallberg <- which(bees$group=="A" & bees$source != "Wallberg")
+# I will cut out these rows from the GL file to re-run NGSAdmix.
+rows_to_exclude_not_Wallberg_A = sapply((bees_A_not_wallberg)*3, function(x) x + 1:3)
+#bees_only_wallberg_A = bees[-bees_A_not_wallberg, ]
+#bees <- bees_only_wallberg_A
+
+# what if I only use the wallberg reference bees?
+bees_ref_not_wallberg <- which(bees$group %in% c("A", "C", "M", "O") & bees$source != "Wallberg")
+rows_to_exclude_not_Wallberg_ref = sapply((bees_ref_not_wallberg)*3, function(x) x + 1:3)
+#bees_only_wallberg_ref = bees[-bees_ref_not_wallberg, ]
+#bees <- bees_only_wallberg_ref
+
+
+#K = 3 # 3 admixing populations
+K = 4
+#K = 5
+#K = 6
 colorsK=c("red", "cornflowerblue", "navy")
 
 # starting with pass1 analysis from 1st round of sequencing
@@ -70,6 +84,8 @@ colorsK=c("red", "cornflowerblue", "navy")
 #prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy251"
 prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy1000"
 #prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy251"
+#prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergA_prunedBy251"
+#prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergREF_prunedBy251"
 
 name = paste0("K", K, "_", prefix)
 file = paste0("results/NGSAdmix/", name, ".qopt")
