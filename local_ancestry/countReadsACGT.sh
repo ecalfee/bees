@@ -9,6 +9,8 @@ set –o nounset
 # this script takes in a sites file and outputs an angsd counts file with
 # columns totA totC totG totT as well as a .pos.gz file with all positions with data
 # to run: ./countReadsACGT.sh CA0906 thin1kb_common3
+echo "argument 1 is: $1"
+echo "argument 2 is: $2"
 
 BEE_ID=$1
 DIR_OUT="results/SNPs/"$2
