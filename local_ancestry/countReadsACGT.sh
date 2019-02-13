@@ -8,9 +8,9 @@ set –o nounset
 
 # this script takes in a sites file and outputs an angsd counts file with
 # columns totA totC totG totT as well as a .pos.gz file with all positions with data
-# to run: ./countReadsACGT CA0906 thin1kb_common3
+# to run: ./countReadsACGT.sh CA0906 thin1kb_common3
 
-ID=$1
+BEE_ID="$1"
 DIR_OUT="results/SNPs/$2"
 DIR_IN="../filtered_bams/results/"
 BAM="${DIR_IN}/${ID}.sort.dedup.baq.bam"
@@ -22,13 +22,13 @@ mkdir -p "${DIR_OUT}/countsACGT"
 mkdir -p ${DIR_SINGLE_BAM_LIST}
 
 # make file with single focus bam listed
-echo ${BAM} > ${DIR_SINGLE_BAM_LIST}/${ID}.only.list
+echo "${BAM}" > ${DIR_SINGLE_BAM_LIST}/${BEE_ID}.only.list
 
-echo "counting reads supporting ACGT alleles for bee ${ID}"
+echo "counting reads supporting ACGT alleles for bee ${BEE_ID}"$BEE_ID
 # counts reads for sites in sites file that pass basic quality filtering
-angsd -out "${DIR_OUT}/countsACGT/${ID}" \
+angsd -out "${DIR_OUT}/countsACGT/${BEE_ID}" \
 -ref "$REF" \
--bam "${DIR_SINGLE_BAM_LIST}/${ID}.only.list" \
+-bam "${DIR_SINGLE_BAM_LIST}/${BEE_ID}.only.list" \
 -minQ 20 -minMapQ 30 \
 -doCounts 1 -dumpCounts 3 \
 -remove_bads 1 \
