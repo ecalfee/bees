@@ -1,0 +1,29 @@
+# Inferring local ancestry across the honeybee genome
+
+# ancestry_hmm:
+
+# TO DO:
+# Use SNPs filtered to 1500 bp to avoid any within-ancestry LD.
+# Filtered SNPs are chosen to have high ancestry informativeness,
+# defined by at least A C or M having minor allele freq > 40%
+
+
+# Make input files
+# Get called genotype counts at all SNPs for A, C, and M groups (from bed file)
+# Make a sites file of the maj/min allele, scaffold, and position relative to scaffold for ANGSD input
+# Get read counts for each admixed individual at every SNP included
+# Make a sites file with bp position and recombination position relative to the chromosome
+# Combine these together into one file per chromosome
+
+
+# Run ancestry_hmm
+# (1) run ancestry_hmm with all bees together and a 40% A freq, 40% C and 20% M prior
+# (2) run ancestry_hmm with all bees together and a 5% A freq, 85% C and 10% M prior
+# (3) run ancestry_hmm for different groups separately, grouping bees into larger 'populations' based on roughly similar global ancestry proportions 
+
+
+# Verify general expected patterns
+# look at estimated times since admixture and visualize some block lengths
+# what portion of calls are heterozygous for ancestry? what portion are high confidence calls?
+# how many of the LD-filtered SNPs, on average, fall within an ancestry block?
+# do bees from the same hybrid zone have more similar local ancestry than across CA/Argentina?

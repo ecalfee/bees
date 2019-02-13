@@ -471,7 +471,21 @@ sims_downsample$ nohup parallel --delay 10s --noswap --joblog logs/fastPHASE01.l
 --jobs 4 "echo Starting chr{1}; echo date; \
 fastPHASE -Z -g -i -oresults/fastPHASE/ACM_Riv2014_01.chr{1} results/fastPHASE/ACM_Riv2014_01.chr{1}.recode.phase.inp" \
 ::: {1..16} &> logs/fastPHASE01.out &
-[1] 11012 - RUNNING 2.6.19
+[1] 11012 - COMPLETED 2.6.19. Results may have imputed genotypes (even though I attempted to turn off imputation with -g). I do not find any ?'s or alternative missing value symbols in simplified output (-Z option).
 
-# TO DO: convert output of fastPHASE to genotype format per individual (haplotype?) used by MOSAIC
-# also get genetic position of all SNPs in ACM_Riv2014_var_sites
+# I take the fastPHASE output that minimizes switch error, transpose the results, then create per-population haplotype files for MOSAIC input (2xN ind's per pop = columns, SNPs per chrom = rows):
+sims_downsample$ nohup parallel --joblog logs/transposing_genotypes_for_mosaic_ACM_Riv2014.log --jobs 4 './transpose_fastPHASE_to_MOSAIC_input.sh ACM_Riv2014 chr{1}' ::: {1..16} &> logs/transposing_genotypes_for_mosaic_ACM_Riv2014.out &
+[1] 13563 - Had to fix special character for missing genotypes. Rerunning:
+[1] 980 - COMPLETED 2.12.19
+
+# rates files are space separated, begin with # of sites on that chromosome, and then list bp pos and cM pos
+# to do this I'll start with Julie's positions from bees_new_positions/ALL.bed
+# which just sticks adjacent scaffolds together. But I can extract the scaffold position from the SNP name and use the position relative to the scaffold to calculate the bp and cM position relative to the chromosome,
+# assuming a 50000 bp gap between any two adjacent scaffolds.
+:sites:101564
+1523 1543 1816 2092 2183
+0 0.000101034 0.002869933 0.005689183 0.006640906
+
+# TO DO: get genetic position of all SNPs in ACM_Riv2014_var_sites for MOSAIC input. Run MOSAIC.
+
+
