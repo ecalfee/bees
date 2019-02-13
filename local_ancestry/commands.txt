@@ -2,24 +2,60 @@
 
 # ancestry_hmm:
 
-# TO DO:
-# Use SNPs filtered to 1500 bp to avoid any within-ancestry LD.
+# Use SNPs filtered to 1000 bp to avoid within-ancestry LD.
 # Filtered SNPs are chosen to have high ancestry informativeness,
-# defined by at least A C or M having minor allele freq > 40%
+# defined by at least A C or M having minor allele freq > 30%
+local_ancestry$ mkdir -p results/SNPs/thin1kb_common3
 
+# find allele frequencies in plink (see sims_downsample/commands.txt) - saved as data/bees_new_positions/ACM.frq:
 
-# Make input files
-# Get called genotype counts at all SNPs for A, C, and M groups (from bed file)
-# Make a sites file of the maj/min allele, scaffold, and position relative to scaffold for ANGSD input
+# find 'ancestry informative' positions with >= .3 minor allele frequency in at least one population:
+local_ancestry$ awk '$7 >= 0.3 || $6 >= 0.3 || $5 >= 0.3 {print $0}' ../data/bees_new_positions/ACM.frq | wc -l
+# This leaves about 500k SNPs. Make a new file with just these ancestry informative 'common SNPs'
+local_ancestry$ awk '$7 >= 0.3 || $6 >= 0.3 || $5 >= 0.3 {print $0}' ../data/bees_new_positions/ACM.frq > results/SNPs/ACM_common3.frq
+
+# Using plink, filter this SNP set to >1kb spacing, because A, C, M groups have LD < .15 and ind. populations have LD < .2 at this distance (most sig. less): https://www.nature.com/articles/ng.3077/figures/8.
+local_ancestry$ plink --bfile ../data/bees_new_positions/ALL --write-snplist \
+--keep ../data/bees_new_positions/noYorCeranaorDomestic.txt --keep-allele-order \
+--extract results/SNPs/ACM_common3.frq --bp-space 1000 --out SNPs/thin1kb_common3/included
+# the result is ~120k SNPs saved in results/SNPs/thin1kb_common3/included.snplist
+
+# Get called genotype counts at all SNPs for A, C, and M groups at each SNP
+local_ancestry$ for pop in A C M; do plink --bfile ../data/bees_new_positions/ALL --freq counts --keep-allele-order --extract results/SNPs/thin1kb_common3/included.snplist --filter ../data/bees_new_positions/populations.txt $pop --out results/SNPs/thin1kb_common3/$pop; done
+# strip header and other information besides allele counts from .frq.counts files
+local_ancestry$ for i in $(ls results/SNPs/thin1kb_common3/*.frq.counts); do awk '$1!="CHR" {print $5"\t"$6}' $i > $i.strp; done
+
 # Get read counts for each admixed individual at every SNP included
+# First, make a sites file of the scaffold, bp position on the scaffold, and maj/min allele for ANGSD input
+local_ancestry$ tail -n +2 results/SNPs/thin1kb_common3/A.frq.counts | tr "." "\t" | \
+awk '{print $3"."$4"\t"$5"\t"$6"\t"$7}' > results/SNPs/thin1kb_common3/included.var.sites
+# index this file for angsd:
+local_ancestry$ angsd sites index results/SNPs/thin1kb_common3/included.var.sites
+# now getting read counts for maj/min alleles at these sites for each admixed individual:
+# First I get counts of all reads A/C/G/T for each site using ANGSD:
+local_ancestry$ nohup parallel --joblog logs/ACGTcounts_novo_seq_1.log --noswap --jobs 4 './countReadsACGT.sh {1}' \
+:::: data/novo_seq/C202SC18101772/samples.list &> logs/ACGTcounts_novo_seq_1.out &
+
+# then using R I convert A/C/G/T counts into maj/min allele counts.
+# TO DO: maybe I should be removing sites with > 2.5x mean ind. depth in R too (plot and see if there's a peak)
+
+# TO DO:
+
+
 # Make a sites file with bp position and recombination position relative to the chromosome
-# Combine these together into one file per chromosome
+
+# Combine counts and SNP information into input files for ancestry_hmm:
+# paste together stripped files into correct order for ancestry_hmm input file
+# chromosome, position_bp, allele counts A1 in A, allele counts A2 in A, allele counts A1 in C, allele counts A2 in C, allele counts A1 in M, allele counts A2 in M,
+# distance in Morgans between previous marker and this one
+# read counts A1 in sample1, read counts A2 in sample1, read counts A1 in sample2 etc.
+
 
 
 # Run ancestry_hmm
 # (1) run ancestry_hmm with all bees together and a 40% A freq, 40% C and 20% M prior
 # (2) run ancestry_hmm with all bees together and a 5% A freq, 85% C and 10% M prior
-# (3) run ancestry_hmm for different groups separately, grouping bees into larger 'populations' based on roughly similar global ancestry proportions 
+# (3) run ancestry_hmm for different groups separately, grouping bees into larger 'populations' based on roughly similar global ancestry proportions
 
 
 # Verify general expected patterns
