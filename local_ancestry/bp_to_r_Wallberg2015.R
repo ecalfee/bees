@@ -9,21 +9,26 @@
 # (and will be ignored by ancestry_hmm because it has no preceding SNP)
 
 library(dplyr)
-#library(ggplot2)
+library(tidyr)
 
-# to run: Rscript bp_to_r_Wallberg2015.R data/bees_new_positions/lowLDA4/A.frq.counts
-# the result is a position file for input to ancestry_hmm, e.g. data/bees_new_positions/lowLDA4/A.frq.counts.rmap
+# to run: Rscript ./bp_to_r_Wallberg2015.R thin1kb_common3 A.rates.1000.201.low_penalty.csv.cM_Mb.windows.100000.csv
+# the result is a position file for input to ancestry_hmm, results/SNPs/thin1kb_common3/included.rmap
+# with recombination rates based on a map resolution at 100kb scale
 
 # user input:
 args <- commandArgs(trailingOnly=TRUE)
-POS_FILE = args[1]
+PREFIX_FILE_OUT = paste0("results/SNPs/", args[1], "/included")
+VAR_SITES_FILE = paste0(PREFIX_FILE_OUT, ".var.sites")
+MAP_FILE = paste0("../data/recomb_map/Wallberg_2015/recombination_rates/", args[2])
+SCAFFOLD_STARTS = "../data/honeybee_genome/Amel_4.5_scaffold_start_positions.csv"
+
 
 # start of new chromosome/Linkage Group default distance (in cM; will be divided by 100 to convert to morgans) 
 # this number cannot be negative but is otherwise ignored by ancestry_hmm; 1 Morgan is recommended value
 startingBP = 100
 
-# Wallberg map with resolution 100kb scale -- note: blanks are NAs, no recomb. rate estimated for that window
-rmap = read.csv("data/recomb_map/Wallberg_2015/recombination_rates/A.rates.1000.201.low_penalty.csv.cM_Mb.windows.100000.csv",
+# Wallberg map with different resolutions can be chosen -- note: blanks are NAs, no recomb. rate estimated for that window
+rmap = read.table(MAP_FILE,
                 stringsAsFactors = F, header = F, na.strings = "", sep = "\t")
 colnames(rmap) = c("LG", "pos", "window", "cM_Mb")
 # This map has blanks (now NAs) where recombination rates cannot be estimated due to lack of SNPs or gaps (e.g. between scaffolds)
@@ -34,22 +39,17 @@ for (lg in paste0("Group", 1:16)){
   rmap[rmap$LG==lg & is.na(rmap$cM_Mb), "cM_Mb"] <- meanLG[lg]
 } 
 
-# get position file
-d0 = read.table(POS_FILE, stringsAsFactors = F, header = T)
-# reformat to access SNP position information
-SNPs = data.frame(t(sapply(d0$SNP, 
-                             function(i) 
-                               unlist(strsplit(i, split = "[.]")))), stringsAsFactors = F)
-colnames(SNPs) = c("snpN", "LG", "scaffold", "scaff_pos")
-# convert characters to integers
-class(SNPs$scaffold) = "integer"
-class(SNPs$scaff_pos) = "integer"
-rownames(SNPs) = NULL 
-d1 = cbind(d0, SNPs)
+# get SNP position file
+d0 = read.table(VAR_SITES_FILE, stringsAsFactors = F, header = F, sep = "\t")
+colnames(d0) <- c("id", "scaff_pos", "ref_allele", "alt_allele") # id is the scaffold id, e.g. Group1.1
+d1 = d0 %>%
+separate(., id, c("LG", "scaffold"), sep = "[.]", remove = FALSE) # separate id Group1.7 into LG Group1 and scaffold 7
+mode(d1$scaffold) <- "numeric" # change type from character to number
+
 # find position relative to chromosome, not scaffold, where we assume there is a 50,000 bp gap between any adjacent scaffolds
 # first get absolute start positions for each scaffold
-starts <- read.csv("data/honeybee_genome/Amel_4.5_scaffold_start_positions.csv", stringsAsFactors = F)
-starts$pos_start = starts$pos - 1 # start of scaffold
+starts <- read.csv(SCAFFOLD_STARTS, stringsAsFactors = F)
+starts$pos_start = starts$pos - 1 # where 0 is the first bp of the scaffold
 starts$LG = paste0("Group", starts$lg) # reformat 4 -> Group4 to match d
 # now I just add the scaffold-relative position to their start position to get an absolute chromosome position per marker
 d = left_join(d1, starts[ , c("LG", "scaffold", "pos_start")], 
@@ -102,7 +102,12 @@ d$rDist = c(startingBP, sapply(2:length(d$chr_pos), function(i)
            lg1 = d[i-1, "LG"], lg2 = d[i, "LG"], rmap = rmap)))/100
 
 # write final output SNP positions file for use by ancestry_hmm
-write.table(d[, c("LG", "chr_pos", "rDist")], file = paste0(POS_FILE, ".rmap"),
-            quote = F, row.names = F, col.names = F)
+write.table(d[, c("LG", "chr_pos", "rDist")], file = paste0(PREFIX_FILE_OUT, ".rmap"),
+            quote = F, row.names = F, col.names = F, sep = "\t")
 
+write.table(d[, c("LG", "chr_pos")], file = paste0(PREFIX_FILE_OUT, ".pos"),
+            quote = F, row.names = F, col.names = F, sep = "\t")
+
+write.table(d[, c("rDist")], file = paste0(PREFIX_FILE_OUT, ".rdist"),
+            quote = F, row.names = F, col.names = F, sep = "\t")
 
