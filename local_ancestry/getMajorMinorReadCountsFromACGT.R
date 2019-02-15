@@ -44,7 +44,7 @@ maj_counts = filter(d, major==allele) %>%
   select(-allele) # get read counts for alleles matching major allele
 min_counts = filter(d, minor==allele) %>%
   select(-allele) # get read counts for allele matching minor allele
-counts = full_join(maj_counts, min_counts, 
+counts = full_join(maj_counts, min_counts,
                    suffix = c("_major", "_minor"),
                    by = c("chr", "pos", "major", "minor", "totDepth")) %>%
 left_join(SNPs, ., by = c("chr", "pos", "major", "minor")) # match order of original SNPs var.sites file
@@ -56,5 +56,5 @@ if (!dir.exists(output_directory)) dir.create(output_directory, recursive = T) #
 write.table(select(counts, c(n_major, n_minor)), 
             output_file,
             na = "0", # write NA's (no coverage) as zero counts
-            sep = "\t", row.names = F, col.names = T, quote = F) # just counts and headers (2 columns)
+            sep = "\t", row.names = F, col.names = F, quote = F) # just counts, no headers
 warnings() # print any warnings
