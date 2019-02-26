@@ -114,4 +114,9 @@ plot_admixture_by_PCA.R # shows congruence between these two global ancestry ana
 
 
 # NOTE: pruning by every 1000th snp leaves about 3k snps, and pruning by every 251 snps leaves ~12k snps (on avg. ~80kb and ~19kb spacing, respectively)
+
+# To see the actual spacing of SNPs, however, I need to pull that information from the beagle.gz file:
+global_ancestry/results/input$ zcat ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy251.beagle.gz | cut -f1 | tail -n +2 > ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy251.var.sites
+# I plot the results in plot_NGSadmix.R
+
 # TO DO: Make NGSAdmix plots more interpretable by making anc1 always A etc. (using A group)

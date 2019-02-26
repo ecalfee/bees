@@ -32,7 +32,7 @@ bees <- bees_raw %>%
   # convert degree/min/sec to decimal-based lat & long while keeping those already converted
   # which have min/sec = NA or blank in data
   mutate(., lat = ifelse(is.na(Min_Lat), Deg_Lat, Deg_Lat + Min_Lat/60 + Sec_Lat/3600) * 
-           ifelse(bees$state=="AR", -1 , 1)) %>%
+           ifelse(state=="AR", -1 , 1)) %>%
   mutate(., long = ifelse(is.na(Min_Long), Deg_Long,
                           Deg_Long + Min_Long/60 + Sec_Long/3600) * -1)
 
@@ -52,7 +52,18 @@ extractToDo_AR <- c("AR0302", "AR0311", "AR0501", "AR0511", "AR0602", "AR0617",
                     "AR1115", "AR1201", "AR1216", "AR1303", "AR1310", "AR1410", 
                     "AR1506", "AR1603", "AR1612", "AR1910", "AR1915", "AR2009", 
                     "AR2212", "AR2305", "AR2316", "AR2502", "AR2614", "AR2711", "AR2704")
-# decided to do two bees from pop 14 and none from pop15 in this first round of sequencing;
+# DNA extraction groups
+# which bees to extract next:
+#write.table(extract1, "../labwork/ids2extract_1", quote = F)
+#write.table(extract2, "../labwork/ids2extract_2", quote = F)
+#extract3 = sample(bees[bees$toSequence & ! bees$Bee_ID %in% c(extract1, extract2), "Bee_ID"], 24)
+#write.table(extract3, "../labwork/ids2extract_3", quote = F)
+extract3 = read.table("../labwork/ids2extract_3", stringsAsFactors = F)$x
+#extract4 = bees[bees$toSequence & ! bees$Bee_ID %in% c(extract1, extract2, extract3), "Bee_ID"]
+#write.table(extract4, "../labwork/ids2extract_4", quote = F)
+extract4 = read.table("../labwork/ids2extract_4", stringsAsFactors = F)$x
+
+# I decided to do two bees from pop 14 and none from pop15 in this first round of sequencing for CA;
 # similarly in Argentina in the Southern most samples, 2 bees from pop 3 and none from pop 1
 # decided to seq. one bee from the Southern end of Pop 27, one from the Northern end, and just 1 from pop 29 (enjambre)
 # dropped "AR2701" and "AR2909" .. so the 3 bees are spaced between the 2 pops for maximum information across latitude
@@ -60,11 +71,16 @@ bees$toSequence <- FALSE
 bees$toSequence[bees$Bee_ID %in% c(extract1, extract2, extractEnjambre,
                                    extractToDo_CA, extractToDo_AR)] <- TRUE
 bees$enjambre <- bees$Bee_ID %in% extractEnjambre # bee from a feral colony "enjambre"
+# a few bees I dried to see how that went getting 
+# a dry weight -- will not use these bees for DNA
+bees_dried <- c("CA0101", "CA0104", "CA0107", "CA0110",
+                "CA0406", "CA0415", "CA0909", "CA0911")
+bees$dried <- bees$Bee_ID %in% bees_dried
 
-# assign bees to sequence (which lane) & not as well as to the morphology study
+# assign bees to sequence (which lane) & which not to sequence as well as to the morphology study
 # load set of random bees with wings already measured
 wing_done <- unlist(read.table("../labwork/ids2morph_10N_CA", stringsAsFactors = F,
-                        sep = " ", header = F))
+                               sep = " ", header = F))
 bees$wingPass1 <- bees$Bee_ID %in% wing_done
 set.seed(341)
 bees_random_order_CA <- filter(bees, state == "CA") %>%
@@ -74,13 +90,14 @@ bees_random_order_CA <- filter(bees, state == "CA") %>%
   mutate(., duplicate = duplicated(.[ , c("lat", "long")]))
 no_dup_CA <- filter(bees_random_order_CA, !duplicate)
 n_wing = 12 # select twelve bees per population for wing analysis
-n_seq = 9 # select 9 bees per population for sequencing
 wing_to_do_CA <- unlist(lapply(unique(no_dup_CA$popN), function(pop)
-                               no_dup_CA[no_dup_CA$popN == pop, 
-                                         "Bee_ID"][1:n_wing]))
-seq_to_do_CA <- unlist(lapply(unique(no_dup_CA$popN), 
-                              function(pop) no_dup_CA[no_dup_CA$popN == pop & no_dup_CA$popN != "15", # skip population 15 for sequencing
-            "Bee_ID"][1:n_seq]))
+  no_dup_CA[no_dup_CA$popN == pop, 
+            "Bee_ID"][1:n_wing]))
+no_dup_CA$toWing <- no_dup_CA$Bee_ID %in% wing_to_do_CA
+# from the subset of bees for wing analysis,
+# select 8-9 bees per population for sequencing
+n_seq_CA = data.frame(popN = sort(unique(no_dup_CA$popN)),
+                      n_seq = c(8,9,8,8,9,8,8,9,8,8,9,8,0)) # skip population #15 for sequencing
 # random subset argentina bees:
 set.seed(342)
 bees_random_order_AR <- filter(bees, state == "AR") %>%
@@ -88,51 +105,200 @@ bees_random_order_AR <- filter(bees, state == "AR") %>%
   arrange(., !wingPass1) %>%
   arrange(., !toSequence) %>% # always include bees already specified to sequence
   mutate(., duplicate = duplicated(.[ , c("lat", "long")]))
-no_dup_AR <- filter(bees_random_order_AR, !duplicate)
-n_wing = 12 # select twelve bees per population for wing analysis
-n_seq = 9 # select 9 bees per population for sequencing
-wing_to_do_AR <- unlist(lapply(unique(no_dup_AR$popN), function(pop)
-  no_dup_AR[no_dup_AR$popN == pop, 
-            "Bee_ID"][1:n_wing]))
-seq_to_do_AR <- unlist(lapply(unique(no_dup_AR$popN), 
-                              function(pop) no_dup_AR[no_dup_AR$popN == pop & no_dup_AR$popN != "15", # skip population 15 for sequencing
-                                                      "Bee_ID"][1:n_seq]))
+no_dup_AR <- filter(bees_random_order_AR, !duplicate, Bee_ID != "AR1515") %>%# better to exclude this bee without full sampling information
+  mutate(., toWing = toSequence) # mark bees sequenced as ones with wings to do
 
-# add labels to dataframe
-bees$duplicate <- F
-bees$toWing <- F
-bees$duplicate[bees$Bee_ID %in% bees_random_order_CA$Bee_ID[bees_random_order_CA$duplicate]] <- T
-bees$duplicate[bees$Bee_ID %in% bees_random_order_AR$Bee_ID[bees_random_order_AR$duplicate]] <- T
+# select 8-9 bees per population for sequencing
+n_seq_AR = data.frame(popN = sort(unique(no_dup_AR$popN)),
+                      n_seq = c(9,8,9,8,9,8,9,8,9,8,9,8,9,8,9,8,9,8,9,8,9))
 
-bees$toWing[bees$Bee_ID %in% wing_to_do_CA] <- T
-bees$toWing[bees$Bee_ID %in% wing_to_do_AR] <- T
+# e.g. pop 13 -- how can I choose 8 bees to maximize distances between them?
+# actually what I want to do is choose the bees that minimize
+# the number of pairwise distances < 1.6km (1 mile)
+# CA bees I can likely limit to all pairs > 3.2km apart (2 miles)
+# I could additionally set a maximum distance w/in pop to 30km
+# After applying these restrictions, I want to choose bees randomly
+# For CA, see if I can meet these restrictions w/in the 12 I selected for wing analysis
+# For both CA & AR, require that the already sequenced bees be included
+
+# function takes in popN, data (e.g. no_dup_AR), 
+# number of bees to select for sequencing from that pop,
+# and all bee id's (if any) for bees already sequenced
+# returns a random set that minimizes pairwise distances under minDist
+# and has no pairs with distances over maxDist
+# note: set seed ahead of time
+find_set_toSeq <- function(d, N, n, 
+                           already_seq = c(extract1, extract2, extract3, extract4), 
+                           minDist, maxDist,
+                           seed = 100){
+  # set seed
+  set.seed(seed)
+  # subset data to population of interest
+  beePop <- filter(d, popN == N)
+  # get pairwise distances between all bees in that population
+  beeDist <- distm(x = beePop[ , c("long", "lat")], 
+                   fun = distGeo)/1000
+  diag(beeDist) <- NA
+  # which bees (if any) have already been sequenced?
+  must_incl <- which(beePop$Bee_ID %in% already_seq)
+  #print(paste("already sequenced: ", beePop$Bee_ID[must_incl]))
+  # get all random combinations that sum to n total and include 'must_incl' bees
+  combo_list <- apply(combn(x = (1:nrow(beeDist))[!(beePop$Bee_ID %in% already_seq)], 
+                            m = n - sum(beePop$Bee_ID %in% already_seq)),
+                      2, function(i) c(must_incl, i))
+  n_too_close <- apply(combo_list, 2,
+                       function(i) sum(beeDist[i,i] < minDist, na.rm = T)/2)
+  n_too_far <- apply(combo_list, 2,
+                     function(i) sum(beeDist[i,i] > maxDist, na.rm = T)/2)
+  good_dist <- combo_list[ , which(n_too_far == 0 & n_too_close == min(n_too_close))]
+  
+  # if there are some bees below min dist, pick from the sets that maximize the close distances
+  if (is.null(dim(good_dist)) | min(n_too_close) == 0){
+    good_dist2 <- good_dist
+  }else{
+    # what's the mean of the distances less than minDist?
+    mean_small_dist <- apply(good_dist, 2,
+                           function(i) mean(beeDist[i,i][beeDist[i,i] < minDist], na.rm = T)/2)
+    # find the set with the maximum mean small distances (ie reduce # bee pairs super close when possible)
+    good_dist2 <- good_dist[ , which(mean_small_dist == max(mean_small_dist))]
+}
+  # of the set at a good distance, how many have wing analysis done?
+  if (is.null(dim(good_dist2))){
+    pick <- good_dist2 # there is only one possible choice
+  }else{
+    # sample 1 set that's at a good set of distances and has large # already wing analyzed
+    n_toWing <- apply(good_dist2, 2,
+                      function(i) sum(beePop[i,"toWing"]))
+    pick <- good_dist2[ , sample(which(n_toWing == max(n_toWing)), 1)]
+  }
+  
+  return(data.frame(Bee_ID = beePop$Bee_ID[pick],
+                    toWing = beePop$toWing[pick],
+                    n_too_close = min(n_too_close), 
+                    minDist = min(beeDist[pick, pick], na.rm = T),
+                    maxDist = max(beeDist[pick, pick], na.rm = T),
+                    meanDist = mean(beeDist[pick,pick],na.rm = T),
+                    state = unique(beePop$state),
+                    popN = N,
+                    stringsAsFactors = F))
+}
+
+# Argentina bees
+all_seq_AR <- do.call(rbind, lapply(1:nrow(n_seq_AR), function(j)
+  find_set_toSeq(d = filter(no_dup_AR, !dried), 
+                 N = n_seq_AR[j, "popN"],
+                 n = n_seq_AR[j, "n_seq"],
+                 minDist = 1.6, maxDist = 30)))
+#unique(all_seq_AR$Bee_ID)
+#group_by(all_seq_AR, popN) %>% summarise(mean(n_too_close)) %>% print(., n = 100)
+#group_by(all_seq_AR, popN) %>% summarise(sum(toWing)) %>% View(.)
+#group_by(all_seq_AR, popN) %>% summarise(mean(meanDist)) %>% View(.)
+# CA bees
+all_seq_CA <- do.call(rbind, lapply(1:(nrow(n_seq_CA)-1), function(j)
+  find_set_toSeq(d = filter(no_dup_CA, !dried), 
+                 N = n_seq_CA[j, "popN"],
+                 n = n_seq_CA[j, "n_seq"],
+                 minDist = 3.2, maxDist = 30)))
+#group_by(all_seq_CA, popN) %>% summarise(mean(n_too_close)) %>% View(.)
+#group_by(all_seq_CA, popN) %>% summarise(mean(maxDist)) %>% View(.)
+#group_by(all_seq_CA, popN) %>% summarise(mean(minDist)) %>% View(.)
+#group_by(all_seq_CA, popN) %>% summarise(mean(meanDist)) %>% View(.)
+#group_by(all_seq_CA, popN) %>% summarise(sum(toWing)) %>% View(.)
+
+# add labels to main bee dataframe
+bees$duplicate <- bees$Bee_ID %in% 
+  filter(rbind(bees_random_order_CA, bees_random_order_AR), 
+         duplicate)$Bee_ID
+bees$toWing <- bees$Bee_ID %in% c(wing_to_do_CA, all_seq_CA$Bee_ID, all_seq_AR$Bee_ID)
+bees$toSequence <- bees$Bee_ID %in% c(all_seq_CA$Bee_ID, all_seq_AR$Bee_ID)
+
+# lanes to do next (lanes 2-5 w/ 54 bees each)
+# w/ populations evenly distributed across lanes
+# and assigned in extraction groups to do next (sets of 24, groups #5-13)
+set.seed(360)
+bees_with_lanes <- bees[sample(1:nrow(bees)), ] %>% # randomize order
+  filter(!(Bee_ID %in% c(extract1, extract2, extract3, extract4)) & toSequence) %>% # only bees to be sequenced & not already done in lane 1
+  arrange(., popN) %>%
+  arrange(., state) %>%
+  mutate(lane = rep(2:5, 54)) %>%
+  .[sample(1:nrow(.)), ] %>% # randomize order again
+  arrange(., lane) %>%
+  mutate(extraction = unlist(lapply(5:13, function(i) rep(i, 24)))) %>%
+  select(Bee_ID, popN, state, lane, extraction) %>%
+  left_join(bees, ., by = c("Bee_ID", "state", "popN"))
+
+# add in extraction # and lane for first set of 63 bees:
+bees_with_lanes$extraction[bees_with_lanes$Bee_ID %in% extract1] <- 1
+bees_with_lanes$extraction[bees_with_lanes$Bee_ID %in% extract2] <- 2
+bees_with_lanes$extraction[bees_with_lanes$Bee_ID %in% extract3] <- 3
+bees_with_lanes$extraction[bees_with_lanes$Bee_ID %in% extract4] <- 4
+
+bees_with_lanes$lane[bees_with_lanes$extraction %in% 1:4] <- 1 # lane one had bee extractions 1-4
 
 
+# ok bees are evenly distributed over remaining lanes:
+bees_with_lanes %>%
+  group_by(lane, state) %>%
+  summarise(n())
+bees_with_lanes %>%
+  group_by(lane, state) %>%
+  summarise(mean(lat))
+bees_with_lanes %>%
+  group_by(extraction, state, lane) %>%
+  summarise(n()) %>%
+  View(.)
 
-# write file with bees to do for CA wing analysis:
-wing_print_CA2 <- do.call(cbind, lapply(unique(filter(bees, toWing & state == "CA")$popN),
-                                       function(i)
-                                       filter(bees, toWing & state == "CA" & popN == i)$Bee_ID))
-write.table(wing_print_CA, "../labwork/CA_wing_bee_ids.txt", sep = "\t",
+# add extraction and lane number to main bees database
+bees <- left_join(bees,
+                  select(bees_with_lanes, c("Bee_ID", "lane", "extraction")),
+                  by = "Bee_ID")
+
+# write file with bees to do for wing analysis:
+# CA:
+wing_print_CA2 <- do.call(cbind, lapply(unique(filter(bees, Bee_ID %in% wing_to_do_CA)$popN),
+                                        function(i)
+                                          filter(bees, Bee_ID %in% wing_to_do_CA & popN == i)$Bee_ID))
+write.table(wing_print_CA2, "../labwork/CA_wing_bee_ids2.txt", sep = "\t",
             row.names = F, col.names = F, quote = F)
-# find out which bees have pop "" (!)
-# select 9 per pop for sequencing. Then select 1 from every other pop for last round/contingent on funds.
-# plot distances, and distances between bees by state and popN
-# randomize order of bees for next set of extractions and sequencing lanes
-# add sequencing lane (1-5) and extraction group to list
+wing_print_CA3 <- filter(bees, toWing, state == "CA", !(Bee_ID %in% wing_to_do_CA)) %>%
+  arrange(popN, Bee_ID) %>%
+  select(Bee_ID)
+write.table(wing_print_CA3, "../labwork/CA_wing_bee_ids3.txt", sep = "\t",
+            row.names = F, col.names = F, quote = F)
+# AR:
+wing_print_AR <- filter(bees, toWing, state == "AR") %>%
+  arrange(popN, lane != 1, Bee_ID) %>%
+  select(Bee_ID, popN)
+write.table(wing_print_AR$Bee_ID, "../labwork/AR_wing_bee_ids.txt", sep = "\t",
+            row.names = F, col.names = F, quote = F)
 
 # make some simple csv files of bee coordinates:
 bees %>%
   filter(., state == "AR") %>%
-  select(., Bee_ID, lat, long, popN, indN, Date, Time, toSequence, enjambre) %>%
+  select(., Bee_ID, lat, long, popN, indN, Date, Time, toSequence, toWing, enjambre) %>%
   write.csv(., "Arg_bee_lat_long_4_google_maps.csv",
             quote = F, row.names = F)
 bees %>%
   filter(., state == "CA") %>%
-  select(., Bee_ID, lat, long, popN, indN, Date, Time, toSequence, enjambre) %>%
+  select(., Bee_ID, lat, long, popN, indN, Date, Time, toSequence, toWing, enjambre) %>%
   write.csv(., "CA_bee_lat_long_4_google_maps.csv",
             quote = F, row.names = F)
 
+# print files for labwork extractions 9-13:
+set.seed(100)
+for (x in 5:13){
+  bees %>%
+    filter(., extraction == x) %>%
+    rename(extract = extraction) %>%
+    .[sample(1:nrow(.)), ] %>% # randomize order
+    arrange(lane) %>% # but keep lanes together
+    mutate(n = 1:24) %>%
+    select(., lane, extract, n, Bee_ID) %>%
+    write.table(., 
+                paste0("../labwork/extract_", x, ".txt"),
+                quote = F, row.names = F,
+                sep = "\t")
+}
 
 ##get a map
 par(mar = c(1, 1, 1, 1) + 0.1)
@@ -277,14 +443,27 @@ getPairFar <- function(data, popN, state, minDist, maxDist){ # takes in all data
 #               c("long", "lat")], fun = distGeo)/1000
 # distances between CA bee pairs to be sequenced
 sapply(sort(unique(bees[bees$state == "CA" & bees$toSequence, "popN"])), 
-       function(N) distm(bees[bees$toSequence & bees$state == "CA" & 
+       function(N) mean(distm(bees[bees$toSequence & bees$state == "CA" & 
                                 bees$popN == N, c("long", "lat")], 
-                         fun = distGeo)/1000)
+                         fun = distGeo)/1000))
+sapply(sort(unique(bees[bees$state == "CA" & bees$toSequence, "popN"])), 
+       function(N) {d <- distm(bees[bees$toSequence & bees$state == "CA" & 
+                                      bees$popN == N, c("long", "lat")], 
+                               fun = distGeo)/1000
+       diag(d) <- NA
+       min(d, na.rm = T)})
+
 # distances all AR bees to be sequenced
-lapply(sort(unique(bees[bees$state == "AR" & bees$toSequence, "popN"])), 
-       function(N) distm(bees[bees$toSequence & bees$state == "AR" & 
+sapply(sort(unique(bees[bees$state == "AR" & bees$toSequence, "popN"])), 
+       function(N) max(distm(bees[bees$toSequence & bees$state == "AR" & 
                                 bees$popN == N, c("long", "lat")], 
-                         fun = distGeo)/1000)
+                         fun = distGeo)/1000))
+sapply(sort(unique(bees[bees$state == "AR" & bees$toSequence, "popN"])), 
+       function(N) {d <- distm(bees[bees$toSequence & bees$state == "AR" & 
+                                    bees$popN == N, c("long", "lat")], 
+                             fun = distGeo)/1000
+       diag(d) <- NA
+       min(d, na.rm = T)})
 distm(x = bees[bees$state == "AR" & bees$toSequence & bees$popN %in% c("01", "02", "27", "29"), 
                c("long", "lat")], fun = distGeo)/1000
 
@@ -305,16 +484,10 @@ hist(ar_dist_29)
 # attempt to make a non-duplicate GPS location
 # set of bees w/ minimum distance for sequencing:
 set.seed(8293)
-no_dup_ar <- filter(bees, state == "AR") %>%
-  .[sample(1:nrow(.)), ] %>% # randomize order so bees w/ duplicate gps coordinates are selected out at random
-  arrange(., !toSequence) %>% # always include bees already specified to sequence
-  mutate(., duplicate = duplicated(.[ , c("lat", "long")])) %>%
-  filter(., !duplicate)
-#no_dup_ar_dist_byPop <- lapply
-no_dup_ar_dist <- distm(x = no_dup_ar[ ,
+no_dup_AR_dist <- distm(x = no_dup_AR[ ,
                              c("long", "lat")], 
                     fun = distGeo)/1000
-heatmap(no_dup_ar_dist, scale = "none")
+heatmap(no_dup_AR_dist, scale = "none")
 
 # Argentina color by pop -- add individuals to be sequenced
 ggmap(get_map(location = 'Santa Fe, Argentina', 
@@ -383,16 +556,6 @@ ggmap(arg_map29) +
              pch = 5,
              col = "red")
 
-# which bees to extract next:
-write.table(extract1, "../labwork/ids2extract_1", quote = F)
-write.table(extract2, "../labwork/ids2extract_2", quote = F)
-extract3 = sample(bees[bees$toSequence & ! bees$Bee_ID %in% c(extract1, extract2), "Bee_ID"], 24)
-write.table(extract3, "../labwork/ids2extract_3", quote = F)
-extract4 = bees[bees$toSequence & ! bees$Bee_ID %in% c(extract1, extract2, extract3), "Bee_ID"]
-write.table(extract4, "../labwork/ids2extract_4", quote = F)
-
-
-
 # map of CA Africanize Honey bees from Lin 2018 PlosOne paper
 plos <- read.csv("Lin2018_plosOne_AHB_CA_supplement_GPS.csv", stringsAsFactors = F)
 plos1 = plos[ , 1:5]
@@ -444,7 +607,7 @@ ggmap(get_map(location = 'Monterey, California',
              alpha = .5) +
   ggtitle("Africanized bees CA (Lin 2018); p = proportion European mtDNA") + 
   scale_color_distiller(palette = "RdPu") +
-  ggsave(filename = "CA_mtDNA_Lin_2018.png", device = png(),
+  ggsave(filename = "CA_mtDNA_Lin_2018.png", device = "png",
          plot = last_plot(), 
          width = 8, height = 8, units = "in",
          dpi = 300)
@@ -503,7 +666,7 @@ ggmap(get_map(location = 'Costa Rica',
              cex = .25,
              col = "black",
              alpha = .5) +
-  ggsave(filename = "samples_world_watercolor.png", device = png(),
+  ggsave(filename = "samples_world_watercolor.png", device = "png",
          plot = last_plot(), 
          width = 10, height = 10, units = "in",
          dpi = 300)
@@ -522,7 +685,6 @@ ggmap(get_map(location = 'El Cajon, California',
              alpha = .5)
 
 # sample 10 bees per Northern CA pop for initial morphology analysis
-morph_list10 <- sapply(9:15, function(i) sort(sample(bees[bees$state == "CA" & as.integer(bees$popN) == i, "Bee_ID"], size = 12, replace = F)))
+#morph_list10 <- sapply(9:15, function(i) sort(sample(bees[bees$state == "CA" & as.integer(bees$popN) == i, "Bee_ID"], size = 12, replace = F)))
 # note: In my 12 should be the bees that I chose for sequencing..
-write.table(morph_list10, "../labwork/ids2morph_10N_CA", col.names = F, row.names = F, quote = F)
-
+#write.table(morph_list10, "../labwork/ids2morph_10N_CA", col.names = F, row.names = F, quote = F)

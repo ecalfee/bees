@@ -49,6 +49,10 @@ IDs <- read.table("../bee_samples_listed/pass1_plus_kohn_and_wallberg.list", str
 colnames(IDs) <- c("Bee_ID")
 bees <- dplyr::left_join(IDs, meta, by = "Bee_ID") 
 
+# which bees overlap with Dani's analysis?
+bees_overlap_Dani <- c("CA0108", "CA0303", "AR1410", "SRCD9A", "SanDiego001", "SanDiego002", "Mexico001",
+                       "SRR957075", "SRR957080", "SRR957061", "SRS549709") # plus one of each reference bee just for checking link to ancestry
+
 # which bees are O from Jordan (admixed)?
 bees_Jordan_O <- which(bees$geographic_location=="Jordan")
 # I will cut out these rows from the GL file to re-run NGSAdmix.
@@ -193,4 +197,29 @@ ggsave(paste0("plots/NGS_admix_Ref_bySource", name, ".png"),
        device = "png", 
        width = 15, height = 8, units = "in",
        dpi = 200)
+
+# only makes sense for K4 with O group -- how much are O and C ancestry correlated? 
+# possibly (?) positive correlation O-C for low C and neg correlation for high C .. but maybe should be neg by design for high C b/c its a percent
+ggplot(d, aes(anc3, anc2, color = group)) + geom_point() + facet_wrap(~source)
+
+# look at ancestry estimates for a few bees
+# to send to Dani for comparison with her results
+# note: ancestry translations only work for 251, k=4, w/ Kohn & Wallberg:
+d %>%
+  mutate(A = round(anc1, 2), C = round(anc2, 2),
+         O = round(anc3, 2), M = round(anc4, 2)) %>%
+  filter(Bee_ID %in% bees_overlap_Dani) %>%
+  arrange(source) %>%
+  select(c("Bee_ID", "geographic_location", "year", "group", "source", "A", "C", "M", "O")) %>%
+  write.table(., paste0("plots/NGS_admix_results_subset_", name, ".txt"),
+              quote = F, row.names = F, sep = "\t")
+# note: ancestry translations only work for 251, k=3, w/ Kohn & Wallberg:
+d %>%
+  mutate(A = round(anc3, 2), C = round(anc2, 2),
+         M = round(anc1, 2)) %>%
+  filter(Bee_ID %in% bees_overlap_Dani) %>%
+  arrange(source) %>%
+  select(c("Bee_ID", "geographic_location", "year", "group", "source", "A", "C", "M")) %>%
+  write.table(., paste0("plots/NGS_admix_results_subset_", name, ".txt"),
+              quote = F, row.names = F, sep = "\t")
 
