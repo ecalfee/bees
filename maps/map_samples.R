@@ -22,8 +22,14 @@ ca_bees <- read.csv("~/Dropbox/grad school/Research/bee project/CA_Bees/CA_bee_f
 ar_bees <- read.csv("~/Dropbox/grad school/Research/bee project/Argentina/Field Notes Argentina bees/Argentina_fieldnotes_bee_gps_formatted.csv",
                       header = T,
                       stringsAsFactors = F)
+mx_bees <- read.csv("~/Dropbox/grad school/Research/bee project/Mexico/Baja_bee_fieldnotes.csv",
+                    header = T,
+                    stringsAsFactors = F) %>%
+  mutate(Time = as.character(Time)) %>%
+  mutate(Plant = as.character(Plant))
 # combine data sets
 bees_raw <- full_join(ca_bees, ar_bees) %>%
+  full_join(., mx_bees) %>%
   separate(., col = Bee_ID, sep = c(2,4), 
            into = c("state", "popN", "indN"),
            remove = F) %>%
@@ -282,6 +288,14 @@ bees %>%
   filter(., state == "CA") %>%
   select(., Bee_ID, lat, long, popN, indN, Date, Time, toSequence, toWing, enjambre) %>%
   write.csv(., "CA_bee_lat_long_4_google_maps.csv",
+            quote = F, row.names = F)
+bees %>%
+  filter(., state == "MX") %>%
+  mutate(., toSequence = T) %>%
+  mutate(., toWing = T) %>%
+  mutate(., enjambre = NA) %>% # unknown status
+  select(., Bee_ID, lat, long, popN, indN, Date, Time, toSequence, toWing, enjambre) %>%
+  write.csv(., "MX_bee_lat_long_4_google_maps.csv",
             quote = F, row.names = F)
 
 # print files for labwork extractions 9-13:
