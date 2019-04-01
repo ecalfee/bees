@@ -1,0 +1,8 @@
+plate_row	1	2	3	4	5	6	7	8
+A	b1	b2	b3	b4	b5	b6	b7	b8
+B	c1	c2	c3	c4	c5	c6	c7	c8
+C	d1	d2	d3	d4	d5	d6	d7	d8
+D	e1	e2	e3	e4	e5	e6	e7	e8
+E	f1	f2	f3	f4	f5	f6	f7	f8
+F	g1	g2	g3	g4	g5	g6	g7	g8
+G	h1	h2	h3	h4	h5	h6	h7	a3

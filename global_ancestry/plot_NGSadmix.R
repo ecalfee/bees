@@ -1,5 +1,6 @@
 # plot global ancestry NGSadmix results
 library(scales)
+library(gtools)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
@@ -222,4 +223,39 @@ d %>%
   select(c("Bee_ID", "geographic_location", "year", "group", "source", "A", "C", "M")) %>%
   write.table(., paste0("plots/NGS_admix_results_subset_", name, ".txt"),
               quote = F, row.names = F, sep = "\t")
+# what does the distribution of SNPs look like?
+sites <- read.table(paste0("results/input/", prefix, ".var.sites")) %>%
+  tidyr::separate(., V1, sep = "_", into = c("scaffold", "pos")) %>%
+  dplyr::mutate(pos = as.numeric(pos))
+sites$diff <- diff(c(0,sites$pos))
+summary(sites$diff[sites$diff >= 0])
+summary(sites$diff[sites$diff >= 250])
+hist(sites$diff[sites$diff >= 0 & sites$diff < 251])
 
+
+# Ancestry translation true if using 
+# "K3_ordered_scaffolds_pass1_plus_kohn_prunedBy251" data
+filter(d, source == "Calfee") %>%
+  mutate(M_ancestry = anc1) %>%
+  mutate(C_ancestry = anc2) %>%
+  mutate(A_ancestry = anc3) %>%
+  select(Bee_ID, geographic_location, population, year, lat, long, 
+         popN, indN, M_ancestry, C_ancestry, A_ancestry) %>%
+  write.table(., paste0("results/A_ancestry_estimates_for_Jodie_", name, ".txt"),
+              quote = F, col.names = T, row.names = F, sep = "\t")
+lm.a.lat <- with(filter(d, source == "Calfee"), lm(anc3 ~ abs(lat)*geographic_location))
+lm.logita.lat <- with(filter(d, source == "Calfee"), lm(gtools::logit(anc3) ~ abs(lat)*geographic_location))
+summary(lm.a.lat)
+summary(lm.logita.lat)
+
+# quickly plot latitude trends
+filter(d, source == "Calfee") %>%
+  ggplot(., aes(x = abs(lat), y = anc3, color = geographic_location)) +
+  geom_point() +
+  xlab("Latitude (abs value)") +
+  ylab("Percent African ancestry") +
+  ggtitle("A ancestry ~ latitude across 2 Africanized honey bee clines")
+ggsave(paste0("plots/A_ancestry_by_latitude_", name, ".png"),
+       device = "png",
+       width = 10, height = 8, units = "in",
+       dpi = 200)
