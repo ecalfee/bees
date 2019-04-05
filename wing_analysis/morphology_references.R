@@ -95,3 +95,14 @@ lda.wings.pred <- lda(meta$lineage ~ .,
 classified.wings <- table(meta$lineage, lda.wings.pred$class)
 diag(prop.table(classified.wings, 1))
 
+dimnames(procrustes$coords)[[3]]<-d_wide$lineage
+
+mean.ACM <- lapply(c("A", "C", "M"), function(l) 
+  mshape(procrustes$coords[ , , d_wide$lineage == l]))
+par(mfrow=c(3,1))
+lapply(mean.ACM, plot)
+par(mfrow=c(1,1))
+# lookup: redundancy analysis
+# Chris Klingenberg fly wing morphometrics
+# plot ref to target compares two shapes to each other
+# maybe split into 2 groups - A vs. non-A

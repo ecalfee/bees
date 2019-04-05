@@ -100,18 +100,31 @@ small_all %>%
   geom_point(aes(color = anc, alpha = p), size = .5)
 
 # plot all ind's ancestry for the whole genome, chromosome by chromosome
-for (chrom in paste0("Group", 1:16)){
-  small_all %>%
-    filter(chrom == chrom) %>%
+for (chr_i in paste0("Group", 1:16)){
+  p_chrom <- small_all %>%
+    filter(chrom == chr_i) %>%
     ggplot(aes(x=position, y = Bee_ID)) +
     geom_point(aes(color = anc, alpha = p), size = .5) + 
-    ggtitle(paste0("Ancestry 2018 bees -- ", chrom))
+    ggtitle(paste0("Ancestry 2018 bees -- ", chr_i))
   ggsave(paste0("plots/local_ancestry_tracts_pass1_2018_", chrom, ".png"), 
+         plot = p_chrom,
          device = "png", 
          width = 20, height = 16, units = "in",
          dpi = 200)
 }
-
+table(small_all$chrom)
+p_by_chrom <- small_all %>%
+  ggplot(aes(x=position, y = Bee_ID)) +
+  geom_point(aes(color = anc, alpha = p), size = .5) +
+  facet_wrap(~chrom) +
+  ggtitle(paste0("Ancestry 2018 bees by chromosome"))
+plot(p_by_chrom)
+ggsave("plots/local_ancestry_tracts_pass1_2018_by_chrom.png", 
+       plot = p_by_chrom,
+       device = "png", 
+       width = 20, height = 16, units = "in",
+       dpi = 200)
+  
 # what confidence does the HMM have in the calls it makes?
 hist(small_all$p)
 summary(small_all$p)
