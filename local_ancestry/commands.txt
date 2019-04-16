@@ -132,3 +132,21 @@ S_CA_2018
 # TO DO: I should update the bp positions in the ALL.bed file because some (short?) scaffolds are getting no SNPs, presumably because my LD filter is requiring 1000bp into the scaffold because it doesn't consider gaps between scaffolds. I could also then incorporate cM position into the SNPs file and extract genetic distances between SNPs, and recombination rates at each SNP, from plink
 # TO DO: maybe I should be removing sites with > 2.5x mean ind. depth in R too, or likely triallelic sites where maj/min allele are very uncommon <.1 reads for a bee (plot and see if there's a peak)
 
+# NOTE: I have a file from Andreas Wallberg about how to orient scaffolds to the genome to match the recombination map, but also some scaffolds are simply not oriented.
+# This may affect estimates of t and local ancestry tracts significantly, so I’m rerunning local ancestry
+# without putting scaffolds together into linkage groups (/ onto ‘chromosomes’)
+# LG_to_ind_scaffolds_rmap_pos.R - make new position file base on local position and recomb rate
+# making input file
+bees/local_ancestry/results/SNPs/thin1kb_common3$ paste included_scaffolds.pos A.frq.counts.strp C.frq.counts.strp M.frq.counts.strp included_scaffolds.rdist $(for i in $(cat ../../../../data/novo_seq/C202SC18101772/samples.list); do echo countsMajMin/"$i".counts.txt; done) > ACM_pass1_2018_scaffolds.counts
+# run ancestry_hmm:
+nohup parallel --noswap --joblog logs/ancestry_hmm_thin1kb_pass1_2018_scaffolds.log \
+'mkdir -p results/ancestry_hmm/{1}/pass1_2018_{2}_{3}_{4}_scaffolds; \
+cd results/ancestry_hmm/{1}/pass1_2018_{2}_{3}_{4}_scaffolds; \
+ancestry_hmm_v0.94 -e 3e-3 -a 3 {2} {3} {4} \
+-p 1 100000 {3} -p 2 -100 {4} -p 0 -60 {2} \
+--tmax 150 --tmin 2 --ne 670000 \
+-b 10 1000 \
+-i ../../../SNPs/{1}/ACM_pass1_2018_scaffolds.counts -s ../../../SNPs/{1}/pass1_2018.ploidy' \
+::: thin1kb_common3 ::: 0.4 0.7 0.1 0.05 0.05 0.9 :::+ 0.4 0.05 0.7 0.9 0.05 0.05 :::+ 0.2 0.25 0.2 0.05 0.9 0.05 \
+&> logs/ancestry_hmm_thin1kb_pass1_2018.out &
+[1] 21649 - RUNNING 4.15.19. I need to check on this in the morning & see if it’s finishing or needs to have a fixed 100yr-back-C/M hybridization model?

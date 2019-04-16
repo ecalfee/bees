@@ -79,9 +79,12 @@ lda.arrows <- function(x, myscale = 1, arrow_heads = 0.1, color = "black",
 }
 
 # plot
+png("plots/lda.png")
 plot(lda.wings, main = "Linear discriminant analysis of A/M/C groups", 
      col = rainbow(3)[as.factor(meta$lineage)])
 lda.arrows(lda.wings, myscale = .02)
+dev.off()
+
 plot(lda.wings, main = "Linear discriminant analysis of A/M/C groups", 
      col = rainbow(56)[as.factor(meta$colony)])
 
