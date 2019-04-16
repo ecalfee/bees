@@ -150,3 +150,65 @@ ancestry_hmm_v0.94 -e 3e-3 -a 3 {2} {3} {4} \
 ::: thin1kb_common3 ::: 0.4 0.7 0.1 0.05 0.05 0.9 :::+ 0.4 0.05 0.7 0.9 0.05 0.05 :::+ 0.2 0.25 0.2 0.05 0.9 0.05 \
 &> logs/ancestry_hmm_thin1kb_pass1_2018.out &
 [1] 21649 - RUNNING 4.15.19. I need to check on this in the morning & see if it’s finishing or needs to have a fixed 100yr-back-C/M hybridization model?
+
+# ok so I’m using the CMA ordering & re-running:
+# oops: I actually want to run this on the scaffolds version; corrected below
+bees/local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaffolds$ nohup mkdir reverse_order_CMA_fix_t1; cd reverse_order_CMA_fix_t1; ancestry_hmm_v0.94 -e 3e-3 -a 3 0.4 0.2 0.4 -p 0 100000 0.4 -p 1 60 0.2 -p 2 -60 0.4 --tmax 100 --tmin 2 -b 10 1000 --ne 670000 -i ../../../SNPs/thin1kb_common3/CMA_pass1_2018.counts -s ../../../SNPs/thin1kb_common3/pass1_2018.ploidy > ancestry_hmm.out &
+nohup: ignoring input and appending output to 'nohup.out'
+[1] 1486 - KILLED
+
+# making scaffolds CMA input file
+bees/local_ancestry/results/SNPs/thin1kb_common3$ paste included_scaffolds.pos C.frq.counts.strp M.frq.counts.strp A.frq.counts.strp included_scaffolds.rdist $(for i in $(cat ../../../../data/novo_seq/C202SC18101772/samples.list); do echo countsMajMin/"$i".counts.txt; done) > CMA_pass1_2018_scaffolds.counts
+
+# running ancestry hmm (fixed times 60 and 30 generations ago)
+bees/local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaffolds$ nohup mkdir reverse_order_CMA_fix_t_60_30; cd reverse_order_CMA_fix_t_60_30; ancestry_hmm_v0.94 -e 3e-3 -a 3 0.4 0.2 0.4 -p 0 100000 0.4 -p 1 60 0.2 -p 2 30 0.4 --ne 670000 -i ../../../../SNPs/thin1kb_common3/CMA_pass1_2018_scaffolds.counts -s ../../../../SNPs/thin1kb_common3/pass1_2018.ploidy &> ancestry_hmm.out &
+[3] 2696 - running. completed
+# running ancestry hmm (fixed times 100 and 60 generations ago)
+bees/local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaffolds$ nohup mkdir reverse_order_CMA_fix_t_100_60; cd reverse_order_CMA_fix_t_100_60; ancestry_hmm_v0.94 -e 3e-3 -a 3 0.4 0.2 0.4 -p 0 100000 0.4 -p 1 100 0.2 -p 2 60 0.4 --ne 670000 -i ../../../../SNPs/thin1kb_common3/CMA_pass1_2018_scaffolds.counts -s ../../../../SNPs/thin1kb_common3/pass1_2018.ploidy &> ancestry_hmm.out &
+[2] 1729 - killed
+[2] 1746 - killed
+[6] 2728 - running
+# running ancestry hmm (estimate only 1 time; C-M fixed at 60 generations)
+bees/local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaffolds$ nohup mkdir reverse_order_CMA_fix_t1; cd reverse_order_CMA_fix_t1; ancestry_hmm_v0.94 -e 3e-3 -a 3 0.4 0.2 0.4 -p 0 100000 0.4 -p 1 60 0.2 -p 2 -60 0.4 --tmax 100 --tmin 2 -b 10 1000 --ne 670000 -i ../../../../SNPs/thin1kb_common3/CMA_pass1_2018_scaffolds.counts -s ../../../../SNPs/thin1kb_common3/pass1_2018.ploidy &> ancestry_hmm.out &
+[3] 1759 - killed
+[4] 2714 - running
+# running ancestry hmm (estimate both times; prior is 100 and 60 generations for C-M and then A-(C-M) admixture
+bees/local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaffolds$ nohup mkdir reverse_order_CMA_est_t2; cd reverse_order_CMA_est_t2; ancestry_hmm_v0.94 -e 3e-3 -a 3 0.4 0.2 0.4 -p 0 100000 0.4 -p 1 -100 0.2 -p 2 -60 0.4 --tmax 150 --tmin 2 -b 10 1000 --ne 670000 -i ../../../../SNPs/thin1kb_common3/CMA_pass1_2018_scaffolds.counts -s ../../../../SNPs/thin1kb_common3/pass1_2018.ploidy &> ancestry_hmm.out &
+[4] 1763 - killed
+[5] 2720 - running
+
+
+# I want to run the time estimates using these SNPs with the called genotypes from Riverside 2014:
+# get called genotypes for each individual in Riverside_2014:
+l in riverside_2014, I make an allele counts file
+local_ancestry$ mkdir -p results/SNPs/thin1kb_common3/Riverside_2014; for ind in $(awk '$1 == "Riverside_2014" {print $2}' ../data/bees_new_positions/individuals.txt); do plink --bfile ../data/bees_new_positions/ALL --freq counts --keep-allele-order --extract results/SNPs/thin1kb_common3/included.snplist --filter ../data/bees_new_positions/individuals.txt $ind --out results/SNPs/thin1kb_common3/Riverside_2014/$ind; done
+
+# strip just what I need from individual counts:
+local_ancestry$ for i in $(ls results/SNPs/thin1kb_common3/Riverside_2014/*.frq.counts); do awk '$1!="CHR" {print $5"\t"$6}' $i > $i.strp; done
+
+# copy over ploidy file
+bees/local_ancestry/results/SNPs/thin1kb_common3$ cp ../../../../data/sims_downsample/ancestry_hmm/Riv2014.ploidy Riverside_2014/.
+
+# paste together to make input file for ancestry_hmm (by scaffold):
+bees/local_ancestry/results/SNPs/thin1kb_common3$ paste included_scaffolds.pos C.frq.counts.strp M.frq.counts.strp A.frq.counts.strp included_scaffolds.rdist $(for i in $(cut -f1 Riverside_2014/Riv2014.ploidy); do echo Riverside_2014/$i.frq.counts.strp; done) > Riverside_2014/CMA_Riverside_2014_scaffolds.counts
+
+# paste together to make input file for ancestry_hmm (by LG position, to see the effect):
+bees/local_ancestry/results/SNPs/thin1kb_common3$ paste included.pos C.frq.counts.strp M.frq.counts.strp A.frq.counts.strp included_scaffolds.rdist $(for i in $(cut -f1 Riverside_2014/Riv2014.ploidy); do echo Riverside_2014/$i.frq.counts.strp; done) > Riverside_2014/CMA_Riverside_2014.counts
+
+# run ancestry_hmm, getting time estimates:
+# note that -g is for genotypes and errors are lower here b/c it’s genotype not read errors (!)
+local_ancestry$ nohup parallel --noswap --joblog logs/ancestry_hmm_thin1kb_common3_Riverside_2014_scaffolds.log \
+'mkdir -p results/ancestry_hmm/{1}/Riverside_2014_{2}_{3}_{4}_scaffolds; \
+cd results/ancestry_hmm/{1}/Riverside_2014_{2}_{3}_{4}_scaffolds; \
+ancestry_hmm_v0.94 —g e 1e-3 -a 3 {2} {3} {4} \
+-p 1 100000 {3} -p 2 -100 {4} -p 0 -60 {2} \
+--tmax 150 --tmin 2 --ne 670000 \
+-b 10 1000 \
+-i ../../../../SNPs/{1}/CMA_Riverside_2014_scaffolds.counts -s ../../../../SNPs/{1}/Riv2014.ploidy' \
+::: thin1kb_common3/Riverside_2014 ::: 0.4 0.7 0.1 :::+ 0.4 0.05 0.7 :::+ 0.2 0.25 0.2 \
+&> logs/ancestry_hmm_thin1kb_common3_Riverside_2014.out &
+[1] 2621 - running 4.16.19. 10:00am
+
+bees/local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaffolds$ nohup mkdir reverse_order_CMA_est_t2; cd reverse_order_CMA_est_t2; ancestry_hmm_v0.94 —g e 1e-3 -a 3 0.4 0.2 0.4 -p 0 100000 0.4 -p 1 -100 0.2 -p 2 -60 0.4 --tmax 150 --tmin 2 -b 10 1000 --ne 670000 -i ../../../SNPs/thin1kb_common3/CMA_pass1_2018_scaffolds.counts -s ../../../SNPs/thin1kb_common3/pass1_2018.ploidy &> ancestry_hmm.out &
+
+

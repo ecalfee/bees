@@ -487,3 +487,6 @@ sims_downsample$ nohup parallel --joblog logs/transposing_genotypes_for_mosaic_A
 0 0.000101034 0.002869933 0.005689183 0.006640906
 
 # TO DO: get genetic position of all SNPs in ACM_Riv2014_var_sites for MOSAIC input. Run MOSAIC.
+
+# For use of riverside_2014 genotype calls at same SNPs as I’m calling local ancestry, see local_ancestry/commands.txt
+
