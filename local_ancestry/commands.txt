@@ -207,8 +207,45 @@ ancestry_hmm_v0.94 —g e 1e-3 -a 3 {2} {3} {4} \
 -i ../../../../SNPs/{1}/CMA_Riverside_2014_scaffolds.counts -s ../../../../SNPs/{1}/Riv2014.ploidy' \
 ::: thin1kb_common3/Riverside_2014 ::: 0.4 0.7 0.1 :::+ 0.4 0.05 0.7 :::+ 0.2 0.25 0.2 \
 &> logs/ancestry_hmm_thin1kb_common3_Riverside_2014.out &
-[1] 2621 - running 4.16.19. 10:00am
+[1] 2621 - running 4.16.19. COMPLETED. BUT MAYBE I MIXED UP THE ANCESTRY ORDERING OF ADMIXTURE EVENTS (oops!)
 
-bees/local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaffolds$ nohup mkdir reverse_order_CMA_est_t2; cd reverse_order_CMA_est_t2; ancestry_hmm_v0.94 —g e 1e-3 -a 3 0.4 0.2 0.4 -p 0 100000 0.4 -p 1 -100 0.2 -p 2 -60 0.4 --tmax 150 --tmin 2 -b 10 1000 --ne 670000 -i ../../../SNPs/thin1kb_common3/CMA_pass1_2018_scaffolds.counts -s ../../../SNPs/thin1kb_common3/pass1_2018.ploidy &> ancestry_hmm.out &
+
+# running again but with order switch properly to CMA, and without boostrapping (for now):
+local_ancestry$ nohup parallel --noswap --jobs 6 --joblog logs/ancestry_hmm_thin1kb_common3_CMA_Riverside_2014_scaffolds_ne_noBoot.log \
+'mkdir -p results/ancestry_hmm/{1}/Riverside_2014_CMA_{4}_{5}_{3}_ne{2}_scaffolds_noBoot; \
+cd results/ancestry_hmm/{1}/Riverside_2014_CMA_{4}_{5}_{3}_ne{2}_scaffolds_noBoot; \
+ancestry_hmm_v0.94 —g e 1e-3 -a 3 {4} {5} {3} \
+-p 0 100000 {4} -p 1 -100 {5} -p 2 -60 {3} \
+--tmax 150 --tmin 2 --ne {2} \
+-i ../../../../SNPs/{1}/CMA_Riverside_2014_scaffolds.counts -s ../../../../SNPs/{1}/Riv2014.ploidy' \
+::: thin1kb_common3/Riverside_2014 ::: 670000 67000 6700 ::: 0.4 0.7 0.1 :::+ 0.4 0.05 0.7 :::+ 0.2 0.25 0.2 \
+&> logs/ancestry_hmm_thin1kb_common3_CMA_Riverside_2014_scaffolds_ne_noBoot.out &
+[1] 4104 - killed & fixed
+[1] 4451 - running 11:48am 4.16.19. Complete (fast)
+
+
+# now also to see the effects of using full LG instead of scaffolds:
+local_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/ancestry_hmm_thin1kb_common3_CMA_Riverside_2014_LG_ne_noBoot.log \
+'mkdir -p results/ancestry_hmm/{1}/Riverside_2014_CMA_{4}_{5}_{3}_ne{2}_LG_noBoot; \
+cd results/ancestry_hmm/{1}/Riverside_2014_CMA_{4}_{5}_{3}_ne{2}_LG_noBoot; \
+ancestry_hmm_v0.94 —g e 1e-3 -a 3 {4} {5} {3} \
+-p 0 100000 {4} -p 1 -100 {5} -p 2 -60 {3} \
+--tmax 150 --tmin 2 --ne {2} \
+-i ../../../../SNPs/{1}/CMA_Riverside_2014.counts -s ../../../../SNPs/{1}/Riv2014.ploidy' \
+::: thin1kb_common3/Riverside_2014 ::: 670000 67000 6700 ::: 0.4 :::+ 0.4 :::+ 0.2 \
+&> logs/ancestry_hmm_thin1kb_common3_CMA_Riverside_2014_LG_ne_noBoot.out &
+[1] 4664 - running 11:58 am. complete (fast)
+
+# conclusion: the time estimates are pretty similar whether I change Ne or use LG (even with wrong orientation of some scaffolds) or use individual scaffolds. The estimates I get from Riverside 2014 genotypes are ~35 generations C-M admixture and then ~18 generations ago A admixture. These are about half as large as the estimates I was getting earlier with a SNP set filtered slightly differently for low LD and ancestry informative sites. I'll have to think about why the time estimates are so sensitive. An alternative is to get a time estimate from something like ALDER and just set those times for the hmm...because one issue may be that there is bias in the t estimate by choosing 'ancestry informative' sites.
+
+# BUT moving forward, what do the ancestry blocks look like in the genotyped data vs. my low-coverage data?
+# how sensitive are the ancestry calls to the times that I use (I set 100/60 and 60/30 in addition to letting it estimate
+# something closer to 35/18...it estimated 36/18)
+local_ancestry/results/ancestry_hmm/thin1kb_common3/Riverside_2014/Riverside_2014_CMA_0.4_0.2_0.4_ne670000_scaffolds_noBoot
+local_ancestry/results/ancestry_hmm/thin1kb_common3/Riverside_2014/Riverside_2014_CMA_0.4_0.2_0.4_ne670000_LG_noBoot
+local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaffolds/reverse_order_CMA_fix_t_100_60
+local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaffolds/reverse_order_CMA_fix_t_60_30
+local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaffolds/reverse_order_CMA_est_t2
+
 
 
