@@ -75,8 +75,8 @@ rows_to_exclude_not_Wallberg_ref = sapply((bees_ref_not_wallberg)*3, function(x)
 #bees <- bees_only_wallberg_ref
 
 
-#K = 3 # 3 admixing populations
-K = 4
+K = 3 # 3 admixing populations
+#K = 4
 #K = 5
 #K = 6
 colorsK=c("red", "cornflowerblue", "navy")

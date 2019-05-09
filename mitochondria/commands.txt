@@ -1,0 +1,24 @@
+
+# analysis of mitochondria diversity in the Africanized honey bee hybrid zone
+
+
+# (1) mapping reads to the a mitochondria reference sequence:
+
+# map, sort, and dedup mtDNA for admixed bees:
+bees/mitochondria$ nohup parallel --noswap --delay 5s --joblog logs/map_reads_mtdna_C202SC18101772.log --jobs 3 './map_reads.sh {1} C202SC18101772; ./sort_bams.sh {1}; ./dedup_baq_bams.sh {1}' :::: ../data/novo_seq/C202SC18101772/samples.list &> logs/map_reads_mtdna_C202SC18101772.out &
+[1] 14325
+
+NOTE: samtools view -q 1 was added to map_reads.sh partway through this job so that only reads that map at all would be kept in final bam..otherwise files were unnecessarily big..CA0102 had 4051577 reads, CA0914 has 12 million reads that are kept in bam...in contrast, samtools view -q 1 CA0102.sort.dedup.baq.bam | wc -l is only 44k reads, which is ~2.69x (16343bp mtDNA)
+
+# map, sort, and dedup mtDNA for Harpur reference bees:
+bees/mitochondria$ nohup parallel --noswap --delay 5s --joblog logs/map_mtdna_Harpur_2014_NCBI.log --jobs 4 './map_reads_single.sh {1} Harpur_2014_NCBI; ./sort_bams.sh {1}; ./dedup_baq_bams.sh {1}' :::: ../data/Harpur_2014_NCBI/samples.list &> logs/map_mtdna_Harpur_2014_NCBI.out &
+
+# map, sort, and dedup mtDNA for Kenyan reference bees:
+bees/mitochondria$ nohup parallel --noswap --delay 5s --joblog logs/map_mtdna_Kenya_Sheppard_NCBI.log --jobs 4 './map_reads_single.sh {1} Kenya_Sheppard_NCBI; ./sort_bams.sh {1}; ./dedup_baq_bams.sh {1}' :::: ../data/Kenya_Sheppard_NCBI/samples.list &> logs/map_mtdna_Kenya_Sheppard_NCBI.out &
+
+# To align mtDNA from the CA Bees from Julie/Ramirez I'll have to get the original fastq files
+
+
+# (2) Calling SNPs in the mtDNA. Clustering by PCA or a discriminant analysis? Are there diagnostic A C and M mtDNA SNPs?
+
+# (3) What is the distribution of A mtDNA across the hybrid zones? What is the LD between genomewide A ancestry and mtDNA A ancestry?
