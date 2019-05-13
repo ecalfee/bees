@@ -33,7 +33,7 @@ mkdir -p ${DIR_OUT}
 echo "mapping reads with bowtie2"
 
 bowtie2 --seed 2014 --very-sensitive-local --local \
--x honeybee_genome/honeybee_Amel_4.5 \
+-x ${REF} \
 -U ${FASTQ_PREFIX}_1.fastq.gz \
 --rg-id ${SEQ_RUN} --rg SM:${ID} | \
 samtools view -q 1 -b - > ${DIR_OUT}/${ID}.bam
