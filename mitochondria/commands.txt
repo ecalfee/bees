@@ -5,24 +5,48 @@
 # (1) mapping reads to a mitochondria reference sequence:
 
 # map, sort, and dedup mtDNA for admixed bees:
-bees/mitochondria$ nohup parallel --noswap --delay 5s --joblog logs/map_reads_mtdna_C202SC18101772.log --jobs 3 './map_reads.sh {1} C202SC18101772; ./sort_bams.sh {1}; ./dedup_baq_bams.sh {1}' :::: ../data/novo_seq/C202SC18101772/samples.list &> logs/map_reads_mtdna_C202SC18101772.out &
-[1] 14325
+mitochondria$ nohup parallel --noswap --delay 3s --joblog logs/map_reads_mtdna_C202SC18101772.log --jobs 4 './map_reads.sh {1} C202SC18101772; ./sort_bams.sh {1}; ./dedup_baq_bams.sh {1}; rm results/bam_files/{1}.bam; rm results/bam_files/{1}.sort.bam' :::: ../data/novo_seq/C202SC18101772/samples.list &> logs/map_reads_mtdna_C202SC18101772.out &
+[1] 2903 - COMPLETED 5.14.19
 
-NOTE: samtools view -q 1 was added to map_reads.sh partway through this job so that only reads that map at all would be kept in final bam..otherwise files were unnecessarily big..CA0102 had 4051577 reads, CA0914 has 12 million reads that are kept in bam...in contrast, samtools view -q 1 CA0102.sort.dedup.baq.bam | wc -l is only 44k reads, which is ~2.69x (16343bp mtDNA)
+NOTE: samtools view -q 1 was added to map_reads.sh so that only reads that map at all would be kept in final bam..otherwise files were unnecessarily large.. samtools view -q 1 CA0102.sort.dedup.baq.bam | wc -l is only 44k reads, which is ~2.69x (16343bp mtDNA)
+
 
 # map, sort, and dedup mtDNA for Harpur reference bees:
-bees/mitochondria$ nohup parallel --noswap --delay 5s --joblog logs/map_mtdna_Harpur_2014_NCBI.log --jobs 3 './map_reads_single.sh {1} Harpur_2014_NCBI; ./sort_bams.sh {1}; ./dedup_baq_bams.sh {1}' :::: ../data/Harpur_2014_NCBI/samples.list &> logs/map_mtdna_Harpur_2014_NCBI.out &
+bees/mitochondria$ nohup parallel --noswap --delay 5s --joblog logs/map_mtdna_Harpur_2014_NCBI.log --jobs 3 './map_reads_single.sh {1} Harpur_2014_NCBI; ./sort_bams.sh {1}; ./dedup_baq_bams.sh {1}; rm results/bam_files/{1}.bam; rm results/bam_files/{1}.sort.bam' :::: ../data/Harpur_2014_NCBI/samples.list &> logs/map_mtdna_Harpur_2014_NCBI.out &
 [1] 20904 - RUNNING 5.13.19. fixed typo:
-[2] 22770
+[2] 22770 - DELETED OUTPUT; need to rerun:
+[1] 8558 - COMPLETED 5.14.19
 
 # map, sort, and dedup mtDNA for Kenyan reference bees:
-bees/mitochondria$ nohup parallel --noswap --delay 5s --joblog logs/map_mtdna_Kenya_Sheppard_NCBI.log --jobs 1 './map_reads_single.sh {1} Kenya_Sheppard_NCBI; ./sort_bams.sh {1}; ./dedup_baq_bams.sh {1}' :::: ../data/Kenya_Sheppard_NCBI/samples.list &> logs/map_mtdna_Kenya_Sheppard_NCBI.out &
+bees/mitochondria$ nohup parallel --noswap --delay 5s --joblog logs/map_mtdna_Kenya_Sheppard_NCBI.log --jobs 1 './map_reads_single.sh {1} Kenya_Sheppard_NCBI; ./sort_bams.sh {1}; ./dedup_baq_bams.sh {1}; rm results/bam_files/{1}.bam; rm results/bam_files/{1}.sort.bam' :::: ../data/Kenya_Sheppard_NCBI/samples.list &> logs/map_mtdna_Kenya_Sheppard_NCBI.out &
 [2] 21269 - RUNNING 5.13.19. fixed typo:
-[1] 22727
+[1] 22727 - DELETED OUTPUT; need to rerun:
+[2] 8636 - COMPLETED 5.14.19
 
 # To align mtDNA from the CA Bees from Julie/Ramirez I'll have to get the original fastq files
 
 
 # (2) Calling SNPs in the mtDNA. Clustering by PCA or a discriminant analysis? Are there diagnostic A C and M mtDNA SNPs?
+# what is my mean expected depth?
+# number of reads for references and CA/AR2018 pass1 bees:
+16343bp mtDNA
+mitochondria/results/bam_files$ for i in $(ls *.sort.dedup.baq.bam); do samtools view $i; done | wc -l
+5371895
+# but some of these are single read 50bp (Harpur) 
+mitochondria/results/bam_files$ for i in $(ls SRR9*.sort.dedup.baq.bam); do samtools view $i; done | wc -l
+979668
+or single 100bp (Kenya-Sheppard)
+mitochondria/results/bam_files$ for i in $(ls SRR5*.sort.dedup.baq.bam); do samtools view $i; done | wc -l
+128215
+
+# make list of bams and IDs:
+for a in $(for i in novo_seq/C202SC18101772 Harpur_2014_NCBI Kenya_Sheppard_NCBI; do cat ../data/$i/samples.list; done); do echo results/bam_files/$a.sort.dedup.baq.bam; done > ARCA2018_ref.bams
+for i in novo_seq/C202SC18101772 Harpur_2014_NCBI Kenya_Sheppard_NCBI; do cat ../data/$i/samples.list; done > ARCA2018_ref.list
+
+
+# call haplotypes based on majority base found at each site (allowing up to 30% missing data):
+mitochondria$ nohup parallel --joblog logs/call_haplotypes.log --jobs 1 './call_haplotypes_mtdna.sh {1}.bams 30 {1}' ::: ARCA2018_ref &> logs/call_haplotypes.out &
+[1] 7204 - COMPLETED 5.
+[1] 7765
 
 # (3) What is the distribution of A mtDNA across the hybrid zones? What is the LD between genomewide A ancestry and mtDNA A ancestry?

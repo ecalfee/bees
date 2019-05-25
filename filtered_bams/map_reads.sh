@@ -17,7 +17,8 @@ set -x
 # command line arguments:
 ID=$1 # bee ID
 SEQ_RUN=$2
-FASTQ_PREFIX="novo_seq/"${2}"/raw_data/"${ID}"/"${ID}"_"
+#FASTQ_PREFIX="novo_seq/"${2}"/raw_data/"${ID}"/"${ID}"_"
+FASTQ_PREFIX=$3 #I changed this to do the new sequences with different directory structure
 
 # move from scripts to data directory
 cd ../data 

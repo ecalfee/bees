@@ -332,6 +332,54 @@ cp results/RG_added/{1}.sort.dedup.baq.bam results/{1}.sort.dedup.baq.bam' \
 ::: SRCD12B &> logs/filter_bams_CA_Bee_rerun_SRCD12B.out &
 [1] 7740 - RUNNING 2.2.19 - COMPLETED. Forgot to cp over .bai file too, so copied to results/ by hand. deleted RG_added/ and all intermediate files
 
+# Use fastQ screen to understand why the four lanes returned from Novogene in May 2019 have a high % reads that are 'undetermined', i.e. could not be de-multiplexed. Analysis 5.24.19:
+# are 'undetermined' reads honey bee reads? Do they look different than the reads that could be demultiplexed?
+bees/filtered_bams/fastQ_screen$ nohup parallel --noswap --delay 2 --jobs 2 --joblog ../logs/run_fastQ_screen_undetermined_reads.log '~/Software/fastQ_screen/fastq_screen_v0.13.0/fastq_screen --aligner BOWTIE2 --conf fastq_screen_honeybee.conf --outdir output $(ls ../../data/novo_seq/lanes2_5/Undetermined/Undetermined_H2F5YCCX2_L{1}_{2}.fq.gz)' ::: 1 2 3 4 ::: 1 2 &> ../logs/run_fastQ_screen_undetermined_reads.out &
+[1] 17114 - RUNNING 5.24.19 (L1 isn't finished downloading so it produces and error but the others are running)
+# running just L1 now that it's downloaded:
+filtered_bams/fastQ_screen$ nohup parallel --noswap --delay 2 --jobs 2 --joblog ../logs/run_fastQ_screen_undetermined_reads_L1.log '~/Software/fastQ_screen/fastq_screen_v0.13.0/fastq_screen --aligner BOWTIE2 --conf fastq_screen_honeybee.conf --outdir output $(ls ../../data/novo_seq/lanes2_5/Undetermined/Undetermined_H2F5YCCX2_L{1}_{2}.fq.gz)' ::: 1 ::: 1 2 &> ../logs/run_fastQ_screen_undetermined_reads_L1.out &
+[1] 25234 - RUNNING 5.24.19
+
+
+# what do a few regular demultiplexed sets of reads look like from the newest round of sequencing?
+bees/filtered_bams/fastQ_screen$ nohup parallel --noswap --delay 2 --jobs 1 --joblog ../logs/run_fastQ_screen_AR0101_AR0103.log '~/Software/fastQ_screen/fastq_screen_v0.13.0/fastq_screen --aligner BOWTIE2 --conf fastq_screen_honeybee.conf --outdir output $(ls ../../data/novo_seq/lanes2_5/{1}/{1}_*L*_{2}.fq.gz)' ::: AR0101 AR0103 ::: 1 2 &> ../logs/run_fastQ_screen_AR0101_AR0103.out &
+[2] 18052 - RUNNING 5.24.19 (fast). A few more:
+bees/filtered_bams/fastQ_screen$ nohup parallel --noswap --delay 2 --jobs 1 --joblog ../logs/run_fastQ_screen_AR0105-0115.log '~/Software/fastQ_screen/fastq_screen_v0.13.0/fastq_screen --aligner BOWTIE2 --conf fastq_screen_honeybee.conf --outdir output $(ls ../../data/novo_seq/lanes2_5/{1}/{1}_*L*_{2}.fq.gz)' ::: AR0105 AR0108 AR0109 AR0110 AR0111 AR0115 ::: 1 2 &> ../logs/run_fastQ_screen_AR0105-AR0115.out &
+[2] 21118 - RUNNING 5.24.19
+
+# I summarize these multi-genome mapping results using multiQC:
+bees/filtered_bams/fastQ_screen/output$ multiqc .
+
+# mostly undetermined reads map to honeybee, with 5-15% mapping to phiX (presumably from spike in).
+# I also looked at the barcodes and reads that were 'undetermined':
+Undetermined$ zgrep '1:N:0:' ../Undetermined/*_L4_1.fq.gz | cut -f10 -d":" | head -n 100000 | sort | uniq -c | sort -nr | head -n 100
+   1420 GGAGAGTA+GCGATCTA
+# this is the most common undetermined index in all 4 lanes, and represents < 1% of 'undetermined' reads
+# so basically they are not concentrated on a few types.
+# many match the i5 end or are a single base pair off and match the i7 end (I could try to demultiplex these but I'm not sure how common they are really if it's worth it to get 500 extra reads
+# e.g. Undetermined$ zgrep '1:N:0:' ../Undetermined/*_L4_1.fq.gz | cut -f10 -d":" | head -n 1000000 | grep '^T' | sort | uniq -c | sort -nr | head -n 10
+   2430 TAAGACCG+ACGATCTA # .002 % of 55G undetermined reads is approx 0.1G and possibly lower quality reads in general
+# I initially thought it was a lot but actually it's a small percent that have a single bp N at the beginning of each index and their read:
+Undetermined$ zgrep '1:N:0:' ../Undetermined/*_L4_1.fq.gz | cut -f10 -d":" | head -n 1000000 | grep '^N' | wc -l
+7647
+# presumably these should be my 56 barcodes: (but last one doesn't match .. because AR1212 didn't amplify)
+Undetermined$ zgrep '1:N:0:' ../Undetermined/*_L4_1.fq.gz | cut -f10 -d":" | cut -f1 
+-d"+" | head -n 1000000 | grep '^T' | sort | uniq -c | sort -nr | head -n 56
+# so about how many of these sequences are there?
+bees/data/novo_seq/lanes2_5/Undetermined$ zgrep '1:N:0:' ../Undetermined/*_L4_1.fq.gz | cut -f10 -d":" | cut -f1 
+-d"+" | head -n 1000000 | grep '^T' | sort | uniq -c | sort -nr | head -n 55 | awk '{print $1}' | paste -sd+ | bc
+369389 # about 37% (up to 49% w/ L1) of 'undetermined' reads may be assignable based on i7 barcode alone if I trust that i5 barcode doesn't need to match..
+
+# Aligning first set of 140 from the new sequences (all of AR bees; buying more space before I can do the rest):
+# make list of alphabetically first
+bees/bee_samples_listed$ cat ../labwork/Novogene_libraries2-5_barcodes.txt | sort -u -k2 | cut -f1 -d" " | cut -f3 -d"_" > lanes2_5_libraries.list
+bees/bee_samples_listed$ cat ../labwork/Novogene_libraries2-5_barcodes.txt | sort -u -k2 | cut -f2 -d" " > lanes2_5_IDs.list
+bee_samples_listed$ head -n 140 lanes2_5_IDs.list > may2019AR_IDs.list
+bee_samples_listed$ head -n 140 lanes2_5_libraries.list > may2019AR_libraries.list
+# for first 140 map to reference genome:
+filtered_bams$ nohup parallel --noswap --delay 5 --joblog logs/map_reads_may2019_AR.log --jobs 3 './map_reads.sh {1} {2} novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} novo_seq/bam_files; rm ../data/novo_seq/bam_files/{1}.bam; ./dedup_baq_bams.sh {1} filtered_bams/results; rm results/{1}.sort.bam' :::: ../bee_samples_listed/may2019AR_IDs.list :::: ../bee_samples_listed/may2019AR_libraries.list &> logs/map_reads_may2019_AR.out &
+[1] 31958 - RUNNING 5.24.19
+
 # TO DO:
 # Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered? Yes - likely gut symbionts
 # Adapter contamination at a low (~1-3%) is also there. I don't think this is having a large effect on my intial analysis, but I could filter out adapters e.g. with cutadapt, and check if my bams have adapter sequences that made it past filtering (?)
