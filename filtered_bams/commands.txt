@@ -372,13 +372,18 @@ bees/data/novo_seq/lanes2_5/Undetermined$ zgrep '1:N:0:' ../Undetermined/*_L4_1.
 
 # Aligning first set of 140 from the new sequences (all of AR bees; buying more space before I can do the rest):
 # make list of alphabetically first
-bees/bee_samples_listed$ cat ../labwork/Novogene_libraries2-5_barcodes.txt | sort -u -k2 | cut -f1 -d" " | cut -f3 -d"_" > lanes2_5_libraries.list
-bees/bee_samples_listed$ cat ../labwork/Novogene_libraries2-5_barcodes.txt | sort -u -k2 | cut -f2 -d" " > lanes2_5_IDs.list
+bees/bee_samples_listed$ tail -n +2 ../labwork/Novogene_libraries2-5_barcodes.txt | sort -u -k2 | cut -f1 -d" " | cut -f3 -d"_" > lanes2_5_libraries.list
+bees/bee_samples_listed$ tail -n +2 ../labwork/Novogene_libraries2-5_barcodes.txt | sort -u -k2 | cut -f2 -d" " > lanes2_5_IDs.list
 bee_samples_listed$ head -n 140 lanes2_5_IDs.list > may2019AR_IDs.list
 bee_samples_listed$ head -n 140 lanes2_5_libraries.list > may2019AR_libraries.list
 # for first 140 map to reference genome:
 filtered_bams$ nohup parallel --noswap --delay 5 --joblog logs/map_reads_may2019_AR.log --jobs 3 './map_reads.sh {1} {2} novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} novo_seq/bam_files; rm ../data/novo_seq/bam_files/{1}.bam; ./dedup_baq_bams.sh {1} filtered_bams/results; rm results/{1}.sort.bam' :::: ../bee_samples_listed/may2019AR_IDs.list :::: ../bee_samples_listed/may2019AR_libraries.list &> logs/map_reads_may2019_AR.out &
-[1] 31958 - RUNNING 5.24.19
+[1] 31958 - FAILED 5.24.19 - trying small test case with first 100 reads for AR0101:
+filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_TEST_may2019_AR.log --jobs 3 './map_reads.sh {1} {2} novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} ../data/novo_seq/bam_files; rm ../data/novo_seq/bam_files/{1}.bam; ./dedup_baq_bams.sh {1} results; rm results/{1}.sort.bam' ::: TEST_AR0101 ::: TEST_LANE &> logs/map_reads_TEST_may2019_AR.out &
+[1] 21684 - COMPLETED SUCCESSFULLY 5.28.19
+# fixed directory naming issues and parallel config (oops trying to run all combinations!!) & re-running for all the bees from lanes 2-5:
+filtered_bams$ nohup parallel --noswap --delay 2 --joblog logs/map_reads_lanes2_5.log --jobs 4 './map_reads.sh {1} {2} novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} ../data/novo_seq/bam_files; rm ../data/novo_seq/bam_files/{1}.bam; ./dedup_baq_bams.sh {1} results; rm results/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.list ::::+ ../bee_samples_listed/lanes2_5_libraries.list &> logs/map_reads_lanes2_5.out &
+[1] 24579 - RUNNING 5.28.19. This will take maybe a week, even with 4 threads.
 
 # TO DO:
 # Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered? Yes - likely gut symbionts
