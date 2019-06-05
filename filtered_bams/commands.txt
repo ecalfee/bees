@@ -390,17 +390,31 @@ filtered_bams$ nohup parallel --noswap --delay 2 --joblog logs/map_reads_lanes2_
 filtered_bams$ cp logs/map_reads_lanes2_5.log logs/map_reads_lanes2_5_try1.log
 filtered_bams$ cp logs/map_reads_lanes2_5.out logs/map_reads_lanes2_5_try1.out
 filtered_bams$ nohup parallel --noswap --delay 2 --resume-failed --joblog logs/map_reads_lanes2_5.log --jobs 4 './map_reads.sh {1} {2} novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} ../data/novo_seq/bam_files; rm ../data/novo_seq/bam_files/{1}.bam; ./dedup_baq_bams.sh {1} results; rm results/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.list ::::+ ../bee_samples_listed/lanes2_5_libraries.list &> logs/map_reads_lanes2_5_try2.out &
-[1] 22365 - RUNNING 5.30.19
+[1] 22365 - RUNNING 5.30.19. COMPLETED 6.5.19.
 
+# run flagstat on all new novogene aligned bams
+bees/filtered_bams$ nohup parallel --noswap --joblog logs/run_flagstat_lanes2_5.log --jobs 4 \
+'samtools flagstat ../filtered_bams/results/{1}.sort.dedup.baq.bam > metrics/{1}.flagstat.txt' \
+:::: ../bee_samples_listed/lanes2_5_IDs.list &> logs/run_flagstat_lanes2_5.out &
+[1] 16886 - RUNNING 6.5.19. COMPLETED.
+
+# run flagstat on all bams with a mapping quality filter mapQ>30 (to estimate coverage). Remember some bees have diff. length reads:
+bees/filtered_bams$ mkdir -p metrics/Q30
+bees/filtered_bams$ nohup parallel --noswap --joblog logs/run_flagstat_Q30.log --jobs 4 \
+'samtools view -h -q 30 ../filtered_bams/results/{1}.sort.dedup.baq.bam | samtools flagstat - > metrics/Q30/{1}.flagstat.txt' \
+:::: ../bee_samples_listed/CA_AR_MX_harpur_sheppard_kohn_wallberg.list &> logs/run_flagstat_Q30.out &
+[1] 21303 - RUNNING 6.5.19
 
 # checking MD5 sums for all data from newest round of sequencing:
 bees/data/novo_seq/lanes3_5$ cat */MD5.txt > ALL_MD5_expected.txt
 bees/data/novo_seq/lanes2_5$ for i in $(awk '{print $2}' ALL_MD5_expected.txt); do md5sum */${i}; done > ALL_MD5_observed.txt # observed MD5 sums
-bees/data/novo_seq/lanes2_5$ diff -q <(awk '{print $1}' ALL_MD5_expected.txt) <(awk '{print $1}' cat ALL_MD5_observed.txt) # outputs 'Files * and * differ' if they differ; outputs nothing if they're the same. Take away -q to see differences. (all ok; no differences!)
+bees/data/novo_seq/lanes2_5$ diff -q <(awk '{print $1}' ALL_MD5_expected.txt) <(awk '{print $1}' ALL_MD5_observed.txt) # outputs 'Files * and * differ' if they differ; outputs nothing if they're the same. Take away -q to see differences. (all ok; no differences!)
 # I'm still re-downloading the 'Undetermined' reads to the 8TB drive so I'll have to check their MD5 sums later.
+# checking undetermined reads:
+data/novo_seq/lanes2_5/Undetermined$ cat MD5.txt > ALL_MD5_expected.txt
+bees/data/novo_seq/lanes2_5/Undetermined$ diff <(awk '{print $1}' ALL_MD5_expected.txt) <(awk '{print $1}' ALL_MD5_observed.txt) # lanes 2 and 3 have switched order -- otherwise no differences
 
 # TO DO:
-# run flagstat on all new novogene aligned bams
 # decide if I'm going to try to demultiplex 'Undetermined' reads
 # Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered? Yes - likely gut symbionts
 # Adapter contamination at a low (~1-3%) is also there. I don't think this is having a large effect on my intial analysis, but I could filter out adapters e.g. with cutadapt, and check if my bams have adapter sequences that made it past filtering (?)

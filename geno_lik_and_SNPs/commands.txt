@@ -81,5 +81,37 @@ geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/pass1_plus_kohn_and_wal
 ../data/honeybee_genome/ordered_scaffolds.list &> logs/pass1_plus_kohn_and_wallberg_GL_by_scaffold.out &
 [2] 4225 - RUNNING 2.8.19 - COMPLETED
 
-# TO DO:
-# Re-calculate cutoffs for coverage to exclude SNPs with low coverage and likely mapping errors
+
+# new sequences in! making SNP set with full set CA/AR bees plus kohn, CA/Mex > 1999 & Ref (will exclude bees not in this study later)
+
+# make list of IDs and bams:
+bees/bee_samples_listed$ cat pass1_plus_kohn_and_wallberg.list lanes2_5_IDs.list | sort > CA_AR_MX_harpur_sheppard_kohn_wallberg.list
+bees/bee_samples_listed$ awk '{print "../filtered_bams/results/"$0".sort.dedup.baq.bam"}' CA_AR_MX_harpur_sheppard_kohn_wallberg.list > CA_AR_MX_harpur_sheppard_kohn_wallberg.bams
+
+# to calculate coverage, making random list of 100,000 positions on chromosomes in honey bee reference genome
+honeybee_genome$ bedtools random -g genome_order_scaffolds.lengths -n 100000 -l 1 | bedtools sort -faidx genome_order_scaffolds.lengths -i stdin > random_pos_100000.bed # not excluding scaffolds with unknown chromosomes
+bees/data/honeybee_genome$ grep -v "GroupUn" genome_order_scaffolds.lengths > genome_order_scaffolds_chr_only.lengths # limit to 340 scaffolds on chromosomes
+data/honeybee_genome$ bedtools random -g genome_order_scaffolds_chr_only.lengths -n 100000 -l 1 | bedtools sort -faidx genome_order_scaffolds.lengths -i stdin > random_pos_100000_chr_only.bed # get 100,000 positions, sorted
+# calculating coverage across those 100,000 positions for reads passing mapping quality 30:
+geno_lik_and_SNPs$ mkdir -p results/CA_AR_MX_harpur_sheppard_kohn_wallberg/coverage/
+geno_lik_and_SNPs$ bedtools multicov -q 30 -bams $(paste -s -d" " ../bee_samples_listed/CA_AR_MX_harpur_sheppard_kohn_wallberg.bams) -bed ../data/honeybee_genome/random_pos_100000_chr_only.bed > results/CA_AR_MX_harpur_sheppard_kohn_wallberg/coverage/random_pos_100000_chr_only.txt
+RUNNING IN FOREGROUND 6.5.19
+
+# make list of just CA/AR IDs and bams 1999-2018 + reference sequences ACM from Harpur and Sheppard
+bees/bee_samples_listed$ cat pass1.list lanes2_5_IDs.list | grep -v "MX" | sort > CA_AR_ACM.list
+bees/bee_samples_listed$ awk '{print "../filtered_bams/results/"$0".sort.dedup.baq.bam"}' CA_AR_ACM.list > CA_AR_ACM.bams
+geno_lik_and_SNPs$ mkdir -p results/CA_AR_ACM/coverage/
+geno_lik_and_SNPs$ nohup bedtools multicov -q 30 -bams $(paste -s -d" " ../bee_samples_listed/CA_AR_ACM.bams) -bed ../data/honeybee_genome/random_pos_100000_chr_only.bed > results/CA_AR_ACM/coverage/random_pos_100000_chr_only.txt &
+[1] 20794 - RUNNING 6.5.19
+
+
+# TO DO
+# make full set of SNPs - all bees
+geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/CA_AR_MX_harpur_sheppard_kohn_wallberg_GL_by_scaffold.log --jobs 4 \
+'./calc_GL_all_SNPs.sh ../bee_samples_listed/CA_AR_MX_harpur_sheppard_kohn_wallberg.bams {1} *******LOW HIGH****** results/CA_AR_MX_harpur_sheppard_kohn_wallberg/GL_by_scaffold' :::: \
+../data/honeybee_genome/ordered_scaffolds.list &> logs/CA_AR_MX_harpur_sheppard_kohn_wallberg_GL_by_scaffold.out &
+NOT RUN YET
+
+
+
+
