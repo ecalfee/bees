@@ -108,10 +108,14 @@ geno_lik_and_SNPs$ nohup bedtools multicov -q 30 -bams $(paste -s -d" " ../bee_s
 # TO DO
 # make full set of SNPs - all bees
 geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/CA_AR_MX_harpur_sheppard_kohn_wallberg_GL_by_scaffold.log --jobs 4 \
-'./calc_GL_all_SNPs.sh ../bee_samples_listed/CA_AR_MX_harpur_sheppard_kohn_wallberg.bams {1} *******LOW HIGH****** results/CA_AR_MX_harpur_sheppard_kohn_wallberg/GL_by_scaffold' :::: \
+'./calc_GL_all_SNPs.sh ../bee_samples_listed/CA_AR_MX_harpur_sheppard_kohn_wallberg.bams {1} 1508 6032 results/CA_AR_MX_harpur_sheppard_kohn_wallberg/GL_by_scaffold' :::: \
 ../data/honeybee_genome/ordered_scaffolds.list &> logs/CA_AR_MX_harpur_sheppard_kohn_wallberg_GL_by_scaffold.out &
-NOT RUN YET
+[1] 26105 - RUNNING 6.5.19 # mean is 3016x
 
-
+# not run yet but mean for limited set of bees is 2786x
+geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/CA_AR_ACM_GL_by_scaffold.log --jobs 4 \
+'./calc_GL_all_SNPs.sh ../bee_samples_listed/CA_AR_ACM.bams {1} 1393 5572 results/CA_AR_ACM/GL_by_scaffold' :::: \
+../data/honeybee_genome/ordered_scaffolds.list &> logs/CA_AR_ACM_GL_by_scaffold.out &
+TO RUN LATER
 
 

@@ -405,6 +405,9 @@ bees/filtered_bams$ nohup parallel --noswap --joblog logs/run_flagstat_Q30.log -
 :::: ../bee_samples_listed/CA_AR_MX_harpur_sheppard_kohn_wallberg.list &> logs/run_flagstat_Q30.out &
 [1] 21303 - RUNNING 6.5.19
 
+# summarise output of flagstat
+filtered_bams/metrics/Q30$ for i in $(cat  ../../../bee_samples_listed/CA_AR_MX_harpur_sheppard_kohn_wallberg.list); do cat "$i".flagstat.txt | grep 'QC-passed' | cut -d" " -f1; done > CA_AR_MX_harpur_sheppard_kohn_wallberg.nreads
+
 # checking MD5 sums for all data from newest round of sequencing:
 bees/data/novo_seq/lanes3_5$ cat */MD5.txt > ALL_MD5_expected.txt
 bees/data/novo_seq/lanes2_5$ for i in $(awk '{print $2}' ALL_MD5_expected.txt); do md5sum */${i}; done > ALL_MD5_observed.txt # observed MD5 sums
