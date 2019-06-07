@@ -107,16 +107,46 @@ global_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/runNGSadmix_orde
 [1] 31303 - COMPLETED 2.11.19 - Still could not replicate low A ancestry in San Diego finding.
 
 
-# made multiple R scripts for plotting results:
-plot_PCA.R
-plot_NGSadmix.R
-plot_admixture_by_PCA.R # shows congruence between these two global ancestry analyses
-
-
 # NOTE: pruning by every 1000th snp leaves about 3k snps, and pruning by every 251 snps leaves ~12k snps (on avg. ~80kb and ~19kb spacing, respectively)
 
 # To see the actual spacing of SNPs, however, I need to pull that information from the beagle.gz file:
 global_ancestry/results/input$ zcat ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy251.beagle.gz | cut -f1 | tail -n +2 > ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy251.var.sites
 # I plot the results in plot_NGSadmix.R
 
+# Pass 1 analysis with Harpur reference A/C/M plus some previous CA bees and new CA/AR 2018 bees:
+# (0) SNPs need to be in low LD for this analysis.
+# for input files in results/input/, I concatenate the GL for every 250th SNP for ordered scaffolds:
+# then thin to every 250th SNP:
+bees/global_ancestry$ nohup ./catBeagleGL_nth.sh 250 ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg ../geno_lik_and_SNPs/results/CA_AR_MX_harpur_sheppard_kohn_wallberg/GL_by_scaffold >& logs/CA_AR_MX_harpur_sheppard_kohn_wallberg_prune_ordered_scaffolds_by250.out &
+[1] 28323 - COMPLETE (few minutes) # about 12k snps
+
+# concatenate all SNPs (no thinning):
+bees/global_ancestry$ nohup ./catBeagleGL_nth.sh 0 ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg ../geno_lik_and_SNPs/results/CA_AR_MX_harpur_sheppard_kohn_wallberg/GL_by_scaffold >& logs/CA_AR_MX_harpur_sheppard_kohn_wallberg_prune_ordered_scaffolds_by0.out &
+[2] 7969
+
+# (1) run PCAngsd 
+bees/global_ancestry$ nohup ./runPCAngsd.sh ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy250 >& logs/runPCA_CA_AR_MX_harpur_sheppard_kohn_wallberg_ordered_scaffolds_prunedBy250.out &
+[1] 7588 - COMPLETE (seconds)
+bees/global_ancestry$ nohup ./runPCAngsd.sh ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy0 >& logs/runPCA_CA_AR_MX_harpur_sheppard_kohn_wallberg_ordered_scaffolds_prunedBy0.out &
+[1] 19988 - DID NOT RUN - 3 million SNPs is probably memory overload
+
+# (2) run NGSAdmix
+bees/global_ancestry$ nohup parallel './runNGSadmix.sh {1} ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy250' ::: 3 4 &> logs/runNGSadmix_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy250.out &
+[1] 7897 - COMPLETE (seconds)
+bees/global_ancestry$ nohup parallel './runNGSadmix.sh {1} ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy0' ::: 3 4 &> logs/runNGSadmix_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy0.out &
+[2] 20012 - DID NOT RUN - 3 million SNPs is probably memory overload
+
+# (3) # made multiple R scripts for plotting results:
+plot_PCA.R
+plot_NGSadmix.R
+plot_admixture_by_PCA.R # shows congruence between these two global ancestry analyses
+
+
 # TO DO: Make NGSAdmix plots more interpretable by making anc1 always A etc. (using A group)
+# because Avalon bees are driving PC3 and are likely highly drifted from their island status, maybe exclude them and rerun PCA to see if 'O' group pops out along PC3 instead
+
+
+
+
+
+
