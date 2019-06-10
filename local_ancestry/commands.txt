@@ -1,7 +1,16 @@
 # Inferring local ancestry across the honeybee genome
+# steps:
+(1) get SNP set (thin for LD & ancestry informativeness)
+(2) get allele counts for reference bees
+(3) get read counts for admixed bees
+(4) get recombination distance between SNPs
+(5) make input files
+(6) run ancestry_hmm
+(7) analyze results
 
 # ancestry_hmm:
 
+(1) getting SNP set
 # Use SNPs filtered to 1000 bp to avoid within-ancestry LD.
 # Filtered SNPs are chosen to have high ancestry informativeness,
 # defined by at least A C or M having minor allele freq > 30%
@@ -20,12 +29,13 @@ local_ancestry$ plink --bfile ../data/bees_new_positions/ALL --write-snplist \
 --extract results/SNPs/ACM_common3.frq --bp-space 1000 --out SNPs/thin1kb_common3/included
 # the result is ~120k SNPs saved in results/SNPs/thin1kb_common3/included.snplist
 
+(2) Getting allele frequencies for reference pops
 # Get called genotype counts at all SNPs for A, C, and M groups at each SNP
 local_ancestry$ for pop in A C M; do plink --bfile ../data/bees_new_positions/ALL --freq counts --keep-allele-order --extract results/SNPs/thin1kb_common3/included.snplist --filter ../data/bees_new_positions/populations.txt $pop --out results/SNPs/thin1kb_common3/$pop; done
 # strip header and other information besides allele counts from .frq.counts files
 local_ancestry$ for i in $(ls results/SNPs/thin1kb_common3/*.frq.counts); do awk '$1!="CHR" {print $5"\t"$6}' $i > $i.strp; done
 
-# Get read counts for each admixed individual at every SNP included
+(3) Get read counts for each admixed individual at every SNP included
 # First, make a sites file of the scaffold, bp position on the scaffold, and maj/min allele for ANGSD input
 local_ancestry$ tail -n +2 results/SNPs/thin1kb_common3/A.frq.counts | tr "." "\t" | \
 awk '{print $3"."$4"\t"$5"\t"$6"\t"$7}' > results/SNPs/thin1kb_common3/included.var.sites
@@ -37,14 +47,16 @@ local_ancestry$ nohup parallel --joblog logs/ACGTcounts_novo_seq_1.log --noswap 
  :::: ../data/novo_seq/C202SC18101772/samples.list &> logs/ACGTcounts_novo_seq_1.out &
 [1] 24962 - COMPLETED 2.12.19 (fast)
 
+
 # then using R I convert A/C/G/T counts into maj/min allele counts:
 local_ancestry$ nohup parallel --joblog logs/getMajMinCounts_C202SC18101772.log 'Rscript ./getMajorMinorReadCountsFromACGT.R {1} thin1kb_common3' :::: ../data/novo_seq/C202SC18101772/samples.list &> logs/getMajMinCounts_C202SC18101772.out &
 [1] 30182 - COMPLETED 2.14.19 (fast)
 
-# Make a sites file with bp position and recombination position relative to the chromosome
+
+(4) Make a sites file with bp position and recombination position relative to the chromosome
 local_ancestry$ Rscript ./bp_to_r_Wallberg2015.R thin1kb_common3 A.rates.1000.201.low_penalty.csv.cM_Mb.windows.100000.csv
 
-# Combine counts and SNP information into input files for ancestry_hmm:
+(5) Combine counts and SNP information into input files for ancestry_hmm:
 # paste together stripped files into correct order for ancestry_hmm input file
 # chromosome, position_bp, allele counts A1 in A, allele counts A2 in A, allele counts A1 in C, allele counts A2 in C, allele counts A1 in M, allele counts A2 in M,
 # distance in Morgans between previous marker and this one
@@ -54,25 +66,21 @@ local_ancestry/results/SNPs/thin1kb_common3$ paste included.pos A.frq.counts.str
 # make a ploidy file including all admixed individuals being analyzed:
 local_ancestry/results/SNPs/thin1kb_common3$ awk '{print $0"\t2"}' ../../../../data/novo_seq/C202SC18101772/samples.list > pass1_2018.ploidy
 
-
-
-# Run ancestry_hmm
+(6) Run ancestry_hmm
 # First I pulled the git and installed the latest version v0.94. 'make' in that subfolder and copied it as ancestry_hmm_v0.94 to my ~/bin
-# (0) ran test run first with no bootstrapping and fixed admixture times at 60 (C-M) and 30 (A) generations back:
+# (6A) ran test run first with no bootstrapping and fixed admixture times at 60 (C-M) and 30 (A) generations back:
 local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2$ ancestry_hmm_v0.94 -e 3e-3 -a 3 0.4 0.4 0.2 -p 1 100000 0.4 -p 2 60 0.2 -p 0 30 0.4 --ne 670000 -i ../../../SNPs/thin1kb_common3/ACM_pass1_2018.counts -s ../../../SNPs/thin1kb_common3/pass1_2018.ploidy
 # Saved command log from above (ancestry_hmm_log.txt) and posterior results in 
 local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2/fixed_t_60_30/
 
-# (0) Very confusingly, the results above suggest that X2.0.0 is C, X0.2.0 is MM and X0.0.2 is AA genotypes 
+# (A) Very confusingly, the results above suggest that X2.0.0 is C, X0.2.0 is MM and X0.0.2 is AA genotypes 
 # when I've specified that pop 0 is A, pop 1 is C and pop 2 is M. So I am rerunning now where I put my admixture
 # events in the same order that I specify my ancestries (start with p0, then p1, then p2) 
 # (!) If this is a problem, it could mean my simulation results aren't quite labelled correctly for the diff. ancestries.
 local_ancestry/results/SNPs/thin1kb_common3$ paste included.pos C.frq.counts.strp M.frq.counts.strp A.frq.counts.strp included.rdist $(for i in $(cat ../../../../data/novo_seq/C202SC18101772/samples.list); do echo countsMajMin/"$i".counts.txt; done) > CMA_pass1_2018.counts - DONE
 local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2/reverse_order_CMA$ ancestry_hmm_v0.94 -e 3e-3 -a 3 0.4 0.2 0.4 -p 0 100000 0.4 -p 1 60 0.2 -p 2 30 0.4 --ne 670000 -i ../../../SNPs/thin1kb_common3/CMA_pass1_2018.counts -s ../../../SNPs/thin1kb_common3/pass1_2018.ploidy
 
-
-
-# (1) run ancestry_hmm with all bees together and a few reasonable ancestry estimates:
+# (6A) run ancestry_hmm with all bees together and a few reasonable ancestry estimates:
 # 40% A freq, 40% C and 20% M prior (approx middle A ancestry, e.g. S. CA)
 # 10% A freq, 70% C and 20% M prior (approx low A ancestry)
 # 70% A freq, 5% C and 25% M prior (approx high A ancestry)
@@ -110,35 +118,13 @@ ancestry_hmm_v0.94 -e 3e-3 -a 3 {2} {3} {4} \
 estimates for t2 (A admixture) fall between 10 and 20 generations, which seems low but could be due to ongoing gene flow
 or artefacts of mixing all the samples together or of setting t1 too high (to 100 generations).
 
-# TO DO:
-
-# (2) run ancestry_hmm for different groups separately, grouping bees into larger 'populations' based on roughly similar global ancestry proportions
-# groups: 
-# 40% A freq, 40% C and 20% M prior
-# 10% A freq, 70% C and 20% M prior (approx low A ancestry)
-N_AR_2018 # 70% A freq, 10% C and 20% M prior (Northern Argentina Samples)
-M_AR_2018
-S_AR_2018
-
-N_CA_2018
-S_CA_2018
-
-# Verify general expected patterns
-# look at estimated times since admixture and visualize some block lengths
-# what portion of calls are heterozygous for ancestry? what portion are high confidence calls?
-# how many of the LD-filtered SNPs, on average, fall within an ancestry block?
-# do bees from the same hybrid zone have more similar local ancestry than across CA/Argentina?
-
-# TO DO: I should update the bp positions in the ALL.bed file because some (short?) scaffolds are getting no SNPs, presumably because my LD filter is requiring 1000bp into the scaffold because it doesn't consider gaps between scaffolds. I could also then incorporate cM position into the SNPs file and extract genetic distances between SNPs, and recombination rates at each SNP, from plink
-# TO DO: maybe I should be removing sites with > 2.5x mean ind. depth in R too, or likely triallelic sites where maj/min allele are very uncommon <.1 reads for a bee (plot and see if there's a peak)
-
 # NOTE: I have a file from Andreas Wallberg about how to orient scaffolds to the genome to match the recombination map, but also some scaffolds are simply not oriented.
 # This may affect estimates of t and local ancestry tracts significantly, so I’m rerunning local ancestry
-# without putting scaffolds together into linkage groups (/ onto ‘chromosomes’)
+(5B) without putting scaffolds together into linkage groups (/ onto ‘chromosomes’)
 # LG_to_ind_scaffolds_rmap_pos.R - make new position file base on local position and recomb rate
 # making input file
 bees/local_ancestry/results/SNPs/thin1kb_common3$ paste included_scaffolds.pos A.frq.counts.strp C.frq.counts.strp M.frq.counts.strp included_scaffolds.rdist $(for i in $(cat ../../../../data/novo_seq/C202SC18101772/samples.list); do echo countsMajMin/"$i".counts.txt; done) > ACM_pass1_2018_scaffolds.counts
-# run ancestry_hmm:
+(6B) run ancestry_hmm:
 nohup parallel --noswap --joblog logs/ancestry_hmm_thin1kb_pass1_2018_scaffolds.log \
 'mkdir -p results/ancestry_hmm/{1}/pass1_2018_{2}_{3}_{4}_scaffolds; \
 cd results/ancestry_hmm/{1}/pass1_2018_{2}_{3}_{4}_scaffolds; \
@@ -157,10 +143,10 @@ bees/local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_
 nohup: ignoring input and appending output to 'nohup.out'
 [1] 1486 - KILLED
 
-# making scaffolds CMA input file
+(5C) making scaffolds CMA input file
 bees/local_ancestry/results/SNPs/thin1kb_common3$ paste included_scaffolds.pos C.frq.counts.strp M.frq.counts.strp A.frq.counts.strp included_scaffolds.rdist $(for i in $(cat ../../../../data/novo_seq/C202SC18101772/samples.list); do echo countsMajMin/"$i".counts.txt; done) > CMA_pass1_2018_scaffolds.counts
 
-# running ancestry hmm (fixed times 60 and 30 generations ago)
+(6C) running ancestry hmm (fixed times 60 and 30 generations ago)
 bees/local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaffolds$ nohup mkdir reverse_order_CMA_fix_t_60_30; cd reverse_order_CMA_fix_t_60_30; ancestry_hmm_v0.94 -e 3e-3 -a 3 0.4 0.2 0.4 -p 0 100000 0.4 -p 1 60 0.2 -p 2 30 0.4 --ne 670000 -i ../../../../SNPs/thin1kb_common3/CMA_pass1_2018_scaffolds.counts -s ../../../../SNPs/thin1kb_common3/pass1_2018.ploidy &> ancestry_hmm.out &
 [3] 2696 - running. completed
 # running ancestry hmm (fixed times 100 and 60 generations ago)
@@ -178,7 +164,7 @@ bees/local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_
 [5] 2720 - running
 
 
-# I want to run the time estimates using these SNPs with the called genotypes from Riverside 2014:
+(5D) I want to run the time estimates using these SNPs with the called genotypes from Riverside 2014:
 # get called genotypes for each individual in Riverside_2014:
 l in riverside_2014, I make an allele counts file
 local_ancestry$ mkdir -p results/SNPs/thin1kb_common3/Riverside_2014; for ind in $(awk '$1 == "Riverside_2014" {print $2}' ../data/bees_new_positions/individuals.txt); do plink --bfile ../data/bees_new_positions/ALL --freq counts --keep-allele-order --extract results/SNPs/thin1kb_common3/included.snplist --filter ../data/bees_new_positions/individuals.txt $ind --out results/SNPs/thin1kb_common3/Riverside_2014/$ind; done
@@ -195,7 +181,7 @@ bees/local_ancestry/results/SNPs/thin1kb_common3$ paste included_scaffolds.pos C
 # paste together to make input file for ancestry_hmm (by LG position, to see the effect):
 bees/local_ancestry/results/SNPs/thin1kb_common3$ paste included.pos C.frq.counts.strp M.frq.counts.strp A.frq.counts.strp included_scaffolds.rdist $(for i in $(cut -f1 Riverside_2014/Riv2014.ploidy); do echo Riverside_2014/$i.frq.counts.strp; done) > Riverside_2014/CMA_Riverside_2014.counts
 
-# run ancestry_hmm, getting time estimates:
+(6D) run ancestry_hmm, getting time estimates:
 # note that -g is for genotypes and errors are lower here b/c it’s genotype not read errors (!)
 local_ancestry$ nohup parallel --noswap --joblog logs/ancestry_hmm_thin1kb_common3_Riverside_2014_scaffolds.log \
 'mkdir -p results/ancestry_hmm/{1}/Riverside_2014_{2}_{3}_{4}_scaffolds; \
@@ -224,7 +210,7 @@ ancestry_hmm_v0.94 —g e 1e-3 -a 3 {4} {5} {3} \
 [1] 4451 - running 11:48am 4.16.19. Complete (fast)
 
 
-# now also to see the effects of using full LG instead of scaffolds:
+(6F) now also to see the effects of using full LG instead of scaffolds:
 local_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/ancestry_hmm_thin1kb_common3_CMA_Riverside_2014_LG_ne_noBoot.log \
 'mkdir -p results/ancestry_hmm/{1}/Riverside_2014_CMA_{4}_{5}_{3}_ne{2}_LG_noBoot; \
 cd results/ancestry_hmm/{1}/Riverside_2014_CMA_{4}_{5}_{3}_ne{2}_LG_noBoot; \
@@ -247,5 +233,78 @@ local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaff
 local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaffolds/reverse_order_CMA_fix_t_60_30
 local_ancestry/results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaffolds/reverse_order_CMA_est_t2
 
+
+# Calling local ancestry on new data:
+(1) SNP set I'll use same as above
+(2) Reference bees also haven't changed
+(3) Getting read counts for admixed individuals
+# adding in the newest sequenced individuals
+# getting ACGT counts and then maj/min allele counts
+local_ancestry$ nohup parallel --joblog logs/ACGTcounts_MajMinCounts_novo_seq_lanes2_5.log --noswap --jobs 4 './countReadsACGT.sh {1} thin1kb_common3; Rscript ./getMajorMinorReadCountsFromACGT.R {1} thin1kb_common3'\
+ :::: ../bee_samples_listed/lanes2_5_IDs.list &> logs/ACGTcounts_MajMinCounts_novo_seq_lanes2_5.out &
+[1] 12162 - RUNNING 6.6.19. COMPLETED.
+
+# and adding the CA bees (ok to do a few extra)
+local_ancestry$ sleep 3h; nohup parallel --joblog logs/ACGTcounts_MajMinCounts_post_1994.log --noswap --jobs 4 './countReadsACGT.sh {1} thin1kb_common3; Rscript ./getMajorMinorReadCountsFromACGT.R {1} thin1kb_common3'\
+ :::: ../bee_samples_listed/post_1994.list &> logs/ACGTcounts_MajMinCounts_post_1994.out &
+-- COMPLETED
+
+(4) using recombination distance calculated earlier (treating each scaffold as it's own chromosome)
+
+(5) Combine counts and SNP information into input files for ancestry_hmm.
+Here I group admixed bees into their 'populations' with 4-9 bees each and make 1 input file per population.
+I will use my NGSAdmix results as a prior for population admixture proportions:
+K3_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy250.pop.anc
+# make ploidy files first:
+# make a ploidy file including all admixed individuals being analyzed:
+local_ancestry/$ for i in $(cut -f1 ../global_ancestry/results/NGSAdmix/K3_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy250.pop.anc | tail -n +2); do awk '{print $0"\t2"}' ../bee_samples_listed/byPop/"$i".list > results/SNPs/thin1kb_common3/"$i".ploidy; done
+
+# paste together stripped files into correct order for ancestry_hmm input file
+# note: order is CMA and I reset recombination distance at each scaffold (not LG)
+# chromosome, position_bp, allele counts A1 in C, allele counts A2 in C, allele counts A1 in M, allele counts A2 in M, allele counts A1 in A, allele counts A2 in A,
+# distance in Morgans between previous marker and this one
+# read counts A1 in sample1, read counts A2 in sample1, read counts A1 in sample2 etc.
+bees/local_ancestry/results/SNPs/thin1kb_common3$ mkdir -p CMA_input/scaffolds_Amel4.5/; for i in $(cut -f1 ../../../../global_ancestry/results/NGSAdmix/K3_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy250.pop.anc | tail -n +2); do paste included_scaffolds.pos C.frq.counts.strp M.frq.counts.strp A.frq.counts.strp included_scaffolds.rdist $(for j in $(cut -f1 "$i".ploidy); do echo countsMajMin/"$j".counts.txt; done) > CMA_input/scaffolds_Amel4.5/"$i".counts; done
+
+(6) run ancestry_hmm for each population:
+(ESTIMATE TIME BUT NO BOOTSTRAP)
+local_ancestry$ nohup parallel --noswap --jobs 6 --joblog logs/ancestry_hmm_thin1kb_common3_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot.log \
+'A=$(grep '{1}' ../global_ancestry/results/NGSAdmix/K3_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy250.pop.anc | cut -f2); \
+C=$(grep '{1}' ../global_ancestry/results/NGSAdmix/K3_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy250.pop.anc | cut -f3); \
+M=$(grep '{1}' ../global_ancestry/results/NGSAdmix/K3_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy250.pop.anc | cut -f4); \
+echo pop: "{1}" A:"$A" C:"$C" M:"$M";
+mkdir -p results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot; \
+cd results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot; \
+ancestry_hmm_v0.94 -e 3e-3 -a 3 "$C" "$M" "$A" \
+-p 0 100000 "$C" -p 1 -100 "$M" -p 2 -60 "$A" \
+--tmax 150 --tmin 2 --ne 670000 \
+-i ../../../../SNPs/thin1kb_common3/CMA_input/scaffolds_Amel4.5/{1}.counts -s ../../../../SNPs/thin1kb_common3/{1}.ploidy' \
+:::: ../bee_samples_listed/byPop/pops_included.list \
+&> logs/ancestry_hmm_thin1kb_common3_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot.out &
+[1] 28976 - RUNNING 6.9.19. COMPLETED
+# I get the times out of the log file like this:
+grep 'optimum' -B 1 -A 4 logs/ancestry_hmm_thin1kb_common3_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot.out
+# and note that most are reasonably close to 60 gen (C-M) then 30 generations (A-(C-M))
+# but the lowest A-ancestry populations in California have very old A ancestry admixture estimates (older than C-M event) ..possibly because these are really picking up partly ILS or, perhaps more likely, the time just can't be estimated accurately by this method because there aren't very many blocks of A ancestry.
+local_ancestry$ grep 'optimum' -B 1 -A 4 logs/ancestry_hmm_thin1kb_common3_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot.out > results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/time_estimates_extracted_from_log.txt
+
+# TO DO:
+# next step is to plot new local ancestry estimates. visualize blocks, especially at the low A ancestry end because of the high t estimates for A admixture.
+
+# also I want to look at the SNPs I'm using for local ancestry and compare Fst to a general set of SNPs and also power to distinguish A-C, A-M, M-C (not sure how to do this, but ideally equal power)
+
+# Russ Corbett-Detig suggested that to assess the impact of LD pruning on the algorithm, I could start by using all snps and see what the time estimates give me (very low times = large effect of LD; reasonable times = no large effect of LD). There are also ways of thinning SNPs to maximize coverage across individuals and information from ancestry divergence. A hack for within-ancestry LD is to separate subpopulations (e.g. within M) into their own 'ancestries' and allow for them to have an early admixture event, but I don't think I can do that for all of them (e.g. w/in C and w/in M)
+
+# I could try to use the t estimator out of Moorjani's lab for low-coverage data. I'll have to see how well it works for 3-way admixture.
+# something to think about a little bit is that the order of admixture events isn't super clear .. there's (A-M in Brazil) that expands and meets (C-M away from the equator)
+
+# Verify general expected patterns
+# look at estimated times since admixture and visualize some block lengths
+# what portion of calls are heterozygous for ancestry? what portion are high confidence calls?
+# how many of the LD-filtered SNPs, on average, fall within an ancestry block?
+# do bees from the same hybrid zone have more similar local ancestry than across CA/Argentina?
+
+# TO DO: I should update the bp positions in the ALL.bed file because some (short?) scaffolds are getting no SNPs, presumably because my LD filter is requiring 1000bp into the scaffold because it doesn't consider gaps between scaffolds. I could also then incorporate cM position into the SNPs file and extract genetic distances between SNPs, and recombination rates at each SNP, from plink
+# TO DO: maybe I should be removing sites with > 2.5x mean ind. depth in R too, or likely triallelic sites where maj/min allele are very uncommon <.1 reads for a bee (plot and see if there's a peak)
 
 

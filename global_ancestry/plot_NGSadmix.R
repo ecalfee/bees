@@ -79,6 +79,9 @@ file = paste0("results/NGSAdmix/", name, ".qopt")
 #admix <- read.table(file)[,3:1] # switched arbitrary order of ancestries to make visual comparison with pruneby250 easy
 admix <- read.table(file)
 colnames(admix) <- paste0("anc", 1:K) #c("anc1", "anc2", "anc3)
+# get allele freq. estimates for each ancestry (another output of NGSAdmix)
+allele_freq_est <- read.table(paste0("results/NGSAdmix/", name, ".fopt.gz")) 
+colnames(allele_freq_est) <- paste0("anc", 1:K) #c("anc1", "anc2", "anc3)
 
 # join bams and admix by position (CAUTION - bam list order and admix results MUST MATCH!)
 d <- bind_cols(bees, admix)  %>%
@@ -220,10 +223,23 @@ d_pop_ACM %>%
 # write out individual ancestry too
 d_ACM %>%
   filter(., population %in% unique(d_pop_ACM$population[d_pop_ACM$A > .001])) %>% # do not run ancestry inference on populations with fewer than 4 individuals or extremely low A ancestry
-  dplyr::select(Bee_ID, A, C, M) %>%
+  dplyr::select(Bee_ID, population, A, C, M) %>%
   write.table(., paste0("results/NGSAdmix/", name, ".ind.anc"),
               quote = F, col.names = T, row.names = F, sep = "\t")
 
+# What is estimated Fst between these ancestries according to estimated ancestry allele frequencies?
+allele_freq_est1 <- allele_freq_est %>%
+  mutate(anc1_anc2 = (anc1+anc2)/2) %>%
+  mutate(anc1_anc3 = (anc1+anc3)/2) %>%
+  mutate(anc2_anc3 = (anc2+anc3)/2) %>%
+  mutate(total = (anc1+anc2+anc3)/3)
+allele_het_est1 <- 2*allele_freq_est1*(1-allele_freq_est1)
+allele_het_est <- apply(allele_het_est, 2, mean)
+1-mean(allele_het_est[c("anc1", "anc2")])/allele_het_est["anc1_anc2"]
+1-mean(allele_het_est[c("anc1", "anc3")])/allele_het_est["anc1_anc3"]
+1-mean(allele_het_est[c("anc2", "anc3")])/allele_het_est["anc2_anc3"]
+# fairly high Fst between groups (as expected)
+1-allele_het_est/allele_het_est["total"]
 
 # only makes sense for K4 with O group -- how much are O and C ancestry correlated? 
 # possibly (?) positive correlation O-C for low C and neg correlation for high C .. but maybe should be neg by design for high C b/c its a percent
