@@ -6,49 +6,29 @@ library(tidyr)
 library(ggplot2)
 library(RColorBrewer)# for color palette
 
-# get metadata for individuals included in NGSadmix analysis
-meta1 <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F, 
+# get metadata for all individuals included in NGSadmix analysis (plus extras)
+meta <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F, 
                    header = T, sep = "\t")
-# quick kohn metadata:
-kohn_meta <- data.frame(Bee_ID = c("SanDiego001", "SanDiego002", "Mexico001"),
-                        source = "Kohn",
-                        strain = "unknown",
-                        year = 2015,
-                        group = "Kohn",
-                        geographic_location = c("San Diego", "San Diego", "Mexico"),
-                        population = c("SanDiego_2015", "SanDiego_2015", "Mexico_2015"),
-                        stringsAsFactors = F)
-# get wallberg meta data
-wallberg_ACMO = data.frame(geographic_location = c("Italy", "Austria", 
-                             "Jordan", "Turkey",
-                             "South Africa", "Nigeria",
-                             "Norway", "Sweden", "Spain"),
-                           group = c("C", "C",
-                                     "O", "O",
-                                     "A", "A",
-                                     "M", "M", "M"),
-                           stringsAsFactors = F)
-wallberg_meta <- read.table("../bee_samples_listed/Wallberg_2014_all.meta",
-                            header = T, sep = "\t", stringsAsFactors = F) %>%
-  unique(.) %>%
-  dplyr::select(c("SRA_Sample", "geo_loc_name")) %>%
-  rename(Bee_ID = SRA_Sample,
-         geographic_location = geo_loc_name) %>%
-  mutate(source = "Wallberg",
-         year = 2014) %>%
-  left_join(., wallberg_ACMO, by = "geographic_location")
 
-# merge all meta data
-meta <- bind_rows(meta1, kohn_meta, wallberg_meta)
 
-# get ID's for PCA data (CAUTION - bam list order and admix results MUST MATCH!)
 #IDs <- read.table("../bee_samples_listed/with_duplicated_ap50/pass1.list", stringsAsFactors = F,
 #                  header = F) # note ap50 is duplicated in the GL file output of ANGSD and NGSadmix results
 #IDs <- read.table("../bee_samples_listed/pass1_plus_kohn.list", stringsAsFactors = F,
 #                  header= F)
-IDs <- read.table("../bee_samples_listed/pass1_plus_kohn_and_wallberg.list", stringsAsFactors = F)
+#IDs <- read.table("../bee_samples_listed/pass1_plus_kohn_and_wallberg.list", stringsAsFactors = F)
+prefix <- "CA_AR_MX_harpur_sheppard_kohn_wallberg"
+# get ID's for PCA data (CAUTION - bam list order and admix results MUST MATCH!)
+IDs <- read.table(paste0("../bee_samples_listed/", prefix, ".list"), stringsAsFactors = F,
+                  header = F)
 colnames(IDs) <- c("Bee_ID")
-bees <- dplyr::left_join(IDs, meta, by = "Bee_ID") 
+
+# get coverage estimates
+coverage <- read.table(paste0("../geno_lik_and_SNPs/results/", prefix, "/coverage/est_coverage_by_reads_Q30.txt"),
+                       header = T, stringsAsFactors = F, sep = "\t")
+
+# join all data together
+bees <- dplyr::left_join(IDs, meta, by = "Bee_ID") %>%
+  dplyr::left_join(., coverage, by = "Bee_ID")
 
 # which bees overlap with Dani's analysis?
 bees_overlap_Dani <- c("CA0108", "CA0303", "AR1410", "SRCD9A", "SanDiego001", "SanDiego002", "Mexico001",
@@ -82,27 +62,33 @@ K = 3 # 3 admixing populations
 colorsK=c("red", "cornflowerblue", "navy")
 
 # starting with pass1 analysis from 1st round of sequencing
-#prefix = "ordered_scaffolds_prunedBy250"
-#prefix = "ordered_scaffolds_prunedBy1000" # minor differences
-#prefix = "ordered_scaffolds_pass1_plus_kohn_prunedBy251"
-#prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy1000"
-#prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy251"
-prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy1000"
-#prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy251"
-#prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergA_prunedBy251"
-#prefix = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergREF_prunedBy251"
+#prefix1 = "ordered_scaffolds_prunedBy250"
+#prefix1 = "ordered_scaffolds_prunedBy1000" # minor differences
+#prefix1 = "ordered_scaffolds_pass1_plus_kohn_prunedBy251"
+#prefix1 = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy1000"
+#prefix1 = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_prunedBy251"
+#prefix1 = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy1000"
+#prefix1 = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_noJordanO_prunedBy251"
+#prefix1 = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergA_prunedBy251"
+#prefix1 = "ordered_scaffolds_pass1_plus_kohn_and_wallberg_onlyWallbergREF_prunedBy251"
+n = 250 # snps thinned to 1 every nth
+prefix1 = paste0("ordered_scaffolds_", prefix, "_prunedBy", n)
 
-name = paste0("K", K, "_", prefix)
+name = paste0("K", K, "_", prefix1)
 file = paste0("results/NGSAdmix/", name, ".qopt")
 #admix <- read.table(file)[,3:1] # switched arbitrary order of ancestries to make visual comparison with pruneby250 easy
 admix <- read.table(file)
 colnames(admix) <- paste0("anc", 1:K) #c("anc1", "anc2", "anc3)
+# get allele freq. estimates for each ancestry (another output of NGSAdmix)
+allele_freq_est <- read.table(paste0("results/NGSAdmix/", name, ".fopt.gz")) 
+colnames(allele_freq_est) <- paste0("anc", 1:K) #c("anc1", "anc2", "anc3)
 
 # join bams and admix by position (CAUTION - bam list order and admix results MUST MATCH!)
 d <- bind_cols(bees, admix)  %>%
   arrange(., lat) %>%
   arrange(., source) %>%
-  arrange(., group)
+  arrange(., group) %>%
+  filter(., est_coverage > .05) # filters out one bee, AR1212, which had extremely low coverage -- I think it wasn't actually added to library pool
   
 # plot 'STRUCTURE-like' ancestry plots
 png(paste0("plots/", name, ".png"), # saves plot as ping in ../plots/
@@ -119,10 +105,17 @@ d %>%
 title(xlab = " A  |  Argentina '18  |  C  |  California '18  |  M  |  N & S CA 1994-2015")
 dev.off()
 
+# what should the different ancestries be called? use the group with the highest frequency
+anc <- data.frame(ancestry = colnames(admix),
+                       ancestry_label = sapply(colnames(admix), function(x) names(which.max(tapply(d[ , x], d$population, sum)))),
+                       stringsAsFactors = F)
+
+
 # ggplot2 need 'tidy' formatted data
 p1 <- d %>% 
   tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
-  ggplot(., aes(fill=ancestry, y=p, x=Bee_ID)) +
+  left_join(., anc, by = "ancestry") %>%
+  ggplot(., aes(fill=ancestry_label, y=p, x=Bee_ID)) +
   geom_bar(stat = "identity", position = "fill") + facet_wrap(~group)
 plot(p1)
 ggsave(paste0("plots/NGS_admix_all_", name, ".png"), 
@@ -132,10 +125,12 @@ ggsave(paste0("plots/NGS_admix_all_", name, ".png"),
        dpi = 200)
 
 p2 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
-  filter(group == "CA_2018") %>%
-  ggplot(., aes(fill=ancestry, y=p, x=Bee_ID)) +
+  filter(group == "CA_2018" | group == "MX_2019") %>%
+  left_join(., anc, by = "ancestry") %>%
+  ggplot(., aes(fill=ancestry_label, y=p, x=reorder(Bee_ID, lat))) +
   geom_bar(stat = "identity", position = "fill") + 
-  ggtitle("California 2018 bee samples")
+  ggtitle("California 2018 bee samples") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 plot(p2)
 ggsave(paste0("plots/NGS_admix_CA_2018_", name, ".png"), 
        plot = p2, 
@@ -145,9 +140,11 @@ ggsave(paste0("plots/NGS_admix_CA_2018_", name, ".png"),
 
 p3 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "AR_2018") %>%
-  ggplot(., aes(fill=ancestry, y=p, x=Bee_ID)) +
+  left_join(., anc, by = "ancestry") %>%
+  ggplot(., aes(fill=ancestry_label, y=p, x=reorder(Bee_ID, lat))) +
   geom_bar(stat = "identity", position = "fill") + 
-  ggtitle("Argentina 2018 bee samples")
+  ggtitle("Argentina 2018 bee samples") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 plot(p3)
 ggsave(paste0("plots/NGS_admix_AR_2018_", name, ".png"), 
        plot = p3, 
@@ -157,10 +154,12 @@ ggsave(paste0("plots/NGS_admix_AR_2018_", name, ".png"),
 
 p4 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "S_CA" | group == "Kohn") %>%
-  ggplot(., aes(fill=ancestry, y=p, x=Bee_ID)) +
+  left_join(., anc, by = "ancestry") %>%
+  ggplot(., aes(fill=ancestry_label, y=p, x=Bee_ID)) +
   geom_bar(stat = "identity", position = "fill") + 
   facet_wrap(~population) +
-  ggtitle("Southern CA (and Mexico) 1994-2015 samples")
+  ggtitle("Southern CA (and Mexico) 1994-2015 samples") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 plot(p4)
 ggsave(paste0("plots/NGS_admix_S_CA_Mex_1994-2015_", name, ".png"), 
        plot = p4, 
@@ -170,10 +169,12 @@ ggsave(paste0("plots/NGS_admix_S_CA_Mex_1994-2015_", name, ".png"),
 
 p5 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "N_CA") %>%
-  ggplot(., aes(fill=ancestry, y=p, x=Bee_ID)) +
+  left_join(., anc, by = "ancestry") %>%
+  ggplot(., aes(fill=ancestry_label, y=p, x=Bee_ID)) +
   geom_bar(stat = "identity", position = "fill") +
   facet_wrap(~population) +
-  ggtitle("Northern CA 1994-2015 samples")
+  ggtitle("Northern CA 1994-2015 samples") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 plot(p5)
 ggsave(paste0("plots/NGS_admix_N_CA_1994-2015_", name, ".png"), 
        plot = p5, 
@@ -183,8 +184,10 @@ ggsave(paste0("plots/NGS_admix_N_CA_1994-2015_", name, ".png"),
 
 p6 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group %in% c("A", "C", "M", "O")) %>%
-  ggplot(., aes(fill=ancestry, y=p, x=Bee_ID)) +
-  geom_bar(stat = "identity", position = "fill")
+  left_join(., anc, by = "ancestry") %>%
+  ggplot(., aes(fill=ancestry_label, y=p, x=Bee_ID)) +
+  geom_bar(stat = "identity", position = "fill") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 plot(p6 + facet_wrap(~group))
 ggsave(paste0("plots/NGS_admix_Ref_", name, ".png"), 
        plot = p6 + facet_wrap(~group), 
@@ -198,6 +201,45 @@ ggsave(paste0("plots/NGS_admix_Ref_bySource", name, ".png"),
        device = "png", 
        width = 15, height = 8, units = "in",
        dpi = 200)
+
+# print file with population frequencies of each admixed population 
+# to use as priors in local ancestry inference
+d_ACM <- d %>%
+  filter(source %in% c("Calfee", "Ramirez")) %>%
+  tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+  left_join(., anc, by = "ancestry") %>%
+  dplyr::select(-ancestry) %>%
+  spread(ancestry_label, p)
+d_pop_ACM <- d_ACM %>%
+  group_by(population) %>%
+  summarise(A = mean(A),
+            C = mean(C),
+            M = mean(M),
+            n = n())
+d_pop_ACM %>%
+  filter(A > .001) %>% # do not run ancestry inference on populations with fewer than 4 individuals or extremely low A ancestry
+  write.table(., paste0("results/NGSAdmix/", name, ".pop.anc"),
+              quote = F, col.names = T, row.names = F, sep = "\t")
+# write out individual ancestry too
+d_ACM %>%
+  filter(., population %in% unique(d_pop_ACM$population[d_pop_ACM$A > .001])) %>% # do not run ancestry inference on populations with fewer than 4 individuals or extremely low A ancestry
+  dplyr::select(Bee_ID, population, A, C, M) %>%
+  write.table(., paste0("results/NGSAdmix/", name, ".ind.anc"),
+              quote = F, col.names = T, row.names = F, sep = "\t")
+
+# What is estimated Fst between these ancestries according to estimated ancestry allele frequencies?
+allele_freq_est1 <- allele_freq_est %>%
+  mutate(anc1_anc2 = (anc1+anc2)/2) %>%
+  mutate(anc1_anc3 = (anc1+anc3)/2) %>%
+  mutate(anc2_anc3 = (anc2+anc3)/2) %>%
+  mutate(total = (anc1+anc2+anc3)/3)
+allele_het_est1 <- 2*allele_freq_est1*(1-allele_freq_est1)
+allele_het_est <- apply(allele_het_est, 2, mean)
+1-mean(allele_het_est[c("anc1", "anc2")])/allele_het_est["anc1_anc2"]
+1-mean(allele_het_est[c("anc1", "anc3")])/allele_het_est["anc1_anc3"]
+1-mean(allele_het_est[c("anc2", "anc3")])/allele_het_est["anc2_anc3"]
+# fairly high Fst between groups (as expected)
+1-allele_het_est/allele_het_est["total"]
 
 # only makes sense for K4 with O group -- how much are O and C ancestry correlated? 
 # possibly (?) positive correlation O-C for low C and neg correlation for high C .. but maybe should be neg by design for high C b/c its a percent

@@ -1,0 +1,2 @@
+# making lists of bee IDs per population (only AR1212 excluded here due to super low coverage sequencing)
+global_ancestry/results/NGSAdmix$ for i in $(cut -f2 *.ind.anc | uniq | tail -n +2); do awk -v i="$i" '$2 == i {print $1}' K3_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy250.ind.anc > ../../../bee_samples_listed/byPop/"$i".list; done

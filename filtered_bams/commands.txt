@@ -346,11 +346,14 @@ bees/filtered_bams/fastQ_screen$ nohup parallel --noswap --delay 2 --jobs 1 --jo
 [2] 18052 - RUNNING 5.24.19 (fast). A few more:
 bees/filtered_bams/fastQ_screen$ nohup parallel --noswap --delay 2 --jobs 1 --joblog ../logs/run_fastQ_screen_AR0105-0115.log '~/Software/fastQ_screen/fastq_screen_v0.13.0/fastq_screen --aligner BOWTIE2 --conf fastq_screen_honeybee.conf --outdir output $(ls ../../data/novo_seq/lanes2_5/{1}/{1}_*L*_{2}.fq.gz)' ::: AR0105 AR0108 AR0109 AR0110 AR0111 AR0115 ::: 1 2 &> ../logs/run_fastQ_screen_AR0105-AR0115.out &
 [2] 21118 - RUNNING 5.24.19
+# now all of the new fastqs that were demultiplexed:
+bees/filtered_bams/fastQ_screen$ nohup parallel --noswap --delay 2 --jobs 1 --joblog ../logs/run_fastQ_screen_lanes2_5.log '~/Software/fastQ_screen/fastq_screen_v0.13.0/fastq_screen --aligner BOWTIE2 --conf fastq_screen_honeybee.conf --outdir output $(ls ../../data/novo_seq/lanes2_5/{1}/{1}_*L*_{2}.fq.gz)' :::: ../../bee_samples_listed/lanes2_5_IDs.list ::: 1 2 &> ../logs/run_fastQ_screen_lanes2_5.out &
+[2] 24215 - RUNNING 5.30.19. Note: skips files that already have QC reports, so doesn't repeat e.g. AR0101 completed from job above
 
 # I summarize these multi-genome mapping results using multiQC:
 bees/filtered_bams/fastQ_screen/output$ multiqc .
 
-# mostly undetermined reads map to honeybee, with 5-15% mapping to phiX (presumably from spike in).
+# mostly 'undetermined' reads map to honeybee, with 5-15% mapping to phiX (presumably from spike in).
 # I also looked at the barcodes and reads that were 'undetermined':
 Undetermined$ zgrep '1:N:0:' ../Undetermined/*_L4_1.fq.gz | cut -f10 -d":" | head -n 100000 | sort | uniq -c | sort -nr | head -n 100
    1420 GGAGAGTA+GCGATCTA
@@ -368,7 +371,7 @@ Undetermined$ zgrep '1:N:0:' ../Undetermined/*_L4_1.fq.gz | cut -f10 -d":" | cut
 # so about how many of these sequences are there?
 bees/data/novo_seq/lanes2_5/Undetermined$ zgrep '1:N:0:' ../Undetermined/*_L4_1.fq.gz | cut -f10 -d":" | cut -f1 
 -d"+" | head -n 1000000 | grep '^T' | sort | uniq -c | sort -nr | head -n 55 | awk '{print $1}' | paste -sd+ | bc
-369389 # about 37% (up to 49% w/ L1) of 'undetermined' reads may be assignable based on i7 barcode alone if I trust that i5 barcode doesn't need to match..
+369389 # about 37% (up to 49% w/ L1) of 'undetermined' reads may be assignable based on i7 barcode alone if I trust that the i5 barcode doesn't need to match..
 
 # Aligning first set of 140 from the new sequences (all of AR bees; buying more space before I can do the rest):
 # make list of alphabetically first
@@ -383,10 +386,42 @@ filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_TEST_ma
 [1] 21684 - COMPLETED SUCCESSFULLY 5.28.19
 # fixed directory naming issues and parallel config (oops trying to run all combinations!!) & re-running for all the bees from lanes 2-5:
 filtered_bams$ nohup parallel --noswap --delay 2 --joblog logs/map_reads_lanes2_5.log --jobs 4 './map_reads.sh {1} {2} novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} ../data/novo_seq/bam_files; rm ../data/novo_seq/bam_files/{1}.bam; ./dedup_baq_bams.sh {1} results; rm results/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.list ::::+ ../bee_samples_listed/lanes2_5_libraries.list &> logs/map_reads_lanes2_5.out &
-[1] 24579 - RUNNING 5.28.19. This will take maybe a week, even with 4 threads. I killed with -9 at 2:15pm on 5.29.19.
+[1] 24579 - RUNNING 5.28.19. This will take maybe a week, even with 4 threads. I killed with -9 at 2:15pm on 5.29.19 to transfer data over to larger 8TB drive.
+filtered_bams$ cp logs/map_reads_lanes2_5.log logs/map_reads_lanes2_5_try1.log
+filtered_bams$ cp logs/map_reads_lanes2_5.out logs/map_reads_lanes2_5_try1.out
+filtered_bams$ nohup parallel --noswap --delay 2 --resume-failed --joblog logs/map_reads_lanes2_5.log --jobs 4 './map_reads.sh {1} {2} novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} ../data/novo_seq/bam_files; rm ../data/novo_seq/bam_files/{1}.bam; ./dedup_baq_bams.sh {1} results; rm results/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.list ::::+ ../bee_samples_listed/lanes2_5_libraries.list &> logs/map_reads_lanes2_5_try2.out &
+[1] 22365 - RUNNING 5.30.19. COMPLETED 6.5.19.
+
+# run flagstat on all new novogene aligned bams
+bees/filtered_bams$ nohup parallel --noswap --joblog logs/run_flagstat_lanes2_5.log --jobs 4 \
+'samtools flagstat ../filtered_bams/results/{1}.sort.dedup.baq.bam > metrics/{1}.flagstat.txt' \
+:::: ../bee_samples_listed/lanes2_5_IDs.list &> logs/run_flagstat_lanes2_5.out &
+[1] 16886 - RUNNING 6.5.19. COMPLETED.
+
+# run flagstat on all bams with a mapping quality filter mapQ>30 (to estimate coverage). Remember some bees have diff. length reads:
+bees/filtered_bams$ mkdir -p metrics/Q30
+bees/filtered_bams$ nohup parallel --noswap --joblog logs/run_flagstat_Q30.log --jobs 4 \
+'samtools view -h -q 30 ../filtered_bams/results/{1}.sort.dedup.baq.bam | samtools flagstat - > metrics/Q30/{1}.flagstat.txt' \
+:::: ../bee_samples_listed/CA_AR_MX_harpur_sheppard_kohn_wallberg.list &> logs/run_flagstat_Q30.out &
+[1] 21303 - RUNNING 6.5.19
+
+# summarise output of flagstat
+filtered_bams/metrics/Q30$ for i in $(cat  ../../../bee_samples_listed/CA_AR_MX_harpur_sheppard_kohn_wallberg.list); do cat "$i".flagstat.txt | grep 'QC-passed' | cut -d" " -f1; done > CA_AR_MX_harpur_sheppard_kohn_wallberg.nreads
+
+# checking MD5 sums for all data from newest round of sequencing:
+bees/data/novo_seq/lanes3_5$ cat */MD5.txt > ALL_MD5_expected.txt
+bees/data/novo_seq/lanes2_5$ for i in $(awk '{print $2}' ALL_MD5_expected.txt); do md5sum */${i}; done > ALL_MD5_observed.txt # observed MD5 sums
+bees/data/novo_seq/lanes2_5$ diff -q <(awk '{print $1}' ALL_MD5_expected.txt) <(awk '{print $1}' ALL_MD5_observed.txt) # outputs 'Files * and * differ' if they differ; outputs nothing if they're the same. Take away -q to see differences. (all ok; no differences!)
+# I'm still re-downloading the 'Undetermined' reads to the 8TB drive so I'll have to check their MD5 sums later.
+# checking undetermined reads:
+data/novo_seq/lanes2_5/Undetermined$ cat MD5.txt > ALL_MD5_expected.txt
+bees/data/novo_seq/lanes2_5/Undetermined$ diff <(awk '{print $1}' ALL_MD5_expected.txt) <(awk '{print $1}' ALL_MD5_observed.txt) # lanes 2 and 3 have switched order -- otherwise no differences
+
 
 # TO DO:
+# decide if I'm going to try to demultiplex 'Undetermined' reads
 # Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered? Yes - likely gut symbionts
 # Adapter contamination at a low (~1-3%) is also there. I don't think this is having a large effect on my intial analysis, but I could filter out adapters e.g. with cutadapt, and check if my bams have adapter sequences that made it past filtering (?)
 # If adapter contamination seems likely, I can use something like SeqPurge to trim off adapter sequences. (Sturm et al. 2016, https://doi.org/10.1186/s12859-016-1069-7)
 # I can also check that sequences for the reference bees don't have adapter contamination.
+# download and align pooled-seq reads for Brazilian Africanized honey bees (vcf is downloading ~/Downloads/AFZ.vcf.gz but I can alternatively get bams for each of 30 hives (pooled w/in hives) - https://www.nature.com/articles/sdata201697#cite2
