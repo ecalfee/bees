@@ -383,7 +383,7 @@ filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_TEST_ma
 [1] 21684 - COMPLETED SUCCESSFULLY 5.28.19
 # fixed directory naming issues and parallel config (oops trying to run all combinations!!) & re-running for all the bees from lanes 2-5:
 filtered_bams$ nohup parallel --noswap --delay 2 --joblog logs/map_reads_lanes2_5.log --jobs 4 './map_reads.sh {1} {2} novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} ../data/novo_seq/bam_files; rm ../data/novo_seq/bam_files/{1}.bam; ./dedup_baq_bams.sh {1} results; rm results/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.list ::::+ ../bee_samples_listed/lanes2_5_libraries.list &> logs/map_reads_lanes2_5.out &
-[1] 24579 - RUNNING 5.28.19. This will take maybe a week, even with 4 threads.
+[1] 24579 - RUNNING 5.28.19. This will take maybe a week, even with 4 threads. I killed with -9 at 2:15pm on 5.29.19.
 
 # TO DO:
 # Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered? Yes - likely gut symbionts
