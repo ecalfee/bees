@@ -2,6 +2,10 @@
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(scales)
+library(reshap2)
+
+source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
 
 bees <- read.table("results/SNPs/thin1kb_common3/pass1_2018.ploidy", stringsAsFactors = F, 
                                      header = F, sep = "\t")$V1
@@ -357,3 +361,97 @@ anc_all_plus_meta %>%
             mean_lat = abs(mean(lat))) %>%
   ggplot(aes(x = mean_lat, y = locus_A, color = group)) +
   geom_point()
+
+# load metadata
+sites <- read.table("results/SNPs/thin1kb_common3/included_scaffolds.pos", stringsAsFactors = F,
+                    sep = "\t", header = F)
+colnames(sites) <- c("scaffold", "pos")
+meta <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
+  dplyr::select(c("population", "source", "group")) %>%
+  unique() %>%
+  left_join(data.frame(population = pops, stringsAsFactors = F),
+            ., by = "population")
+# load population ancestry frequencies:
+pops <- read.table("../bee_samples_listed/byPop/pops_included.list", stringsAsFactors = F)$V1
+popA <- lapply(pops, function(p) read.table(paste0("results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/", p, ".A.anc"),
+                                            stringsAsFactors = F))
+A <- do.call(cbind, popA)
+colnames(A) <- pops
+meanA <- apply(A, 1, mean)
+png("plots/histogram_A_ancestry_all_loci.png", height = 6, width = 8, units = "in", res = 300)
+hist(meanA, main = "all loci: mean ancestry across populations")
+abline(v = max(meanA), col = "blue")
+abline(v = min(meanA), col = "blue")
+abline(v = quantile(meanA, .99), col = "orange")
+abline(v = quantile(meanA, .01), col = "orange")
+dev.off()
+
+CA_A <- A[, meta$population[meta$group %in% c("N_CA", "S_CA", "CA_2018")]]
+AR_A <- A[, meta$population[meta$group == "AR_2018"]]
+meanA_CA <- apply(CA_A, 1, mean)
+meanA_AR <- apply(AR_A, 1, mean)
+
+sites %>%
+  filter(meanA_CA > quantile(meanA_CA, .99) & 
+            meanA_AR > quantile(meanA_AR, .99)) %>%
+  dplyr::select(scaffold) %>%
+  table() # outliers are on just a few scaffolds
+sites %>%
+  filter(meanA_CA < quantile(meanA_CA, .01) & 
+           meanA_AR < quantile(meanA_AR, .01)) %>%
+  dplyr::select(scaffold) %>%
+  table() # low A outliers still only on 14 scaffolds
+sites %>%
+  filter(meanA_CA > quantile(meanA_CA, .25) & 
+           meanA_AR < quantile(meanA_AR, .01)) %>%
+  dplyr::select(scaffold) %>%
+  table() # several regions, but at least one big hit on chr 11 - Group11.18
+sites %>%
+  filter(meanA_CA < quantile(meanA_CA, .01) & 
+           meanA_AR > quantile(meanA_AR, .25)) %>%
+  dplyr::select(scaffold) %>%
+  table() # more spread out but a few scaffolds with higher concentrations
+sites %>%
+  filter(meanA_CA < quantile(meanA_CA, .75) & 
+           meanA_AR > quantile(meanA_AR, .99)) %>%
+  dplyr::select(scaffold) %>%
+  table()
+sites %>%
+  filter(meanA_CA > quantile(meanA_CA, .99) & 
+           meanA_AR < quantile(meanA_AR, .75)) %>%
+  dplyr::select(scaffold) %>%
+  table()
+
+png("plots/scatterplot_CA_vs_AR_A_ancestry_all_loci.png", height = 6, width = 8, units = "in", res = 300)
+plot(meanA_CA, meanA_AR, pch = 20, col = ifelse((meanA_CA > quantile(meanA_CA, .99) & 
+                                                   meanA_AR > quantile(meanA_AR, .99)) |
+                                                  (meanA_CA < quantile(meanA_CA, .01) & 
+                                                     meanA_AR < quantile(meanA_AR, .01)), 
+          alpha("orange", .1), alpha("grey", .1)),
+     main = "comparison of A ancestry in California vs. Argentina zone, orange = top 1% shared outliers")
+abline(lm(meanA_AR~meanA_CA), col = "blue")
+dev.off()
+cor(meanA_CA, meanA_AR)
+
+# plot K matrix
+zAnc_bees = make_K_calcs(t(A))
+png("plots/k_matrix_all_pops.png", height = 6, width = 8, units = "in", res = 300)
+melt(zAnc_bees$K) %>%
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
+  scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
+  ggtitle("K matrix - bees")
+melt(cov2cor(zAnc_bees$K)) %>%
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
+  scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
+  ggtitle("K matrix - bees")
+dev.off()
+
+summary(meanA)
+sd(meanA)
+

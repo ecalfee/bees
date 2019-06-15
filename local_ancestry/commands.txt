@@ -288,6 +288,13 @@ grep 'optimum' -B 1 -A 4 logs/ancestry_hmm_thin1kb_common3_byPop_CMA_ne670000_sc
 # but the lowest A-ancestry populations in California have very old A ancestry admixture estimates (older than C-M event) ..possibly because these are really picking up partly ILS or, perhaps more likely, the time just can't be estimated accurately by this method because there aren't very many blocks of A ancestry.
 local_ancestry$ grep 'optimum' -B 1 -A 4 logs/ancestry_hmm_thin1kb_common3_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot.out > results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/time_estimates_extracted_from_log.txt
 
+# calculating ancestry proportions across the genome
+local_ancestry$ nohup parallel --noswap --jobs 8 --joblog logs/calc_anc_thin1kb_common3_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot.log \
+'Rscript ./calcAncFromPost.R {1} results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot' \
+:::: ../bee_samples_listed/byPop/pops_included.list \
+&> logs/calc_anc_thin1kb_common3_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot.out &
+[1] 6346 - RUNNING 6.14.19
+
 # TO DO:
 # next step is to plot new local ancestry estimates. visualize blocks, especially at the low A ancestry end because of the high t estimates for A admixture.
 
