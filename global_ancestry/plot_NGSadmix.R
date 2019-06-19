@@ -296,8 +296,85 @@ filter(d, source == "Calfee") %>%
   geom_point() +
   xlab("Latitude (abs value)") +
   ylab("Percent African ancestry") +
+  facet_wrap(~geographic_location) +
   ggtitle("A ancestry ~ latitude across 2 Africanized honey bee clines")
 ggsave(paste0("plots/A_ancestry_by_latitude_", name, ".png"),
        device = "png",
        width = 10, height = 8, units = "in",
        dpi = 200)
+
+
+# testing effect of recomb. bin on global ancestry estimate
+#(1) get ancestry estimates for A ancestry across recomb bins
+byR_list <- vector("list", 5)  # empty list w/ 5 bins
+for (i in 1:5){
+  p5 <- paste0("recomb_10kb_5bins_", i, "_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10")
+  name5 <- paste0("K", K, "_", p5)
+  file5 <- paste0("results/NGSAdmix/", name5, ".qopt")
+  admix5 <- read.table(file5)
+  colnames(admix5) <- paste0("anc", 1:K) #c("anc1", "anc2", "anc3)
+  # join bams and admix by position (CAUTION - bam list order and admix results MUST MATCH!)
+  d5 <- bind_cols(bees, admix5)  %>%
+    arrange(., lat) %>%
+    arrange(., source) %>%
+    arrange(., group) %>%
+    filter(., est_coverage > .05) # filters out one bee, AR1212, which had extremely low coverage -- I think it wasn't actually added to library pool
+  # what should the different ancestries be called? use the group with the highest frequency
+  anc5 <- data.frame(ancestry = colnames(admix5),
+                    ancestry_label = sapply(colnames(admix5), function(x) names(which.max(tapply(d5[ , x], d5$population, sum)))),
+                    stringsAsFactors = F)
+  byR_list[[i]] <- d5 %>%
+    mutate(., rbin = i) %>%
+    tidyr::gather(., "ancestry", "p", colnames(admix5)) %>%
+    left_join(., anc5, by = "ancestry") # save in my list
+}
+byR <- do.call(rbind, byR_list)
+# plot mean ancestry by r bin across CA/AR clines
+byR %>%
+  filter(source == "Calfee" & geographic_location %in% c("Argentina", "California")) %>% 
+  #filter(geographic_location == "Argentina") %>%
+  filter(ancestry_label == "A") %>%
+  ggplot(., aes(x = abs(lat), y = p, color = rbin, group = rbin)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  facet_wrap(~geographic_location) +
+  ggtitle("no clear differences in ancestry slope for high (5) vs low (1) recomb. bins")
+ggsave("plots/slope_anc_lat_by_rbin5.png", device = "png",
+       width = 8, height = 6, units = "in")
+
+# plot mean ancestry for populations across r bins
+byR %>%
+  filter(source == "Calfee" & geographic_location %in% c("Argentina", "California")) %>% 
+  filter(geographic_location == "Argentina") %>%
+  filter(ancestry_label == "A") %>%
+  mutate(rbin = as.factor(rbin)) %>%
+  ggplot(., aes(x = rbin, y = p, fill = rbin)) +
+  geom_boxplot() +
+  facet_wrap(~population, scales = "free_y") +
+  ggtitle("Argentina: no clear patterns in A ancestry for high (5) vs low (1) recomb. bins")
+ggsave("plots/boxplot_A_anc_Argentina_pop_by_rbin5.png", device = "png",
+       width = 8, height = 6, units = "in")
+
+byR %>%
+  filter((source == "Calfee" & geographic_location == "California") |
+  source == "Ramirez") %>% 
+  filter(ancestry_label == "A") %>%
+  mutate(rbin = as.factor(rbin)) %>%
+  ggplot(., aes(x = rbin, y = p, fill = rbin)) +
+  geom_boxplot() +
+  facet_wrap(~population, scales = "free_y") +
+  ggtitle("California: no clear patterns in A ancestry for high (5) vs low (1) recomb. bins")
+ggsave("plots/boxplot_A_anc_California_pop_by_rbin5.png", device = "png",
+       width = 8, height = 6, units = "in")
+
+
+# plot reference bees ancestry across recomb. bins
+byR %>%
+  filter(source == "Harpur" | source == "Sheppard") %>% 
+  mutate(rbin = as.factor(rbin)) %>%
+  ggplot(., aes(x = rbin, y = p, fill = ancestry_label)) +
+  geom_boxplot() +
+  facet_wrap(~group, scales = "free_y") +
+  ggtitle("reference A/C/M ancestries clearly distinguished across high (5) vs low (1) recomb. bins")
+ggsave("plots/ref_bees_ACM_well_identifiable_across_rbin5.png", device = "png",
+       width = 8, height = 6, units = "in")
