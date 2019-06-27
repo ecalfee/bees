@@ -396,11 +396,27 @@ sites %>%
             meanA_AR > quantile(meanA_AR, .99)) %>%
   dplyr::select(scaffold) %>%
   table() # outliers are on just a few scaffolds
+# plot
+data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>%
+  filter(meanA_CA > quantile(meanA_CA, .99) & 
+           meanA_AR > quantile(meanA_AR, .99)) %>%
+  gather("pop", "Afreq", c("CA", "AR")) %>%
+  ggplot(aes(x = pos, y = Afreq, color = pop)) +
+  geom_point() +
+  facet_wrap(~scaffold) # really just a few peaks
 sites %>%
   filter(meanA_CA < quantile(meanA_CA, .01) & 
            meanA_AR < quantile(meanA_AR, .01)) %>%
   dplyr::select(scaffold) %>%
   table() # low A outliers still only on 14 scaffolds
+#plot
+data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>%
+  filter(meanA_CA < quantile(meanA_CA, .01) & 
+           meanA_AR < quantile(meanA_AR, .01)) %>%
+  gather("pop", "Afreq", c("CA", "AR")) %>%
+  ggplot(aes(x = pos, y = Afreq, color = pop)) +
+  geom_point() +
+  facet_wrap(~scaffold) # really just a few peaks
 sites %>%
   filter(meanA_CA > quantile(meanA_CA, .25) & 
            meanA_AR < quantile(meanA_AR, .01)) %>%
