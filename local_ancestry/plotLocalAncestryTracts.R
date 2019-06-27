@@ -3,9 +3,11 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(scales)
-library(reshap2)
+library(reshape2)
 
 source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
+source("../../covAncestry/forqs_sim/k_matrix.R") # import useful functions
+
 
 bees <- read.table("results/SNPs/thin1kb_common3/pass1_2018.ploidy", stringsAsFactors = F, 
                                      header = F, sep = "\t")$V1
@@ -362,15 +364,9 @@ anc_all_plus_meta %>%
   ggplot(aes(x = mean_lat, y = locus_A, color = group)) +
   geom_point()
 
+
+# Newest bee sequences
 # load metadata
-sites <- read.table("results/SNPs/thin1kb_common3/included_scaffolds.pos", stringsAsFactors = F,
-                    sep = "\t", header = F)
-colnames(sites) <- c("scaffold", "pos")
-meta <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
-  dplyr::select(c("population", "source", "group")) %>%
-  unique() %>%
-  left_join(data.frame(population = pops, stringsAsFactors = F),
-            ., by = "population")
 # load population ancestry frequencies:
 pops <- read.table("../bee_samples_listed/byPop/pops_included.list", stringsAsFactors = F)$V1
 popA <- lapply(pops, function(p) read.table(paste0("results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/", p, ".A.anc"),
@@ -378,6 +374,25 @@ popA <- lapply(pops, function(p) read.table(paste0("results/ancestry_hmm/thin1kb
 A <- do.call(cbind, popA)
 colnames(A) <- pops
 meanA <- apply(A, 1, mean)
+
+sites0 <- read.table("results/SNPs/thin1kb_common3/included_scaffolds.pos", stringsAsFactors = F,
+                    sep = "\t", header = F)
+colnames(sites0) <- c("scaffold", "pos")
+sites <- separate(sites0, scaffold, c("chr", "scaffold_n"), remove = F) %>%
+  mutate(chr_n = substr(chr, 6, 100)) %>%
+  mutate(snp_id = paste0("snp", chr_n, ".", scaffold, ".", pos))
+#test_id <- read.table("results/SNPs/thin1kb_common3/included.snplist", stringsAsFactors = F,
+#                      sep = "\t", header = F)$V1
+#table(test_id == sites$snp_id) # good
+
+meta <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
+  dplyr::select(c("population", "source", "group")) %>%
+  unique() %>%
+  left_join(data.frame(population = pops, stringsAsFactors = F),
+            ., by = "population")
+
+
+# make plots - all loci, mean ancestry across all pops
 png("plots/histogram_A_ancestry_all_loci.png", height = 6, width = 8, units = "in", res = 300)
 hist(meanA, main = "all loci: mean ancestry across populations")
 abline(v = max(meanA), col = "blue")
@@ -451,6 +466,7 @@ cor(meanA_CA, meanA_AR)
 
 # plot K matrix
 zAnc_bees = make_K_calcs(t(A))
+
 png("plots/k_matrix_all_pops.png", height = 6, width = 8, units = "in", res = 300)
 melt(zAnc_bees$K) %>%
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
@@ -470,4 +486,155 @@ dev.off()
 
 summary(meanA)
 sd(meanA)
+
+# simulate from MVN distribution:
+AR_CA_K <- make_K_calcs(t(cbind(AR_A, CA_A)))
+#sim_n <- 10^6 # slow
+sim_n <- 10^5
+MVNsim <- mvrnorm(n = sim_n, 
+                  mu = AR_CA_K$alpha, 
+                  Sigma = AR_CA_K$K, 
+                  tol = 1e-6, 
+                  empirical = FALSE, 
+                  EISPACK = FALSE)
+hist(apply(MVNsim, 1, mean))
+summary(apply(MVNsim, 1, mean))
+MVNsim_bounded <- MVNsim # sets bounds at 0 and 1
+MVNsim_bounded[MVNsim < 0] <- 0
+MVNsim_bounded[MVNsim > 1] <- 1
+summary(apply(MVNsim_bounded, 1, mean)) # makes little difference
+hist(apply(MVNsim_bounded, 1, mean))
+MVNsim_AR <- MVNsim[ , colnames(AR_A)]
+MVNsim_AR_bounded <- MVNsim_bounded[ , colnames(AR_A)]
+MVNsim_CA <- MVNsim[ , colnames(CA_A)]
+MVNsim_CA_bounded <- MVNsim_bounded[ , colnames(CA_A)]
+plot(apply(MVNsim_AR_bounded, 1, mean), apply(MVNsim_CA_bounded, 1, mean))
+
+png("plots/mean_A_ancestry_CA_vs_AR_grey.png", 
+    height = 8, width = 12, res = 300, units = "in")
+plot(meanA_CA, meanA_AR, pch = 20, col = alpha("grey", .1),
+     main = "comparison of A ancestry in California vs. Argentina zone")
+dev.off()
+
+png("plots/mean_A_ancestry_CA_vs_AR_MVNsim_outliers_blue.png", 
+    height = 8, width = 12, res = 300, units = "in")
+plot(meanA_CA, meanA_AR, pch = 20, col = ifelse((meanA_CA > quantile(apply(MVNsim_CA_bounded, 1, mean), .9999) | 
+                                                   meanA_AR > quantile(apply(MVNsim_AR_bounded, 1, mean), .9999)) |
+                                                  (meanA_CA < quantile(apply(MVNsim_CA_bounded, 1, mean), .0001) | 
+                                                     meanA_AR < quantile(apply(MVNsim_AR_bounded, 1, mean), .0001)), 
+                                                alpha("blue", .1), alpha("grey", .1)),
+     main = "comparison of A ancestry in California vs. Argentina zone, blue = top 0.01% sim")
+dev.off()
+abline(v = quantile(apply(MVNsim_CA, 1, mean), .9999), col = "blue")
+abline(h = quantile(apply(MVNsim_AR, 1, mean), .9999), col = "blue")
+abline(v = quantile(apply(MVNsim_CA, 1, mean), .0001), col = "blue")
+abline(h = quantile(apply(MVNsim_AR, 1, mean), .0001), col = "blue")
+abline(v = quantile(apply(MVNsim_CA_bounded, 1, mean), .9999), col = "orange")
+abline(h = quantile(apply(MVNsim_AR_bounded, 1, mean), .9999), col = "orange")
+abline(v = quantile(apply(MVNsim_CA_bounded, 1, mean), .0001), col = "orange")
+abline(h = quantile(apply(MVNsim_AR_bounded, 1, mean), .0001), col = "orange")
+
+png("plots/mean_A_ancestry_CA_vs_AR_MVNsim_results_orange.png", 
+    height = 8, width = 12, res = 300, units = "in")
+plot(meanA_CA, meanA_AR, pch = 20, col = alpha("grey", .1),
+     main = "comparison of A ancestry in California vs. Argentina zone, orange = 100k MVN simulations")
+points(apply(MVNsim_CA_bounded, 1, mean), apply(MVNsim_AR_bounded, 1, mean), pch = 20, col = alpha("orange", .02))
+dev.off()
+#points(apply(MVNsim_CA, 1, mean), apply(MVNsim_AR, 1, mean), pch = 20, col = alpha("green", .1))
+
+# plot with both outliers in blue and MVN sims in orange
+png("plots/mean_A_ancestry_CA_vs_AR_MVNsim_results_orange_outliers_blue.png", 
+    height = 8, width = 12, res = 300, units = "in")
+plot(meanA_CA, meanA_AR, pch = 20, col = ifelse((meanA_CA > quantile(apply(MVNsim_CA_bounded, 1, mean), .9999) | 
+                                                   meanA_AR > quantile(apply(MVNsim_AR_bounded, 1, mean), .9999)) |
+                                                  (meanA_CA < quantile(apply(MVNsim_CA_bounded, 1, mean), .0001) | 
+                                                     meanA_AR < quantile(apply(MVNsim_AR_bounded, 1, mean), .0001)), 
+                                                alpha("blue", .1), alpha("grey", .1)),
+     main = "comparison of A ancestry in California vs. Argentina zone, blue = top 0.01% sim")
+points(apply(MVNsim_CA_bounded, 1, mean), apply(MVNsim_AR_bounded, 1, mean), pch = 20, col = alpha("orange", .02))
+dev.off()
+
+# how likely are these shared outliers in my simulation?
+MVNsim_AR_bounded_quantile <- quantile(apply(MVNsim_AR_bounded, 1, mean), .99)
+MVNsim_CA_bounded_quantile <- quantile(apply(MVNsim_CA_bounded, 1, mean), .99)
+table(apply(MVNsim_AR_bounded, 1, mean) > MVNsim_AR_bounded_quantile & apply(MVNsim_CA_bounded, 1, mean) > MVNsim_CA_bounded_quantile)/sim_n
+.01^2 # it's about six times as likely under the MVN to get a double outlier at top .01% than it would be under true independence between N and S America
+# but still same order of magnitude. Also I maybe need to simulate a larger # of trials to get accuracy in the tails (only expect 1000 outliers each out of 100k, very small # overlap)
+# when I simulated 1 million MVN's I got .000521 as the probability of outliers in both CA and AR at .01%
+MVNsim_AR_bounded_quantile_low <- quantile(apply(MVNsim_AR_bounded, 1, mean), .01)
+MVNsim_CA_bounded_quantile_low <- quantile(apply(MVNsim_CA_bounded, 1, mean), .01)
+table(apply(MVNsim_AR_bounded, 1, mean) < MVNsim_AR_bounded_quantile_low & apply(MVNsim_CA_bounded, 1, mean) < MVNsim_CA_bounded_quantile_low)/sim_n
+# on the low side it's similar, .00045, when I use 1 million simulations .. still only 450 observations
+
+
+# these outliers are pretty surprising under a MVN framework
+# how about under a poisson binomial framework? I should use means from the ancestry caller
+
+
+melt(AR_CA_K$K) %>%
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
+  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
+  ggtitle("K matrix - bees AR & CA")
+
+r <- read.table("results/SNPs/thin1kb_common3/included_pos_on_Wallberg_Amel4.5_chr.r.bed",
+                sep = "\t", stringsAsFactors = F) %>%
+  mutate(snp_id = read.table("results/SNPs/thin1kb_common3/included_pos_on_Wallberg_Amel4.5_chr.map",
+                             stringsAsFactors = F, header = F, sep = "\t")$V2) %>%
+  rename(chr = V1) %>%
+  rename(cM_Mb = V4) %>%
+  mutate(pos_chr = V2 + 1) %>% # because .bed files are 0 indexed
+  dplyr::select(c("snp_id", "chr", "pos_chr", "cM_Mb"))
+
+d <- bind_cols(sites, A) %>%
+  left_join(., r, by = c("chr", "snp_id"))
+d$r_bin10 = with(d, cut(cM_Mb,  # note need to load map from scaffolds_to_chr.R
+                             breaks = unique(quantile(c(0, map$r, 100), # I extend bounds so that every value gets in a bin
+                                                      p = seq(0, 1, by = .1))),
+                             right = T,
+                             include.lowest = T))
+table(d$r_bin10) # fewer SNPs represented in lowest recomb. bins
+head(d[is.na(d$r_bin10),]) # good, should be none
+
+d$r_bin5 = with(d, cut(cM_Mb,  # note need to load map from scaffolds_to_chr.R
+                        breaks = unique(quantile(c(0, map$r, 100), # I extend bounds so that every value gets in a bin
+                                                 p = seq(0, 1, by = .2))),
+                        right = T,
+                        include.lowest = T))
+table(d$r_bin5) # fewer SNPs represented in lowest recomb. bins
+head(d[is.na(d$r_bin5),]) # good, should be none
+
+
+# a better null: maybe I should take the full covariance matrix for ind. ancestries, 
+# subtract off the diagonal for what I know the binomial sampling variance to be,
+# run a MVN, and then do binomial sampling at the end. 
+# Graham *might* say this is excessive since we don't know if some variance comes from the ancestry caller
+# but I think with the posteriors it's actually more conservative than a binomial
+# which is more likely to get to the bounds 0/1 than a posterior. 
+# (and I could use the ancestry call from ancestry_hmm if I wanted)
+# also if I have enough bees, this might just give me the same answer as the MVN
+
+AbyPopr10 <- d %>%
+  gather("pop", "A", pops) %>%
+  group_by(., pop, r_bin10) %>%
+  summarise(meanA = mean(A))
+AbyPopr10 %>%
+  ggplot(aes(x = pop, y = meanA)) +
+  geom_point() +
+  facet_wrap(~r_bin10) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+AbyPopr5 <- d %>%
+  gather("pop", "A", pops) %>%
+  group_by(., pop, r_bin5) %>%
+  summarise(meanA = mean(A))
+AbyPopr5 %>%
+  ggplot(aes(x = pop, y = meanA, color = r_bin5)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# it would be much better to use NGSAdmix for different SNP sets
+# to get global ancestry estimates
 

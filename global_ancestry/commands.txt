@@ -124,7 +124,7 @@ bees/global_ancestry$ nohup ./catBeagleGL_nth.sh 250 ordered_scaffolds_CA_AR_MX_
 bees/global_ancestry$ nohup ./catBeagleGL_nth.sh 0 ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg ../geno_lik_and_SNPs/results/CA_AR_MX_harpur_sheppard_kohn_wallberg/GL_by_scaffold >& logs/CA_AR_MX_harpur_sheppard_kohn_wallberg_prune_ordered_scaffolds_by0.out &
 [2] 7969
 
-# (1) run PCAngsd 
+# (1) run PCAngsd
 bees/global_ancestry$ nohup ./runPCAngsd.sh ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy250 >& logs/runPCA_CA_AR_MX_harpur_sheppard_kohn_wallberg_ordered_scaffolds_prunedBy250.out &
 [1] 7588 - COMPLETE (seconds)
 bees/global_ancestry$ nohup ./runPCAngsd.sh ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy0 >& logs/runPCA_CA_AR_MX_harpur_sheppard_kohn_wallberg_ordered_scaffolds_prunedBy0.out &
@@ -142,11 +142,45 @@ plot_NGSadmix.R
 plot_admixture_by_PCA.R # shows congruence between these two global ancestry analyses
 
 
+# do NGSAdmix by recombination rate:
+(0) Get SNPs -- first limit to SNPs actually on chromosome (with estimated recombination rates)
+# make list of ordered chromosomes
+global_ancestry$ grep -v 'GroupUn' ../data/honeybee_genome/ordered_scaffolds.list > ../data/honeybee_genome/ordered_scaffolds.NoGroupUn.list
+global_ancestry$ grep -v 'GroupUn' results/input/ordered_scaffolds.GL.files > results/input/ordered_scaffolds.NoGroupUn.GL.files
+# take every 10th SNP on one of these chromosomes (just to make it slightly more manageable than all SNPs)
+global_ancestry$ nohup ./catBeagleGL_NoGroupUn_nth.sh 10 ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn ../geno_lik_and_SNPs/results/CA_AR_MX_harpur_sheppard_kohn_wallberg/GL_by_scaffold >& logs/CA_AR_MX_harpur_sheppard_kohn_wallberg_prune_ordered_scaffolds_NoGroupUn_by10.out &
+[1] 11273
+# make list of SNPs
+global_ancestry/results/input$ zcat ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.beagle.gz | cut -f1 | tail -n +2 > ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.snplist
+# get updated chromosome level SNP position as a .bed file interactively using pos_snps/scaffolds_to_chr.R
+wrote file: global_ancestry/results/input/ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.bed
+# get recombination rate bin at 10kb resolution of map, quintiles 1=low, 5=highly
+global_ancestry/results/input$ bedtools map -a ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.bed -b ../../../pos_snps/results/rmap_Wallberg2015_10kb.bed -c 5 -o mean > ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.10kb.rbin5.bed
+# sort back to original SNP order
+global_ancestry/results/input$ cat ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.10kb.rbin5.bed | sort -k 5 -n > ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.10kb.rbin5.orig_order.bed
+# divide GL file (with same sort order) into the 5 recombination bins:
+global_ancestry/results/input$ nohup parallel --noswap --joblog ../../logs/recomb_10kb_5bins_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedby10.log --jobs 5 \
+'mkdir -p recomb_10kb_5bins_{1}; (zcat ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.beagle.gz | head -n 1; \
+zcat ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.beagle.gz | tail -n +2 | \
+paste ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.10kb.rbin5.orig_order.bed - | \
+awk -v i="{1}" '$6==i {print $0}'| cut -f7- ) | gzip > recomb_10kb_5bins_{1}/ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.beagle.gz' \
+::: {1..5} &> ../../logs/recomb_10kb_5bins_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedby10.out &
+[3] 14257 - DIDN'T WORK. USING 4 LOOP:
+for i in {1..5}; do mkdir -p recomb_10kb_5bins_$i; (zcat ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.beagle.gz | head -n 1; \
+zcat ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.beagle.gz | tail -n +2 | \
+paste ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.10kb.rbin5.orig_order.bed - | \
+awk -v i=$i '$6==i {print $0}'| cut -f7- ) | gzip > recomb_10kb_5bins_$i/ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.beagle.gz; done
+# ran: looks like about 1/6 of SNPs do not have recombination rates at this resolution map "."
+# and so these SNPs are excluded. But there's >50k in each of the recombination bin categories
+global_ancestry/results/input$ cut -f6 ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.10kb.rbin5.orig_order.bed | sort | uniq -c
+
+# (2) run NGSAdmix
+global_ancestry$ nohup parallel --noswap --joblog logs/runNGSadmix_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy10_NoGroupUn_recomb10kb_bin5.log './runNGSadmix.sh 3 recomb_10kb_5bins_{1}/ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10' ::: {1..5} &> logs/runNGSadmix_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy10_NoGroupUn_recomb10kb_bin5.out &
+[1] 28528 - ARG. Got segmentation fault from trying to save file to directory that didn't exist. Renaming input files without a directory.
+global_ancestry/results/input$ for i in {1..5}; do cp recomb_10kb_5bins_"$i"/ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.beagle.gz recomb_10kb_5bins_"$i"_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10.beagle.gz; done
+global_ancestry$ nohup parallel --noswap --joblog logs/runNGSadmix_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy10_NoGroupUn_recomb10kb_bin5.log './runNGSadmix.sh 3 recomb_10kb_5bins_{1}_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10' ::: {1..5} &> logs/runNGSadmix_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy10_NoGroupUn_recomb10kb_bin5.out &
+[1] 29259 - RUNNING 6.16.19
+
 # TO DO: Make NGSAdmix plots more interpretable by making anc1 always A etc. (using A group)
 # because Avalon bees are driving PC3 and are likely highly drifted from their island status, maybe exclude them and rerun PCA to see if 'O' group pops out along PC3 instead
-
-
-
-
-
-
+# haha make shorter file names
