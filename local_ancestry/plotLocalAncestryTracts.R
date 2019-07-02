@@ -386,7 +386,7 @@ sites <- separate(sites0, scaffold, c("chr", "scaffold_n"), remove = F) %>%
 #table(test_id == sites$snp_id) # good
 
 meta <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
-  dplyr::select(c("population", "source", "group")) %>%
+  dplyr::select(c("population", "source", "year", "group")) %>%
   unique() %>%
   left_join(data.frame(population = pops, stringsAsFactors = F),
             ., by = "population")
@@ -401,7 +401,13 @@ abline(v = quantile(meanA, .99), col = "orange")
 abline(v = quantile(meanA, .01), col = "orange")
 dev.off()
 
-CA_A <- A[, meta$population[meta$group %in% c("N_CA", "S_CA", "CA_2018")]]
+
+CA_A <- A[, meta$population[meta$group %in% c("N_CA", "S_CA", "CA_2018") & meta$year >= 2014]]
+CA_A_earlier <- A[, meta$population[meta$group %in% c("N_CA", "S_CA") & meta$year < 2014]]
+CA_A_2014 <- A[, meta$population[meta$group %in% c("N_CA", "S_CA") & meta$year == 2014]]
+CA_A_2018 <- A[, meta$population[meta$group %in% c("CA_2018")]]
+plot(apply(CA_A_2014, 1, mean), apply(CA_A_2018, 1, mean))
+plot(apply(CA_A_earlier, 1, mean), apply(CA_A_2018, 1, mean))
 AR_A <- A[, meta$population[meta$group == "AR_2018"]]
 meanA_CA <- apply(CA_A, 1, mean)
 meanA_AR <- apply(AR_A, 1, mean)
@@ -437,6 +443,13 @@ sites %>%
            meanA_AR < quantile(meanA_AR, .01)) %>%
   dplyr::select(scaffold) %>%
   table() # several regions, but at least one big hit on chr 11 - Group11.18
+data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>% # plot
+  filter(meanA_CA > quantile(meanA_CA, .25) & 
+           meanA_AR < quantile(meanA_AR, .01)) %>%
+  gather("pop", "Afreq", c("CA", "AR")) %>%
+  ggplot(aes(x = pos, y = Afreq, color = pop)) +
+  geom_point() +
+  facet_wrap(~scaffold) # several regions, but at least one big hit on chr 11 - Group11.18
 sites %>%
   filter(meanA_CA < quantile(meanA_CA, .01) & 
            meanA_AR > quantile(meanA_AR, .25)) %>%
@@ -453,6 +466,13 @@ sites %>%
   dplyr::select(scaffold) %>%
   table()
 
+# plot all data. oops I need to use position relative to the chromosome instead.
+data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>% # plot
+  gather("pop", "Afreq", c("CA", "AR")) %>%
+  ggplot(aes(x = pos, y = Afreq, color = pop)) +
+  geom_point(size = .1) +
+  facet_wrap(~chr, scales = "free_x")
+
 png("plots/scatterplot_CA_vs_AR_A_ancestry_all_loci.png", height = 6, width = 8, units = "in", res = 300)
 plot(meanA_CA, meanA_AR, pch = 20, col = ifelse((meanA_CA > quantile(meanA_CA, .99) & 
                                                    meanA_AR > quantile(meanA_AR, .99)) |
@@ -463,6 +483,26 @@ plot(meanA_CA, meanA_AR, pch = 20, col = ifelse((meanA_CA > quantile(meanA_CA, .
 abline(lm(meanA_AR~meanA_CA), col = "blue")
 dev.off()
 cor(meanA_CA, meanA_AR)
+
+# color outliers by scaffold/chromosome:
+data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>% # plot
+  ggplot(aes(x = CA, y = AR, color = scaffold_n)) +
+  geom_point(size = .1) +
+  facet_wrap(~chr) + 
+  ggtitle("African ancestry frequencies in CA vs. AR, all loci")
+ggsave("plots/mean_A_ancestry_CA_vs_AR_rainbow_by_chr.png", 
+       device = "png", height = 10, width = 12, units = "in")
+# zoom in on Group1.23 because it has both high and low outliers:
+data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>%
+  filter(chr == "Group1" & scaffold_n %in% 20:23) %>%
+  gather("pop", "Afreq", c("CA", "AR")) %>%
+  ggplot(aes(x = pos, y = Afreq, color = pop)) +
+  geom_point(size = .1) +
+  facet_wrap(~scaffold_n) + 
+  ggtitle("African ancestry frequencies in CA and AR")
+ggsave("plots/mean_A_ancestry_CA_and_AR_Group1_scaffolds_20-23.png", 
+       device = "png", height = 10, width = 12, units = "in")
+
 
 # plot K matrix
 zAnc_bees = make_K_calcs(t(A))
