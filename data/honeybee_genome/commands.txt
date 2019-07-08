@@ -1,5 +1,7 @@
 # commands used to index etc. reference genome downloaded from beebase.org
 
+hymenopteragenome.org/beebase/?q=download_sequences Amel_4.5_scaffolds.fa . Note: It would have been better to get scaffolds placed on chromosomes from NCBI but oh well.
+
 # Re-downloaded honeybee genome Apis mellifera v4.5 from beebase.org on 12.19.18: data/honeybee_genome/Amel_4.5_scaffolds.fa (note: wasn't .fa.gz)
 # re-indexed v4.5 genome from www.beebase.org (it's not gzipped the genome I downloaded)
 bees/data/honeybee_genome$ bowtie2-build Amel_4.5_scaffolds.fa honeybee_Amel_4.5
@@ -9,3 +11,13 @@ bees/data/honeybee_genome$ awk '{print $2"\t"$3}' Amel_4.5_scaffolds.dict | tail
 tr ":" "\t" | cut -f2,4 | sort --version-sort -k1 > ordered_scaffolds.lengths
 bees/data/honeybee_genome$ awk '{print $2"\t"$3}' Amel_4.5_scaffolds.dict \
 | tail -n +2 | tr ":" "\t" | cut -f2,4 | sort --version-sort -k1 | cut -f1 > ordered_scaffolds.list
+
+# 7.3.19 downloaded gene annotations and CDS from beebase.org, Official Gene Set Version 3.2 built on assembly Amel_4.5:
+amel_OGSv3.2.gff3.gz
+# saved in subdirectory gene_annotations
+# there are, e.g. 78 genes on scaffold Group1.21:
+data/honeybee_genome/gene_annotations$ zgrep 'Group1.21' amel_OGSv3.2.gff3.gz | grep 'gene' | wc -l
+78
+
+# made a new file with just genes
+honeybee_genome/gene_annotations$ zgrep 'gene' amel_OGSv3.2.gff3.gz > genes_only.gff3

@@ -472,6 +472,19 @@ sites %>%
            meanA_AR < quantile(meanA_AR, .75)) %>%
   dplyr::select(scaffold) %>%
   table()
+# plot shared high and shared low on same axes:
+#plot
+data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>%
+  filter((meanA_CA < quantile(meanA_CA, .01) & 
+           meanA_AR < quantile(meanA_AR, .01)) |
+           (meanA_CA > quantile(meanA_CA, .99) & 
+              meanA_AR > quantile(meanA_AR, .99))) %>%
+  gather("pop", "Afreq", c("CA", "AR")) %>%
+  ggplot(aes(x = pos, y = Afreq, color = pop)) +
+  geom_point() +
+  facet_wrap(~scaffold) + # really just a few peaks
+  ggtitle("shared peaks high and low A ancestry")
+
 
 # plot all data. oops I need to use position relative to the chromosome instead.
 data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>% # plot
@@ -545,20 +558,23 @@ MVNsim <- mvrnorm(n = sim_n,
                   tol = 1e-6, 
                   empirical = FALSE, 
                   EISPACK = FALSE)
-hist(apply(MVNsim, 1, mean))
-summary(apply(MVNsim, 1, mean))
+
 MVNsim_bounded <- MVNsim # sets bounds at 0 and 1
 MVNsim_bounded[MVNsim < 0] <- 0
 MVNsim_bounded[MVNsim > 1] <- 1
-summary(apply(MVNsim_bounded, 1, mean)) # makes little difference
-hist(apply(MVNsim_bounded, 1, mean))
 MVNsim_AR <- MVNsim[ , colnames(AR_A)]
 MVNsim_AR_bounded <- MVNsim_bounded[ , colnames(AR_A)]
 MVNsim_CA <- MVNsim[ , colnames(CA_A)]
 MVNsim_CA_bounded <- MVNsim_bounded[ , colnames(CA_A)]
 meanA_MVNsim_AR_bounded <- apply(MVNsim_AR_bounded, 1, mean)
 meanA_MVNsim_CA_bounded <- apply(MVNsim_CA_bounded, 1, mean)
-plot(apply(MVNsim_AR_bounded, 1, mean), apply(MVNsim_CA_bounded, 1, mean))
+
+#summarise
+hist(apply(MVNsim, 1, mean))
+summary(apply(MVNsim, 1, mean))
+summary(apply(MVNsim_bounded, 1, mean)) # makes little difference
+hist(apply(MVNsim_bounded, 1, mean))
+plot(meanA_MVNsim_AR_bounded, meanA_MVNsim_CA_bounded)
 
 png("plots/mean_A_ancestry_CA_vs_AR_grey.png", 
     height = 8, width = 12, res = 300, units = "in")
@@ -677,12 +693,95 @@ sd_CA <- sd(meanA_CA)
 mu_CA <- mean(meanA_CA)
 sd_AR <- sd(meanA_AR)
 mu_AR <- mean(meanA_AR)
-test_fdr_shared_high_sds <- sapply(seq(0, 5, by = .1), function(x) # takes a while
+sd_range <- seq(0, 5, by = .01) # I can make this more precise later if I want
+
+# get standard deviation cutoffs for FDR shared high loci
+FDR_values = c(.1, .05, .01)
+test_fdr_shared_high_sds <- sapply(sd_range, function(x)
   fdr_shared_high(a1 = mu_AR+x*sd_AR, a2 = mu_CA+x*sd_CA, pop1 = meanA_AR, pop2 = meanA_CA, 
                   sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
-test_fdr_shared_high_sds
+FDRs_shared_high_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_shared_high_sds<p], na.rm = T))
+
+# shared low # standard deviations below mean
+test_fdr_shared_low_sds <- sapply(sd_range, function(x)
+  fdr_shared_low(a1 = mu_AR-x*sd_AR, a2 = mu_CA-x*sd_CA, pop1 = meanA_AR, pop2 = meanA_CA, 
+                  sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
+FDRs_shared_low_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_shared_low_sds<p], na.rm = T))
+
+# high CA and high AR separately (less powerful):
+test_fdr_CA_high_sds <- sapply(sd_range, function(x) 
+  fdr_1pop_high(a = mu_CA+x*sd_CA, pop = meanA_CA, 
+                  sims = meanA_MVNsim_CA_bounded))
+FDRs_CA_high_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_CA_high_sds<p], na.rm = T))
+test_fdr_AR_high_sds <- sapply(sd_range, function(x)
+  fdr_1pop_high(a = mu_AR+x*sd_AR, pop = meanA_AR, 
+                sims = meanA_MVNsim_AR_bounded))
+FDRs_AR_high_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_AR_high_sds<p], na.rm = T))
+
+# low CA and high AR separately (less powerful):
+test_fdr_CA_low_sds <- sapply(sd_range, function(x) 
+  fdr_1pop_low(a = mu_CA-x*sd_CA, pop = meanA_CA, 
+                sims = meanA_MVNsim_CA_bounded))
+FDRs_CA_low_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_CA_low_sds<p], na.rm = T))
+# we do not find any low outliers in CA based on a .1, .05 or .01 FDR (underpowered)
+test_fdr_AR_low_sds <- sapply(sd_range, function(x)
+  fdr_1pop_low(a = mu_AR-x*sd_AR, pop = meanA_AR, 
+                sims = meanA_MVNsim_AR_bounded))
+FDRs_AR_low_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_AR_low_sds<p], na.rm = T))
+# get standard deviations for false-discovery rates
+FDRs_sds = data.frame(FDR_values = FDR_values,
+                  shared_high = FDRs_shared_high_sds,
+                  shared_low = FDRs_shared_low_sds,
+                  CA_high = FDRs_CA_high_sds,
+                  CA_low = FDRs_CA_low_sds,
+                  AR_high = FDRs_AR_high_sds,
+                  AR_low = FDRs_AR_low_sds,
+                  stringsAsFactors = F)
+write.table(FDRs_sds, "results/FDRs_MVN_01_high_low_A_SDs.txt", quote = F, col.names = T, row.names = F, sep = "\t")
+# translate SD cutoffs to % A ancestry cutoffs:
+FDRs = data.frame(FDR_values = FDR_values,
+                  shared_high_CA = mu_CA + FDRs_sds$shared_high*sd_CA,
+                  shared_high_AR = mu_AR + FDRs_sds$shared_high*sd_AR,
+                  shared_low_CA = mu_CA - FDRs_sds$shared_low*sd_CA,
+                  shared_low_AR = mu_AR - FDRs_sds$shared_low*sd_AR,
+                  CA_high = mu_CA + FDRs_sds$CA_high*sd_CA,
+                  CA_low = mu_CA - FDRs_sds$CA_low*sd_CA,
+                  AR_high = mu_AR + FDRs_sds$AR_high*sd_AR,
+                  AR_low = mu_AR - FDRs_sds$AR_low*sd_AR,
+                  stringsAsFactors = F)
+write.table(FDRs, "results/FDRs_MVN_01_high_low_A_percent_cutoffs.txt", quote = F, col.names = T, row.names = F, sep = "\t")
+FDRs <- read.table("results/FDRs_MVN_01_high_low_A_percent_cutoffs.txt", 
+                   stringsAsFactors = F, header = T, sep = "\t")
+
+# what percent of the genome matches these cutoffs?
+table(meanA_CA > FDRs$CA_high[FDRs$FDR_values==.05])/length(meanA_CA) # 0.28% of loci (very few!)
+table(sites$scaffold[meanA_CA > FDRs$CA_high[FDRs$FDR_values==.05]]) # where are they?
+
+# about .3% of the genome is found in high shared sites at 5% FDR
+table(meanA_CA > FDRs$shared_high_CA[FDRs$FDR_values==.05] & meanA_AR > FDRs$shared_high_AR[FDRs$FDR_values == .05])/length(meanA_CA) # 0.28% of loci (very few!)
+table(sites$scaffold[meanA_CA > FDRs$shared_high_CA[FDRs$FDR_values==.1] & meanA_AR > FDRs$shared_high_AR[FDRs$FDR_values == .1]])
+# which genes?
+
+# write a bed file with outlier regions (to compare with honeybee genes):
+A_plus_sites <- bind_cols(sites, data.frame(CA = meanA_CA, AR = meanA_AR, stringsAsFactors = F)) 
+A_plus_sites$half <- c(diff(A_plus_sites$pos, 1), 0)/2 # halfway between that and next position
+sum(A_plus_sites$half < 0)
+sum(sapply(diff(A_plus_sites$scaffold_n, 1), function(x) x != 0))
+length(unique(A_plus_sites$scaffold))
+A_plus_sites$half[c(diff(A_plus_sites$scaffold_n, 1), 0) != 0] <- 0 # new scaffold
+head(diff(A_plus_sites$scaffold, 1))
+#%>%
+  filter(scaffold == "Group1.21") %>%
+  .$pos %>%
+  diff(., 1)
+# make start and end points at ends of LG or halfway to next marker. remember subtract 1 from start. 
+# I can concatenate into contiguous segments later using bedtools
 
 
+# I think I'm making some independence assumption here with the FDR rates
+# It might be better to bin ancestry into broader windows, before calculating covariances.
+
+# Also Harpur's study blasted the markers against hte genome + 5kb to get coordinates for prior varroa-hygeine QTLs 
 
 # plotting K covariance in ancestry matrix
 melt(AR_CA_K$K) %>%
