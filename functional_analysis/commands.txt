@@ -1,0 +1,71 @@
+# Step (0) Gather QTL and gene positions. Make bed files of positions on scaffolds.
+# Step (1) Make bed files.
+# Step (2) Identify any direct overlap of QTLs and top hits. Any candidate genes?
+# Step (2) Assess average ancestry in QTLs vs. not. Use permutations to test significance.
+# Step (3) Test for enrichment of top hits in vs. out of QTLs.
+
+# Step (0) Gather QTL positions and make bed files for positions on scaffolds.
+# Traits:
+# Varroa resistance includes multiple behaviors. I need to verify which are associated with African ancestry specifically:
+# - uncapping and removal of freeze-killed brood
+	Harpur 2019 GBE Integrative genomics reverals the genetics and evolution of the honey bee's social immune system.
+	Artificial selection for two generations on 2 populations (100 colonies each) and compared it to a maintained "baseline" population. Used hapFLK to identify Fst-like haplotype outliers. 
+# - Varroa sensitive hygeine
+#
+
+# 7.3.19 downloaded gene annotations and CDS from beebase.org, Official Gene Set Version 3.2 built on assembly Amel_4.5:
+amel_OGSv3.2.gff3.gz
+# saved in subdirectory gene_annotations
+# there are, e.g. 78 genes on scaffold Group1.21:
+data/honeybee_genome/gene_annotations$ zgrep 'Group1.21' amel_OGSv3.2.gff3.gz | grep 'gene' | wc -l
+78
+
+# made a new file with just genes
+data/honeybee_genome/gene_annotations$ zgrep 'gene' amel_OGSv3.2.gff3.gz > ../../../functional_analysis/results/amel_OGSv3.2_genes_only.gff3
+
+# make genes bed file (sorted)
+functional_analysis$ awk '{print $1"\t"$4-1"\t"$5"\t"$2"\t"$3"\t"$9}' results/amel_OGSv3.2_genes_only.gff3 | bedtools sort -faidx ../data/honeybee_genome/ordered_scaffolds.list > results/amel_OGSv3.2_genes_only.sorted.bed
+
+# remove GroupUn genes not linked to any chromosomes (b/c no ancestry calls for these scaffolds b/c no recombination rates)
+functional_analysis$ grep -v 'GroupUn' results/amel_OGSv3.2_genes_only.sorted.bed > results/amel_OGSv3.2_genes_only.noGroupUn.sorted.bed
+
+# get mean CA and AR African ancestry for all genes (mean)
+
+# AR is column 5 of my mean ancestry file
+functional_analysis$ bedtools map -a results/amel_OGSv3.2_genes_only.noGroupUn.sorted.bed -b ../local_ancestry/results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/mean_ancestry_AR_CA_included.bed -c 5 -o mean -g ../data/honeybee_genome/ordered_scaffolds.lengths > results/genes_mean_AR_ancestry.bed
+
+# CA is column 6 of my mean ancestry file
+functional_analysis$ bedtools map -a results/amel_OGSv3.2_genes_only.noGroupUn.sorted.bed -b ../local_ancestry/results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/mean_ancestry_AR_CA_included.bed -c 6 -o mean -g ../data/honeybee_genome/ordered_scaffolds.lengths > results/genes_mean_CA_ancestry.bed
+
+# put them together in one file
+functional_analysis$ bedtools map -a results/genes_mean_AR_ancestry.bed -b results/genes_mean_CA_ancestry.bed -c 7 -o mean -g ../data/honeybee_genome/ordered_scaffolds.lengths > results/genes_mean_AR_CA_ancestry.bed
+
+# get overlap with 1%, 5% and 10% FDR regions
+# high A ancestry
+# shared
+functional_analysis$ cat ../local_ancestry/results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/mean_ancestry_AR_CA_included.bed | awk '$7!="NA" {print $0}' | bedtools map -a results/genes_mean_AR_CA_ancestry.bed -b - -c 7 -o min -g ../data/honeybee_genome/ordered_scaffolds.lengths > results/outliers_shared_high_genes_mean_AR_CA_ancestry.bed
+
+# AR
+functional_analysis$ cat ../local_ancestry/results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/mean_ancestry_AR_CA_included.bed | awk '$8!="NA" {print $0}' | bedtools map -a results/genes_mean_AR_CA_ancestry.bed -b - -c 8 -o min -g ../data/honeybee_genome/ordered_scaffolds.lengths > results/outliers_AR_high_genes_mean_AR_CA_ancestry.bed
+
+# CA
+functional_analysis$ cat ../local_ancestry/results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/mean_ancestry_AR_CA_included.bed | awk '$9!="NA" {print $0}' | bedtools map -a results/genes_mean_AR_CA_ancestry.bed -b - -c 9 -o min -g ../data/honeybee_genome/ordered_scaffolds.lengths > results/outliers_CA_high_genes_mean_AR_CA_ancestry.bed
+
+# low A ancestry
+# shared
+functional_analysis$ cat ../local_ancestry/results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/mean_ancestry_AR_CA_included.bed | awk '$10!="NA" {print $0}' | bedtools map -a results/genes_mean_AR_CA_ancestry.bed -b - -c 10 -o min -g ../data/honeybee_genome/ordered_scaffolds.lengths > results/outliers_shared_low_genes_mean_AR_CA_ancestry.bed
+
+# AR
+functional_analysis$ cat ../local_ancestry/results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/mean_ancestry_AR_CA_included.bed | awk '$11!="NA" {print $0}' | bedtools map -a results/genes_mean_AR_CA_ancestry.bed -b - -c 11 -o min -g ../data/honeybee_genome/ordered_scaffolds.lengths > results/outliers_AR_low_genes_mean_AR_CA_ancestry.bed
+
+# CA - error because no sites have sig. low A ancestry in CA
+
+# load all outliers into R script rank_genes.R to make list of top priority genes
+
+# next steps: I found no overlap with Harpur 2019 hygeine gene set. But I also got QTL coordinates for previous work from the supplement of this GBE paper. And I have the conversion from scaffolds to chr coordinates used in this study. BUT I need to put them together to see if I have any overlap with previous QTLs for varroa hygeine. I'm still working on this in rank_genes.R
+
+
+
+
+
+

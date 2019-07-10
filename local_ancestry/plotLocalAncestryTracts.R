@@ -383,7 +383,8 @@ sites0 <- read.table("results/SNPs/thin1kb_common3/included_scaffolds.pos", stri
                     sep = "\t", header = F)
 colnames(sites0) <- c("scaffold", "pos")
 sites <- separate(sites0, scaffold, c("chr", "scaffold_n"), remove = F) %>%
-  mutate(chr_n = substr(chr, 6, 100)) %>%
+  mutate(scaffold_n = as.numeric(scaffold_n)) %>%
+  mutate(chr_n = as.numeric(substr(chr, 6, 100))) %>%
   mutate(snp_id = paste0("snp", chr_n, ".", scaffold, ".", pos))
 #test_id <- read.table("results/SNPs/thin1kb_common3/included.snplist", stringsAsFactors = F,
 #                      sep = "\t", header = F)$V1
@@ -408,14 +409,15 @@ abline(v = quantile(meanA, .99), col = "orange")
 abline(v = quantile(meanA, .01), col = "orange")
 dev.off()
 
-
-CA_A <- A[, meta.pop$population[meta.pop$group %in% c("N_CA", "S_CA", "CA_2018") & meta.pop$year >= 2014]]
+CA_pops_included <- meta.pop$population[meta.pop$group %in% c("N_CA", "S_CA", "CA_2018") & meta.pop$year >= 2014]
+CA_A <- A[, CA_pops_included]
 CA_A_earlier <- A[, meta.pop$population[meta.pop$group %in% c("N_CA", "S_CA") & meta.pop$year < 2014]]
 CA_A_2014 <- A[, meta.pop$population[meta.pop$group %in% c("N_CA", "S_CA") & meta.pop$year == 2014]]
 CA_A_2018 <- A[, meta.pop$population[meta.pop$group %in% c("CA_2018")]]
 plot(apply(CA_A_2014, 1, mean), apply(CA_A_2018, 1, mean))
 plot(apply(CA_A_earlier, 1, mean), apply(CA_A_2018, 1, mean))
-AR_A <- A[, meta.pop$population[meta.pop$group == "AR_2018"]]
+AR_pops_included <- meta.pop$population[meta.pop$group == "AR_2018"]
+AR_A <- A[, AR_pops_included]
 meanA_CA <- apply(CA_A, 1, mean)
 meanA_AR <- apply(AR_A, 1, mean)
 
@@ -760,28 +762,58 @@ table(sites$scaffold[meanA_CA > FDRs$CA_high[FDRs$FDR_values==.05]]) # where are
 # about .3% of the genome is found in high shared sites at 5% FDR
 table(meanA_CA > FDRs$shared_high_CA[FDRs$FDR_values==.05] & meanA_AR > FDRs$shared_high_AR[FDRs$FDR_values == .05])/length(meanA_CA) # 0.28% of loci (very few!)
 table(sites$scaffold[meanA_CA > FDRs$shared_high_CA[FDRs$FDR_values==.1] & meanA_AR > FDRs$shared_high_AR[FDRs$FDR_values == .1]])
-# which genes?
+# any genes?
 
 # write a bed file with outlier regions (to compare with honeybee genes):
+# ancestry calls are extended to halfway between any two calls and end at the position of the last/first call for a scaffold
+# note: this does not extend all the way to the ends of the chromosomes (so some genes may not have ancestry calls)
 A_plus_sites <- bind_cols(sites, data.frame(CA = meanA_CA, AR = meanA_AR, stringsAsFactors = F)) 
-A_plus_sites$half <- c(diff(A_plus_sites$pos, 1), 0)/2 # halfway between that and next position
-sum(A_plus_sites$half < 0)
-sum(sapply(diff(A_plus_sites$scaffold_n, 1), function(x) x != 0))
-length(unique(A_plus_sites$scaffold))
-A_plus_sites$half[c(diff(A_plus_sites$scaffold_n, 1), 0) != 0] <- 0 # new scaffold
-head(diff(A_plus_sites$scaffold, 1))
-#%>%
-  filter(scaffold == "Group1.21") %>%
-  .$pos %>%
-  diff(., 1)
-# make start and end points at ends of LG or halfway to next marker. remember subtract 1 from start. 
-# I can concatenate into contiguous segments later using bedtools
+A_plus_sites$half_right <- c(diff(A_plus_sites$pos, 1), 1)/2 # halfway between that and next position
+
+A_plus_sites$half_right[c(diff(A_plus_sites$scaffold_n, 1), 0) != 0] <- 0.5 # new scaffold
+A_plus_sites$half_left <- c(0.5, A_plus_sites$half_right[1:(nrow(A_plus_sites) - 1)]) # halfway between focal locus and previous position
+# make bed start and end points
+A_plus_sites$end <- floor(A_plus_sites$pos + A_plus_sites$half_right)
+A_plus_sites$start <- floor(A_plus_sites$pos - A_plus_sites$half_left)
+
+# write bed file with mean ancestry for Argentina and California included bees
+# also include whether a site meets a FDR threshold for selection
+A_plus_sites %>%
+  mutate(FDR_shared_high = ifelse(CA >= FDRs[FDRs$FDR_values == .01, "shared_high_CA"] & AR >= FDRs[FDRs$FDR_values == .01, "shared_high_AR"],
+                                  .01, ifelse(CA >= FDRs[FDRs$FDR_values == .05, "shared_high_CA"] & AR >= FDRs[FDRs$FDR_values == .05, "shared_high_AR"],
+                                              .05, ifelse(CA >= FDRs[FDRs$FDR_values == .1, "shared_high_CA"] & AR >= FDRs[FDRs$FDR_values == .1, "shared_high_AR"],
+                                                          .1, NA)))) %>%
+  mutate(FDR_CA_high = ifelse(CA >= FDRs[FDRs$FDR_values == .01, "CA_high"],
+                              .01, ifelse(CA >= FDRs[FDRs$FDR_values == .05, "CA_high"],
+                                          .05, ifelse(CA >= FDRs[FDRs$FDR_values == .1, "CA_high"],
+                                                      .1, NA)))) %>%
+  mutate(FDR_AR_high = ifelse(AR >= FDRs[FDRs$FDR_values == .01, "AR_high"],
+                              .01, ifelse(AR >= FDRs[FDRs$FDR_values == .05, "AR_high"],
+                                          .05, ifelse(AR >= FDRs[FDRs$FDR_values == .1, "AR_high"],
+                                                      .1, NA)))) %>%
+  mutate(FDR_shared_low = ifelse(CA <= FDRs[FDRs$FDR_values == .01, "shared_low_CA"] & AR <= FDRs[FDRs$FDR_values == .01, "shared_low_AR"],
+                                 .01, ifelse(CA <= FDRs[FDRs$FDR_values == .05, "shared_low_CA"] & AR <= FDRs[FDRs$FDR_values == .05, "shared_low_AR"],
+                                             .05, ifelse(CA <= FDRs[FDRs$FDR_values == .1, "shared_low_CA"] & AR <= FDRs[FDRs$FDR_values == .1, "shared_low_AR"],
+                                                         .1, NA)))) %>%
+  mutate(FDR_CA_low = ifelse(CA <= FDRs[FDRs$FDR_values == .01, "CA_low"],
+                             .01, ifelse(CA <= FDRs[FDRs$FDR_values == .05, "CA_low"],
+                                         .05, ifelse(CA <= FDRs[FDRs$FDR_values == .1, "CA_low"],
+                                                     .1, NA)))) %>%
+  mutate(FDR_AR_low = ifelse(AR <= FDRs[FDRs$FDR_values == .01, "AR_low"],
+                             .01, ifelse(AR <= FDRs[FDRs$FDR_values == .05, "AR_low"],
+                                         .05, ifelse(AR <= FDRs[FDRs$FDR_values == .1, "AR_low"],
+                                                     .1, NA)))) %>%
+  dplyr::select(scaffold, start, end, snp_id, AR, CA, FDR_shared_high, FDR_AR_high, FDR_CA_high, 
+                FDR_shared_low, FDR_AR_low, FDR_CA_low) %>%
+  write.table(., 
+              "results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/mean_ancestry_AR_CA_included.bed", 
+              sep = "\t", quote = F, col.names = F, row.names = F)
 
 
 # I think I'm making some independence assumption here with the FDR rates
 # It might be better to bin ancestry into broader windows, before calculating covariances.
 
-# Also Harpur's study blasted the markers against hte genome + 5kb to get coordinates for prior varroa-hygeine QTLs 
+# Also Harpur's study blasted the markers against the genome + 5kb to get coordinates for prior varroa-hygeine QTLs 
 
 # plotting K covariance in ancestry matrix
 melt(AR_CA_K$K) %>%

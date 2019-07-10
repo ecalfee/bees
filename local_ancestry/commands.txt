@@ -295,6 +295,10 @@ local_ancestry$ nohup parallel --noswap --jobs 8 --joblog logs/calc_anc_thin1kb_
 &> logs/calc_anc_thin1kb_common3_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot.out &
 [1] 6346 - RUNNING 6.14.19
 
+# make a bed file with the mean ancestry estimates in included AR and CA populations, using R script plotAncestryTracts.R
+results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc$ head mean_ancestry_AR_CA_included.bed
+
+
 # TO DO:
 # next step is to plot new local ancestry estimates. visualize blocks, especially at the low A ancestry end because of the high t estimates for A admixture.
 
