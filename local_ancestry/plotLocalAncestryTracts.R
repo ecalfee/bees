@@ -4,12 +4,13 @@ library(tidyr)
 library(ggplot2)
 library(scales)
 library(reshape2)
+library(viridis)
 
 source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
 source("../../covAncestry/forqs_sim/k_matrix.R") # import useful functions
 
 
-bees <- read.table("results/SNPs/thin1kb_common3/pass1_2018.ploidy", stringsAsFactors = F, 
+bees1 <- read.table("results/SNPs/thin1kb_common3/pass1_2018.ploidy", stringsAsFactors = F, 
                                      header = F, sep = "\t")$V1
 prior <- c(0.4, 0.4, 0.2) # prior on global ancestry proportions
 
@@ -82,7 +83,7 @@ for (i in c("CA0401", "AR2711", "CA1410", "AR0302")){
 bee_subset <- c("CA0401", "AR2711", "CA1410", "AR0302")
 
 # for each bee, calculate mean ancestry
-mean_anc_all <- as.data.frame(t(sapply(bees, function(id)
+mean_anc_all <- as.data.frame(t(sapply(bees1, function(id)
   apply(calc_anc_from_post( # get mean ancestry from posterior
     read.table(paste0(dir_post, "/", id, ".posterior"), 
                stringsAsFactors = F, header = T)[ , 3:8]), 
@@ -105,7 +106,7 @@ mean_anc_all %>%
 
 # get all the posterior data
 post_all = do.call(rbind,
-                lapply(bees, function(i) 
+                lapply(bees1, function(i) 
   get_post_simple(id = i)))
 
 # plot all ind's ancestry (with uncertainty) over some region
@@ -120,7 +121,7 @@ for (chr_i in paste0("Group", 1:16)){
     filter(chrom == chr_i) %>%
     ggplot(aes(x=position, y = Bee_ID)) +
     geom_point(aes(color = anc, alpha = p), size = .5) + 
-    ggtitle(paste0("Ancestry 2018 bees -- ", chr_i))
+    ggtitle(paste0("Ancestry 2018 bees1 -- ", chr_i))
   ggsave(paste0("plots/local_ancestry_tracts_pass1_2018_", chrom, ".png"), 
          plot = p_chrom,
          device = "png", 
@@ -132,7 +133,7 @@ p_by_chrom <- small_all %>%
   ggplot(aes(x=position, y = Bee_ID)) +
   geom_point(aes(color = anc, alpha = p), size = .5) +
   facet_wrap(~chrom) +
-  ggtitle(paste0("Ancestry 2018 bees by chromosome"))
+  ggtitle(paste0("Ancestry 2018 bees1 by chromosome"))
 plot(p_by_chrom)
 ggsave("plots/local_ancestry_tracts_pass1_2018_by_chrom.png", 
        plot = p_by_chrom,
@@ -149,7 +150,7 @@ post_all %>%
   summarize(mean_p = mean(p))
 # very confident in all calls, but especially homozygous ancestry calls.
 
-# now compare tracts from different runs of ancestry_hmm for a subset of bees:
+# now compare tracts from different runs of ancestry_hmm for a subset of bees1:
 # how sensitive is the result to different times of admixture (t)?
 est_ts <- c("fix_t_100_60", "fix_t_60_30", "est_t2")
 dirs <- paste0("results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2_scaffolds/reverse_order_CMA_",
@@ -264,15 +265,15 @@ getAncFreq = function(id, dir = dir_post){
 }
 
 test <- getAncFreq(id = "CA0401", dir = dirs[1])
-anc_all <- lapply(bees, function(b) getAncFreq(id = b, dir = dirs[1]))
+anc_all <- lapply(bees1, function(b) getAncFreq(id = b, dir = dirs[1]))
 # what is the ancestry in the total population at each site?
 anc_total <- Reduce('+', anc_all)/length(anc_all) # sum all C's, M's, and A's contribution across individuals
 apply(anc_total, 2, hist) # make histogram of the distribution of % C/M/A across loci
 summary(anc_total)
 # split it into Argentina vs. California samples -- maybe not a lot of selection is shared?
 listy = list(1:5, 1:3, 3:4)
-anc_CA <- Reduce('+', anc_all[substr(bees, 1, 2) == "CA"])/sum(substr(bees, 1, 2) == "CA")
-anc_AR <- Reduce('+', anc_all[substr(bees, 1, 2) == "AR"])/sum(substr(bees, 1, 2) == "AR")
+anc_CA <- Reduce('+', anc_all[substr(bees1, 1, 2) == "CA"])/sum(substr(bees1, 1, 2) == "CA")
+anc_AR <- Reduce('+', anc_all[substr(bees1, 1, 2) == "AR"])/sum(substr(bees1, 1, 2) == "AR")
 summary(anc_CA)
 summary(anc_AR)
 plot(anc_CA$A ~ anc_AR$A)
@@ -300,7 +301,7 @@ anc_AR1 <- Reduce('+', anc_all[substr(bees, 1, 2) == "AR"][1:20])/20
 
 # ancestry estimates for all bees at all positions:
 anc_all = do.call(rbind,
-        lapply(bees, function(i) get_anc(id = i, dir = dir_post)))
+        lapply(bees1, function(i) get_anc(id = i, dir = dir_post)))
 head(anc_all)
 anc_all_plus_meta <- anc_all %>%
   left_join(., dplyr::select(meta, c("Bee_ID", "geographic_location", "population", "group", "lat", "long", "popN", "indN", "enjambre")),
@@ -369,6 +370,9 @@ anc_all_plus_meta %>%
 # load metadata
 # load population ancestry frequencies:
 pops <- read.table("../bee_samples_listed/byPop/pops_included.list", stringsAsFactors = F)$V1
+bees <- do.call(rbind, 
+                lapply(pops, function(p) data.frame(Bee_ID = read.table(paste0("../bee_samples_listed/byPop/", p, ".list"),
+                                                    stringsAsFactors = F)$V1, population = p, stringsAsFactors = F)))
 popA <- lapply(pops, function(p) read.table(paste0("results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/", p, ".A.anc"),
                                             stringsAsFactors = F))
 A <- do.call(cbind, popA)
@@ -379,15 +383,19 @@ sites0 <- read.table("results/SNPs/thin1kb_common3/included_scaffolds.pos", stri
                     sep = "\t", header = F)
 colnames(sites0) <- c("scaffold", "pos")
 sites <- separate(sites0, scaffold, c("chr", "scaffold_n"), remove = F) %>%
-  mutate(chr_n = substr(chr, 6, 100)) %>%
+  mutate(scaffold_n = as.numeric(scaffold_n)) %>%
+  mutate(chr_n = as.numeric(substr(chr, 6, 100))) %>%
   mutate(snp_id = paste0("snp", chr_n, ".", scaffold, ".", pos))
 #test_id <- read.table("results/SNPs/thin1kb_common3/included.snplist", stringsAsFactors = F,
 #                      sep = "\t", header = F)$V1
 #table(test_id == sites$snp_id) # good
 
-meta <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
-  dplyr::select(c("population", "source", "group")) %>%
-  unique() %>%
+meta.ind <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
+  left_join(bees, ., by = c("Bee_ID", "population")) 
+meta.pop <- meta.ind %>%
+  dplyr::select(c("population", "source", "year", "group")) %>%
+  dplyr::group_by(population, source, year, group) %>%
+  dplyr::summarise(n_bees = n()) %>%
   left_join(data.frame(population = pops, stringsAsFactors = F),
             ., by = "population")
 
@@ -401,8 +409,15 @@ abline(v = quantile(meanA, .99), col = "orange")
 abline(v = quantile(meanA, .01), col = "orange")
 dev.off()
 
-CA_A <- A[, meta$population[meta$group %in% c("N_CA", "S_CA", "CA_2018")]]
-AR_A <- A[, meta$population[meta$group == "AR_2018"]]
+CA_pops_included <- meta.pop$population[meta.pop$group %in% c("N_CA", "S_CA", "CA_2018") & meta.pop$year >= 2014]
+CA_A <- A[, CA_pops_included]
+CA_A_earlier <- A[, meta.pop$population[meta.pop$group %in% c("N_CA", "S_CA") & meta.pop$year < 2014]]
+CA_A_2014 <- A[, meta.pop$population[meta.pop$group %in% c("N_CA", "S_CA") & meta.pop$year == 2014]]
+CA_A_2018 <- A[, meta.pop$population[meta.pop$group %in% c("CA_2018")]]
+plot(apply(CA_A_2014, 1, mean), apply(CA_A_2018, 1, mean))
+plot(apply(CA_A_earlier, 1, mean), apply(CA_A_2018, 1, mean))
+AR_pops_included <- meta.pop$population[meta.pop$group == "AR_2018"]
+AR_A <- A[, AR_pops_included]
 meanA_CA <- apply(CA_A, 1, mean)
 meanA_AR <- apply(AR_A, 1, mean)
 
@@ -411,16 +426,39 @@ sites %>%
             meanA_AR > quantile(meanA_AR, .99)) %>%
   dplyr::select(scaffold) %>%
   table() # outliers are on just a few scaffolds
+# plot
+data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>%
+  filter(meanA_CA > quantile(meanA_CA, .99) & 
+           meanA_AR > quantile(meanA_AR, .99)) %>%
+  gather("pop", "Afreq", c("CA", "AR")) %>%
+  ggplot(aes(x = pos, y = Afreq, color = pop)) +
+  geom_point() +
+  facet_wrap(~scaffold) # really just a few peaks
 sites %>%
   filter(meanA_CA < quantile(meanA_CA, .01) & 
            meanA_AR < quantile(meanA_AR, .01)) %>%
   dplyr::select(scaffold) %>%
   table() # low A outliers still only on 14 scaffolds
+#plot
+data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>%
+  filter(meanA_CA < quantile(meanA_CA, .01) & 
+           meanA_AR < quantile(meanA_AR, .01)) %>%
+  gather("pop", "Afreq", c("CA", "AR")) %>%
+  ggplot(aes(x = pos, y = Afreq, color = pop)) +
+  geom_point() +
+  facet_wrap(~scaffold) # really just a few peaks
 sites %>%
   filter(meanA_CA > quantile(meanA_CA, .25) & 
            meanA_AR < quantile(meanA_AR, .01)) %>%
   dplyr::select(scaffold) %>%
   table() # several regions, but at least one big hit on chr 11 - Group11.18
+data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>% # plot
+  filter(meanA_CA > quantile(meanA_CA, .25) & 
+           meanA_AR < quantile(meanA_AR, .01)) %>%
+  gather("pop", "Afreq", c("CA", "AR")) %>%
+  ggplot(aes(x = pos, y = Afreq, color = pop)) +
+  geom_point() +
+  facet_wrap(~scaffold) # several regions, but at least one big hit on chr 11 - Group11.18
 sites %>%
   filter(meanA_CA < quantile(meanA_CA, .01) & 
            meanA_AR > quantile(meanA_AR, .25)) %>%
@@ -436,6 +474,26 @@ sites %>%
            meanA_AR < quantile(meanA_AR, .75)) %>%
   dplyr::select(scaffold) %>%
   table()
+# plot shared high and shared low on same axes:
+#plot
+data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>%
+  filter((meanA_CA < quantile(meanA_CA, .01) & 
+           meanA_AR < quantile(meanA_AR, .01)) |
+           (meanA_CA > quantile(meanA_CA, .99) & 
+              meanA_AR > quantile(meanA_AR, .99))) %>%
+  gather("pop", "Afreq", c("CA", "AR")) %>%
+  ggplot(aes(x = pos, y = Afreq, color = pop)) +
+  geom_point() +
+  facet_wrap(~scaffold) + # really just a few peaks
+  ggtitle("shared peaks high and low A ancestry")
+
+
+# plot all data. oops I need to use position relative to the chromosome instead.
+data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>% # plot
+  gather("pop", "Afreq", c("CA", "AR")) %>%
+  ggplot(aes(x = pos, y = Afreq, color = pop)) +
+  geom_point(size = .1) +
+  facet_wrap(~chr, scales = "free_x")
 
 png("plots/scatterplot_CA_vs_AR_A_ancestry_all_loci.png", height = 6, width = 8, units = "in", res = 300)
 plot(meanA_CA, meanA_AR, pch = 20, col = ifelse((meanA_CA > quantile(meanA_CA, .99) & 
@@ -447,6 +505,26 @@ plot(meanA_CA, meanA_AR, pch = 20, col = ifelse((meanA_CA > quantile(meanA_CA, .
 abline(lm(meanA_AR~meanA_CA), col = "blue")
 dev.off()
 cor(meanA_CA, meanA_AR)
+
+# color outliers by scaffold/chromosome:
+data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>% # plot
+  ggplot(aes(x = CA, y = AR, color = scaffold_n)) +
+  geom_point(size = .1) +
+  facet_wrap(~chr) + 
+  ggtitle("African ancestry frequencies in CA vs. AR, all loci")
+ggsave("plots/mean_A_ancestry_CA_vs_AR_rainbow_by_chr.png", 
+       device = "png", height = 10, width = 12, units = "in")
+# zoom in on Group1.23 because it has both high and low outliers:
+data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>%
+  filter(chr == "Group1" & scaffold_n %in% 20:23) %>%
+  gather("pop", "Afreq", c("CA", "AR")) %>%
+  ggplot(aes(x = pos, y = Afreq, color = pop)) +
+  geom_point(size = .1) +
+  facet_wrap(~scaffold_n) + 
+  ggtitle("African ancestry frequencies in CA and AR")
+ggsave("plots/mean_A_ancestry_CA_and_AR_Group1_scaffolds_20-23.png", 
+       device = "png", height = 10, width = 12, units = "in")
+
 
 # plot K matrix
 zAnc_bees = make_K_calcs(t(A))
@@ -475,24 +553,30 @@ sd(meanA)
 AR_CA_K <- make_K_calcs(t(cbind(AR_A, CA_A)))
 #sim_n <- 10^6 # slow
 sim_n <- 10^5
+set.seed(101)
 MVNsim <- mvrnorm(n = sim_n, 
                   mu = AR_CA_K$alpha, 
                   Sigma = AR_CA_K$K, 
                   tol = 1e-6, 
                   empirical = FALSE, 
                   EISPACK = FALSE)
-hist(apply(MVNsim, 1, mean))
-summary(apply(MVNsim, 1, mean))
+
 MVNsim_bounded <- MVNsim # sets bounds at 0 and 1
 MVNsim_bounded[MVNsim < 0] <- 0
 MVNsim_bounded[MVNsim > 1] <- 1
-summary(apply(MVNsim_bounded, 1, mean)) # makes little difference
-hist(apply(MVNsim_bounded, 1, mean))
 MVNsim_AR <- MVNsim[ , colnames(AR_A)]
 MVNsim_AR_bounded <- MVNsim_bounded[ , colnames(AR_A)]
 MVNsim_CA <- MVNsim[ , colnames(CA_A)]
 MVNsim_CA_bounded <- MVNsim_bounded[ , colnames(CA_A)]
-plot(apply(MVNsim_AR_bounded, 1, mean), apply(MVNsim_CA_bounded, 1, mean))
+meanA_MVNsim_AR_bounded <- apply(MVNsim_AR_bounded, 1, mean)
+meanA_MVNsim_CA_bounded <- apply(MVNsim_CA_bounded, 1, mean)
+
+#summarise
+hist(apply(MVNsim, 1, mean))
+summary(apply(MVNsim, 1, mean))
+summary(apply(MVNsim_bounded, 1, mean)) # makes little difference
+hist(apply(MVNsim_bounded, 1, mean))
+plot(meanA_MVNsim_AR_bounded, meanA_MVNsim_CA_bounded)
 
 png("plots/mean_A_ancestry_CA_vs_AR_grey.png", 
     height = 8, width = 12, res = 300, units = "in")
@@ -553,15 +637,248 @@ table(apply(MVNsim_AR_bounded, 1, mean) < MVNsim_AR_bounded_quantile_low & apply
 
 # these outliers are pretty surprising under a MVN framework
 # how about under a poisson binomial framework? I should use means from the ancestry caller
+# get a 1% and 5% FDR for jointly shared outliers under the MVN (based on simulations):
+fdr_shared_high <- function(a1, a2, pop1, pop2, sims1, sims2){# takes in an ancestry, test for high ancestry in both zones
+  obs <- sum(pop1 >= a1 & pop2 >= a2) # observations exceeding threshold
+  null <- sum(sims1 >= a1 & sims2 >= a2)/length(sims1)*length(pop1) # expected number of neutral loci exceeding threshold in data set size length(pop1)
+  null/obs
+}
+fdr_shared_low <- function(a1, a2, pop1, pop2, sims1, sims2){# takes in an ancestry, test for low ancestry in both zones
+  obs <- sum(pop1 <= a1 & pop2 <= a2)
+  null <- sum(sims1 <= a1 & sims2 <= a2)/length(sims1)*length(pop1)
+  null/obs
+}
+fdr_1pop_high <- function(a, pop, sims){# takes in an ancestry, test for high ancestry in 1 zone
+  obs <- sum(pop >= a)
+  null <- sum(sims >= a)/length(sims)*length(pop)
+  null/obs
+}
+fdr_1pop_low <- function(a, pop, sims){# takes in an ancestry, test for low ancestry in 1 zone
+  obs <- sum(pop <= a)
+  null <- sum(sims <= a)/length(sims)*length(pop)
+  null/obs
+}
+
+# set FDR thresholds for A ancestry in Africanized bees
+test_fdr_shared_high <- sapply(1:length(meanA), function(x) # takes a while
+  fdr_shared_high(a1 = meanA_AR[x], a2 = meanA_CA[x], pop1 = meanA_AR, pop2 = meanA_CA, 
+                  sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
+test_fdr_shared_low <- sapply(1:length(meanA), function(x) # takes a while
+  fdr_shared_low(a1 = meanA_AR[x], a2 = meanA_CA[x], pop1 = meanA_AR, pop2 = meanA_CA, 
+                  sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
+
+# putting FDRs together with data
+meanA_both <- data.frame(AR = meanA_AR, CA = meanA_CA, both = meanA,
+                         FDR_shared_high = test_fdr_shared_high,
+                         FDR_shared_low = test_fdr_shared_low)
+table(meanA_both$FDR_shared_high < .05)/nrow(meanA_both) # 0.45% of sites appear positively selected in both zones at 5% FDR  
+summary(meanA_both$both[meanA_both$FDR_shared_high < .05 | is.na(meanA_both$FDR_shared_high)])
+hist(meanA_both$both[meanA_both$FDR_shared_high < .05 | is.na(meanA_both$FDR_shared_high)])
+hist(meanA_both$CA[meanA_both$FDR_shared_high < .05 | is.na(meanA_both$FDR_shared_high)])
+hist(meanA_both$AR[meanA_both$FDR_shared_high < .05 | is.na(meanA_both$FDR_shared_high)])
+
+meanA_both %>%  
+  filter(FDR_shared_high < .1 | is.na(FDR_shared_high)) %>%
+  ggplot(aes(x = CA, y = AR, color = FDR_shared_high)) +
+  geom_point() # doesn't look quite right -- how do you do a joint probability false-discovery-rate?
+summary(meanA_both$both)
+summary(meanA_both$both[is.na(meanA_both$FDR_shared_high)])
+summary(meanA_both$CA)
+# what is the FDR for top 1% overlap between both zones? About 8% FDR
+test_fdr_shared_high_quantiles <- sapply(c(0.9, 0.95, 0.99, 0.991, 0.992, 0.993, 0.994, 0.995, 0.999, 0.9999), function(x) # takes a while
+  fdr_shared_high(a1 = quantile(meanA_AR, x), a2 = quantile(meanA_CA, x), pop1 = meanA_AR, pop2 = meanA_CA, 
+                  sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
+test_fdr_shared_high_quantiles
+# alternatively I could walk along individual FDRs, rather than quantiles. 
+# Or walk along sd's above mean ancestry for each zone
+sd_CA <- sd(meanA_CA)
+mu_CA <- mean(meanA_CA)
+sd_AR <- sd(meanA_AR)
+mu_AR <- mean(meanA_AR)
+sd_range <- seq(0, 5, by = .01) # I can make this more precise later if I want
+
+# get standard deviation cutoffs for FDR shared high loci
+FDR_values = c(.1, .05, .01)
+test_fdr_shared_high_sds <- sapply(sd_range, function(x)
+  fdr_shared_high(a1 = mu_AR+x*sd_AR, a2 = mu_CA+x*sd_CA, pop1 = meanA_AR, pop2 = meanA_CA, 
+                  sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
+FDRs_shared_high_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_shared_high_sds<p], na.rm = T))
+
+# shared low # standard deviations below mean
+test_fdr_shared_low_sds <- sapply(sd_range, function(x)
+  fdr_shared_low(a1 = mu_AR-x*sd_AR, a2 = mu_CA-x*sd_CA, pop1 = meanA_AR, pop2 = meanA_CA, 
+                  sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
+FDRs_shared_low_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_shared_low_sds<p], na.rm = T))
+
+# high CA and high AR separately (less powerful):
+test_fdr_CA_high_sds <- sapply(sd_range, function(x) 
+  fdr_1pop_high(a = mu_CA+x*sd_CA, pop = meanA_CA, 
+                  sims = meanA_MVNsim_CA_bounded))
+FDRs_CA_high_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_CA_high_sds<p], na.rm = T))
+test_fdr_AR_high_sds <- sapply(sd_range, function(x)
+  fdr_1pop_high(a = mu_AR+x*sd_AR, pop = meanA_AR, 
+                sims = meanA_MVNsim_AR_bounded))
+FDRs_AR_high_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_AR_high_sds<p], na.rm = T))
+
+# low CA and high AR separately (less powerful):
+test_fdr_CA_low_sds <- sapply(sd_range, function(x) 
+  fdr_1pop_low(a = mu_CA-x*sd_CA, pop = meanA_CA, 
+                sims = meanA_MVNsim_CA_bounded))
+FDRs_CA_low_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_CA_low_sds<p], na.rm = T))
+# we do not find any low outliers in CA based on a .1, .05 or .01 FDR (underpowered)
+test_fdr_AR_low_sds <- sapply(sd_range, function(x)
+  fdr_1pop_low(a = mu_AR-x*sd_AR, pop = meanA_AR, 
+                sims = meanA_MVNsim_AR_bounded))
+FDRs_AR_low_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_AR_low_sds<p], na.rm = T))
+# get standard deviations for false-discovery rates
+FDRs_sds = data.frame(FDR_values = FDR_values,
+                  shared_high = FDRs_shared_high_sds,
+                  shared_low = FDRs_shared_low_sds,
+                  CA_high = FDRs_CA_high_sds,
+                  CA_low = FDRs_CA_low_sds,
+                  AR_high = FDRs_AR_high_sds,
+                  AR_low = FDRs_AR_low_sds,
+                  stringsAsFactors = F)
+write.table(FDRs_sds, "results/FDRs_MVN_01_high_low_A_SDs.txt", quote = F, col.names = T, row.names = F, sep = "\t")
+# translate SD cutoffs to % A ancestry cutoffs:
+FDRs = data.frame(FDR_values = FDR_values,
+                  shared_high_CA = mu_CA + FDRs_sds$shared_high*sd_CA,
+                  shared_high_AR = mu_AR + FDRs_sds$shared_high*sd_AR,
+                  shared_low_CA = mu_CA - FDRs_sds$shared_low*sd_CA,
+                  shared_low_AR = mu_AR - FDRs_sds$shared_low*sd_AR,
+                  CA_high = mu_CA + FDRs_sds$CA_high*sd_CA,
+                  CA_low = mu_CA - FDRs_sds$CA_low*sd_CA,
+                  AR_high = mu_AR + FDRs_sds$AR_high*sd_AR,
+                  AR_low = mu_AR - FDRs_sds$AR_low*sd_AR,
+                  stringsAsFactors = F)
+write.table(FDRs, "results/FDRs_MVN_01_high_low_A_percent_cutoffs.txt", quote = F, col.names = T, row.names = F, sep = "\t")
+FDRs <- read.table("results/FDRs_MVN_01_high_low_A_percent_cutoffs.txt", 
+                   stringsAsFactors = F, header = T, sep = "\t")
+
+# what percent of the genome matches these cutoffs?
+table(meanA_CA > FDRs$CA_high[FDRs$FDR_values==.05])/length(meanA_CA) # 0.28% of loci (very few!)
+table(sites$scaffold[meanA_CA > FDRs$CA_high[FDRs$FDR_values==.05]]) # where are they?
+
+# about .3% of the genome is found in high shared sites at 5% FDR
+table(meanA_CA > FDRs$shared_high_CA[FDRs$FDR_values==.05] & meanA_AR > FDRs$shared_high_AR[FDRs$FDR_values == .05])/length(meanA_CA) # 0.28% of loci (very few!)
+table(sites$scaffold[meanA_CA > FDRs$shared_high_CA[FDRs$FDR_values==.1] & meanA_AR > FDRs$shared_high_AR[FDRs$FDR_values == .1]])
+# any genes?
+
+# write a bed file with outlier regions (to compare with honeybee genes):
+# ancestry calls are extended to halfway between any two calls and end at the position of the last/first call for a scaffold
+# note: this does not extend all the way to the ends of the chromosomes (so some genes may not have ancestry calls)
+A_plus_sites <- bind_cols(sites, data.frame(CA = meanA_CA, AR = meanA_AR, stringsAsFactors = F)) 
+A_plus_sites$half_right <- c(diff(A_plus_sites$pos, 1), 1)/2 # halfway between that and next position
+
+A_plus_sites$half_right[c(diff(A_plus_sites$scaffold_n, 1), 0) != 0] <- 0.5 # new scaffold
+A_plus_sites$half_left <- c(0.5, A_plus_sites$half_right[1:(nrow(A_plus_sites) - 1)]) # halfway between focal locus and previous position
+# make bed start and end points
+A_plus_sites$end <- floor(A_plus_sites$pos + A_plus_sites$half_right)
+A_plus_sites$start <- floor(A_plus_sites$pos - A_plus_sites$half_left)
+
+# write bed file with mean ancestry for Argentina and California included bees
+# also include whether a site meets a FDR threshold for selection
+A_plus_sites %>%
+  mutate(FDR_shared_high = ifelse(CA >= FDRs[FDRs$FDR_values == .01, "shared_high_CA"] & AR >= FDRs[FDRs$FDR_values == .01, "shared_high_AR"],
+                                  .01, ifelse(CA >= FDRs[FDRs$FDR_values == .05, "shared_high_CA"] & AR >= FDRs[FDRs$FDR_values == .05, "shared_high_AR"],
+                                              .05, ifelse(CA >= FDRs[FDRs$FDR_values == .1, "shared_high_CA"] & AR >= FDRs[FDRs$FDR_values == .1, "shared_high_AR"],
+                                                          .1, NA)))) %>%
+  mutate(FDR_CA_high = ifelse(CA >= FDRs[FDRs$FDR_values == .01, "CA_high"],
+                              .01, ifelse(CA >= FDRs[FDRs$FDR_values == .05, "CA_high"],
+                                          .05, ifelse(CA >= FDRs[FDRs$FDR_values == .1, "CA_high"],
+                                                      .1, NA)))) %>%
+  mutate(FDR_AR_high = ifelse(AR >= FDRs[FDRs$FDR_values == .01, "AR_high"],
+                              .01, ifelse(AR >= FDRs[FDRs$FDR_values == .05, "AR_high"],
+                                          .05, ifelse(AR >= FDRs[FDRs$FDR_values == .1, "AR_high"],
+                                                      .1, NA)))) %>%
+  mutate(FDR_shared_low = ifelse(CA <= FDRs[FDRs$FDR_values == .01, "shared_low_CA"] & AR <= FDRs[FDRs$FDR_values == .01, "shared_low_AR"],
+                                 .01, ifelse(CA <= FDRs[FDRs$FDR_values == .05, "shared_low_CA"] & AR <= FDRs[FDRs$FDR_values == .05, "shared_low_AR"],
+                                             .05, ifelse(CA <= FDRs[FDRs$FDR_values == .1, "shared_low_CA"] & AR <= FDRs[FDRs$FDR_values == .1, "shared_low_AR"],
+                                                         .1, NA)))) %>%
+  mutate(FDR_CA_low = ifelse(CA <= FDRs[FDRs$FDR_values == .01, "CA_low"],
+                             .01, ifelse(CA <= FDRs[FDRs$FDR_values == .05, "CA_low"],
+                                         .05, ifelse(CA <= FDRs[FDRs$FDR_values == .1, "CA_low"],
+                                                     .1, NA)))) %>%
+  mutate(FDR_AR_low = ifelse(AR <= FDRs[FDRs$FDR_values == .01, "AR_low"],
+                             .01, ifelse(AR <= FDRs[FDRs$FDR_values == .05, "AR_low"],
+                                         .05, ifelse(AR <= FDRs[FDRs$FDR_values == .1, "AR_low"],
+                                                     .1, NA)))) %>%
+  dplyr::select(scaffold, start, end, snp_id, AR, CA, FDR_shared_high, FDR_AR_high, FDR_CA_high, 
+                FDR_shared_low, FDR_AR_low, FDR_CA_low) %>%
+  write.table(., 
+              "results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/mean_ancestry_AR_CA_included.bed", 
+              sep = "\t", quote = F, col.names = F, row.names = F)
 
 
+# I think I'm making some independence assumption here with the FDR rates
+# It might be better to bin ancestry into broader windows, before calculating covariances.
+
+# Also Harpur's study blasted the markers against the genome + 5kb to get coordinates for prior varroa-hygeine QTLs 
+
+# plotting K covariance in ancestry matrix
 melt(AR_CA_K$K) %>%
+  #filter(!(Var1 == "Avalon_2014" | Var2 == "Avalon_2014")) %>%
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
   #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
   ggtitle("K matrix - bees AR & CA")
+melt(AR_CA_K$K) %>% # filter out Avalon to get better color distinction between the others
+  filter(!(Var1 == "Avalon_2014" | Var2 == "Avalon_2014")) %>%
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
+  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
+  ggtitle("K matrix - bees AR & CA")
+
+# take away diagonal contribution of binomial sampling variance
+# the diagonal elements have variance due to drift + binomial sampling variance
+# = drift var + (n/n-1)*n*p*q/(n^2) where n/n-1 is the effect of small sample size n and npq is the standard binomial variance
+# p is the African ancestry allele frequency, q = 1-p and n = number of haplotypes = 2*n_bees in a population
+# but then because I'm using variance in frequencies, not counts, I divide by n^2
+# except this isn't quite right because it should be observed allele freq at a locus, not genomewide mean
+n_bees_per_pop <- sapply(names(AR_CA_K$alpha), function(p) meta.pop[meta.pop$population == p, "n_bees"])
+sampling_var_diag <- ((2*n_bees_per_pop/(2*n_bees_per_pop - 1))*n_bees_per_pop*2*AR_CA_K$alpha*(1 - AR_CA_K$alpha))/(2*n_bees_per_pop)^2 
+AR_CA_K_minus_sampling <- AR_CA_K$K
+for (i in 1:length(sampling_var_diag)){
+  AR_CA_K_minus_sampling[i,i] <- AR_CA_K_minus_sampling[i,i] - sampling_var_diag[i]
+}
+AR_CA_K_minus_sampling %>% # not quite
+  melt() %>%
+  dplyr::filter(!(Var1 == "Avalon_2014" | Var2 == "Avalon_2014")) %>%
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
+  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
+  ggtitle("K matrix - bees AR & CA")
+# simulate the variance:
+a = .5
+n_binom = 10
+n_sim = 10^5
+# simulate 100 loci, just binomial variance
+sim_pop1 <- rbinom(size = n_binom, n = n_sim, p = a)/n_binom  
+var(sim_pop1)
+mean(sim_pop1)
+cov(sim_pop1, sim_pop1)
+mean((sim_pop1 - mean(sim_pop1))^2) # observed variance
+mean(sim_pop1)*(1-mean(sim_pop1))/n_binom # theoretical no small sample size correction - looks correct
+mean(sim_pop1)*(1-mean(sim_pop1))/(n_binom-1) # theoretical w/ small sample size correction - incorrect
+# now add normal noise around allele freq due to drift before binomial sampling:
+sim_drift2 <- rnorm(n = n_sim, mean = a, sd = .1)
+sim_pop2 <- rbinom(size = n_binom, n = sim_drift2, p = a)/n_binom
+var(sim_drift2)
+mean(sim_pop2)
+var(sim_pop2) # observed variance
+mean((sim_pop2 - mean(sim_pop2))^2)
+mean(sim_pop2)*(1-mean(sim_pop2))/n_binom # mean theoretical
+
+
 
 r <- read.table("results/SNPs/thin1kb_common3/included_pos_on_Wallberg_Amel4.5_chr.r.bed",
                 sep = "\t", stringsAsFactors = F) %>%

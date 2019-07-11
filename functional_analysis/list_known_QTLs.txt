@@ -1,0 +1,19 @@
+Name	Trait	LG	marker position	primary reference	secondary reference	mapping pop
+qtl1_pollen	Pollen foraging	?	?	Hunt 1995 and Page 1995	Hunt 1998	unclear
+qtl2_pollen	Pollen foraging	?	?	Hunt 1995 and Page 1995	Hunt 1998	unclear
+sting-1	stings-per-minute	4	stsN4-.245	Hunt 1998	NA	European-Africanized
+sting_others					Hunt 1998	NA	European-Africanized
+wing_length_drone				Hunt 1998	NA	European-Africanized
+wing_length_workers				Hunt 1998	NA	European-Africanized
+age first foraging				Rueppel 2009	NA	European-Africanized
+varroa-sensitive-hygiene-chr9	uncapping/removing infested brood	9	?gives probe sequences for genotyping that fall in 1.5-LOD support interval	Tsuruda 2012	NA	? crossed USDA high VSH line and a low VSH - likely all European lines. I should ask if amel4.0 includes 50000bp gaps between scaffolds
+varroa-sensitive-hygiene-chr1-suggestive	uncapping/removing infested brood	1	?	Tsuruda 2012	NA	? crossed USDA high VSH line and a low VSH - likely all European lines
+VTL-1	varroa tolerance - reduced mite reproduction	4	2.1-4.3Mb	Behrens 2011	NA	Swedish-note epistatic not additive
+VTL-2	varroa tolerance - reduced mite reproduction	7	1-3.5Mb	Behrens 2011	NA	Swedish-note epistatic not additive
+VTL-3	varroa tolerance - reduced mite reproduction	9	3.6-8.5Mb	Behrens 2011	NA	Swedish-note epistatic not additive
+uncapping QTL Tothenbuhler 1964, Moritz 1988, Lapidge 2002 Oxley 2010 referenced by Behrens 2011
+groom-1	grooming varroa	5	2Mb-long-?	Arechavaleta-Velasco 2012	NA	??	
+Research shows Africanized honey bees have both higher grooming and VSH (Arechavaleta-Velasco 2012)
+*Many of these studies use linkage map 1995 Hunt based on RAPD markers (Genetics)
+
+	
