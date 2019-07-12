@@ -294,6 +294,11 @@ local_ancestry$ nohup parallel --noswap --jobs 8 --joblog logs/calc_anc_thin1kb_
 :::: ../bee_samples_listed/byPop/pops_included.list \
 &> logs/calc_anc_thin1kb_common3_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot.out &
 [1] 6346 - RUNNING 6.14.19
+# rerunning to get alpha estimates too:
+local_ancestry$ nohup parallel --noswap --jobs 8 --joblog logs/calc_anc_thin1kb_common3_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot_getAlpha.log \
+'Rscript ./calcAncFromPost.R {1} results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot' \
+:::: ../bee_samples_listed/byPop/pops_included.list \
+&> logs/calc_anc_thin1kb_common3_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot_getAlpha.out &
 
 # make a bed file with the mean ancestry estimates in included AR and CA populations, using R script plotAncestryTracts.R
 results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc$ head mean_ancestry_AR_CA_included.bed

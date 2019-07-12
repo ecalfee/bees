@@ -68,7 +68,7 @@ colnames(map) <- c("chr", "pos_start", "map_region_n", "r")
 # so I'll just give the gap a genomewide mean recombination rate
 # which won't be used anyways since there are no SNPs and it's a really big 100kb gap
 map$r[is.na(map$r)] <- mean(map$r, na.rm = T)
-map$rlength <- r*100000
+map$rlength <- map$r*100000
 # r has units cM/Mb and a mean ~ 25cM/Mb. plink also uses cM
 # I want cM positions relative to the chromosome
 # I'll can use approxfun() to do this

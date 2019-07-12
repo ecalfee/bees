@@ -5,6 +5,8 @@ library(ggplot2)
 library(scales)
 library(reshape2)
 library(viridis)
+library(LaplacesDemon)
+library(emdbook)
 
 source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
 source("../../covAncestry/forqs_sim/k_matrix.R") # import useful functions
@@ -365,6 +367,7 @@ anc_all_plus_meta %>%
   ggplot(aes(x = mean_lat, y = locus_A, color = group)) +
   geom_point()
 
+#************************************************************************************************************#
 
 # Newest bee sequences
 # load metadata
@@ -377,7 +380,10 @@ popA <- lapply(pops, function(p) read.table(paste0("results/ancestry_hmm/thin1kb
                                             stringsAsFactors = F))
 A <- do.call(cbind, popA)
 colnames(A) <- pops
-meanA <- apply(A, 1, mean)
+meanA0 <- apply(A, 1, mean)
+# with only included pops, mean of all individuals:
+meanA <- apply(A[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
+               function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(CA_pops_included$n_bees, AR_pops_included$n_bees)))
 
 sites0 <- read.table("results/SNPs/thin1kb_common3/included_scaffolds.pos", stringsAsFactors = F,
                     sep = "\t", header = F)
@@ -409,17 +415,20 @@ abline(v = quantile(meanA, .99), col = "orange")
 abline(v = quantile(meanA, .01), col = "orange")
 dev.off()
 
-CA_pops_included <- meta.pop$population[meta.pop$group %in% c("N_CA", "S_CA", "CA_2018") & meta.pop$year >= 2014]
-CA_A <- A[, CA_pops_included]
+CA_pops_included <- meta.pop[meta.pop$group %in% c("N_CA", "S_CA", "CA_2018") & meta.pop$year >= 2014, ]
+CA_A <- A[, CA_pops_included$population]
 CA_A_earlier <- A[, meta.pop$population[meta.pop$group %in% c("N_CA", "S_CA") & meta.pop$year < 2014]]
 CA_A_2014 <- A[, meta.pop$population[meta.pop$group %in% c("N_CA", "S_CA") & meta.pop$year == 2014]]
 CA_A_2018 <- A[, meta.pop$population[meta.pop$group %in% c("CA_2018")]]
 plot(apply(CA_A_2014, 1, mean), apply(CA_A_2018, 1, mean))
 plot(apply(CA_A_earlier, 1, mean), apply(CA_A_2018, 1, mean))
-AR_pops_included <- meta.pop$population[meta.pop$group == "AR_2018"]
-AR_A <- A[, AR_pops_included]
-meanA_CA <- apply(CA_A, 1, mean)
-meanA_AR <- apply(AR_A, 1, mean)
+AR_pops_included <- meta.pop[meta.pop$group == "AR_2018", ]
+AR_A <- A[, AR_pops_included$population]
+# take mean across individuals, not across populations:
+meanA_CA0 <- apply(CA_A, 1, mean)
+meanA_CA <- apply(CA_A, 1, function(x) sum(x*CA_pops_included$n_bees)/sum(CA_pops_included$n_bees))
+meanA_AR0 <- apply(AR_A, 1, mean)
+meanA_AR <- apply(AR_A, 1, function(x) sum(x*AR_pops_included$n_bees)/sum(AR_pops_included$n_bees))
 
 sites %>%
   filter(meanA_CA > quantile(meanA_CA, .99) & 
@@ -529,22 +538,28 @@ ggsave("plots/mean_A_ancestry_CA_and_AR_Group1_scaffolds_20-23.png",
 # plot K matrix
 zAnc_bees = make_K_calcs(t(A))
 
-png("plots/k_matrix_all_pops.png", height = 6, width = 8, units = "in", res = 300)
+
 melt(zAnc_bees$K) %>%
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
   scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
-  ggtitle("K matrix - bees")
+  ggtitle("K covariance - bees")
+ggsave("plots/k_matrix_all_pops.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
 melt(cov2cor(zAnc_bees$K)) %>%
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
   scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
-  ggtitle("K matrix - bees")
-dev.off()
+  ggtitle("K correlation - bees")
+ggsave("plots/k_correlation_matrix_all_pops.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
+
 
 summary(meanA)
 sd(meanA)
@@ -564,25 +579,89 @@ MVNsim <- mvrnorm(n = sim_n,
 MVNsim_bounded <- MVNsim # sets bounds at 0 and 1
 MVNsim_bounded[MVNsim < 0] <- 0
 MVNsim_bounded[MVNsim > 1] <- 1
-MVNsim_AR <- MVNsim[ , colnames(AR_A)]
-MVNsim_AR_bounded <- MVNsim_bounded[ , colnames(AR_A)]
-MVNsim_CA <- MVNsim[ , colnames(CA_A)]
-MVNsim_CA_bounded <- MVNsim_bounded[ , colnames(CA_A)]
-meanA_MVNsim_AR_bounded <- apply(MVNsim_AR_bounded, 1, mean)
-meanA_MVNsim_CA_bounded <- apply(MVNsim_CA_bounded, 1, mean)
+MVNsim_AR <- MVNsim[ , AR_pops_included$population]
+MVNsim_AR_bounded <- MVNsim_bounded[ , AR_pops_included$population]
+MVNsim_CA <- MVNsim[ , CA_pops_included$population]
+MVNsim_CA_bounded <- MVNsim_bounded[ , CA_pops_included$population]
+# mean across populations
+meanA_MVNsim_AR_bounded0 <- apply(MVNsim_AR_bounded, 1, mean)
+meanA_MVNsim_CA_bounded0 <- apply(MVNsim_CA_bounded, 1, mean)
+# mean across individuals
+meanA_MVNsim_AR_bounded <- apply(MVNsim_AR_bounded[ , AR_pops_included$population], 1, 
+                                  function(x) sum(x*AR_pops_included$n_bees)/sum(AR_pops_included$n_bees))
+meanA_MVNsim_CA_bounded <- apply(MVNsim_CA_bounded[ , CA_pops_included$population], 1, 
+                                  function(x) sum(x*CA_pops_included$n_bees)/sum(CA_pops_included$n_bees))
+# combined mean across individuals
+meanA_MVNsim_bounded <- apply(cbind(MVNsim_AR_bounded, MVNsim_CA_bounded)[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
+                               function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(AR_pops_included$n_bees, CA_pops_included$n_bees)))
+meanA_MVNsim <- apply(cbind(MVNsim_AR, MVNsim_CA)[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
+                               function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(AR_pops_included$n_bees, CA_pops_included$n_bees)))
+
+# Add in constraint that all covariances must be 0 or positive
+# (effectively I zero out negative covariances):
+# simulate from MVN distribution:
+AR_CA_K_zero <- AR_CA_K$K
+AR_CA_K_zero[AR_CA_K$K < 0] <- 0
+set.seed(101)
+MVNsim_zero <- mvrnorm(n = sim_n, 
+                  mu = AR_CA_K$alpha, 
+                  Sigma = AR_CA_K_zero, 
+                  tol = 1e-6, 
+                  empirical = FALSE, 
+                  EISPACK = FALSE)
+
+MVNsim_zero_bounded <- MVNsim_zero # sets bounds at 0 and 1
+MVNsim_zero_bounded[MVNsim_zero < 0] <- 0
+MVNsim_zero_bounded[MVNsim_zero > 1] <- 1
+MVNsim_AR_zero <- MVNsim_zero[ , AR_pops_included$population]
+MVNsim_AR_zero_bounded <- MVNsim_zero_bounded[ , AR_pops_included$population]
+MVNsim_CA_zero <- MVNsim_zero[ , CA_pops_included$population]
+MVNsim_CA_zero_bounded <- MVNsim_zero_bounded[ , CA_pops_included$population]
+# mean across individuals
+meanA_MVNsim_AR_zero_bounded <- apply(MVNsim_AR_zero_bounded[ , AR_pops_included$population], 1, 
+                                 function(x) sum(x*AR_pops_included$n_bees)/sum(AR_pops_included$n_bees))
+meanA_MVNsim_CA_zero_bounded <- apply(MVNsim_CA_zero_bounded[ , CA_pops_included$population], 1, 
+                                 function(x) sum(x*CA_pops_included$n_bees)/sum(CA_pops_included$n_bees))
+# combined mean across individuals
+meanA_MVNsim_zero_bounded <- apply(cbind(MVNsim_AR_zero_bounded, MVNsim_CA_zero_bounded)[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
+                              function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(AR_pops_included$n_bees, CA_pops_included$n_bees)))
+meanA_MVNsim_zero <- apply(cbind(MVNsim_AR_zero, MVNsim_CA_zero)[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
+                      function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(AR_pops_included$n_bees, CA_pops_included$n_bees)))
+
+
+
 
 #summarise
+summary(meanA_MVNsim)
+summary(meanA_MVNsim_bounded) # makes little difference
+summary(meanA_MVNsim_zero)
+summary(meanA_MVNsim_zero_bounded)
+# plots
 hist(apply(MVNsim, 1, mean))
-summary(apply(MVNsim, 1, mean))
-summary(apply(MVNsim_bounded, 1, mean)) # makes little difference
-hist(apply(MVNsim_bounded, 1, mean))
-plot(meanA_MVNsim_AR_bounded, meanA_MVNsim_CA_bounded)
+hist(meanA_MVNsim)
+hist(meanA_MVNsim_bounded)
+plot(meanA_MVNsim_AR_bounded, meanA_MVNsim_CA_bounded, xlim = c(0, 1), ylim = c(0, 1),
+     main = "simulation CA vs. AR frequencies (zero-d K matrix MVN sim in blue)")
+points(meanA_MVNsim_AR_zero_bounded, meanA_MVNsim_CA_zero_bounded, col = "blue")
+plot(meanA_MVNsim_bounded, meanA_MVNsim_zero_bounded, col = "orange", 
+     xlim = c(0.1, 0.7), ylim = c(0.1, 0.7),
+     main = "effect of zero-ing out small negative covariances")
+abline(a = 0, b = 1)
+var(meanA_MVNsim_bounded)
+var(meanA_MVNsim_zero_bounded) # very slightly higher variance -- could just be simulation noise
+# this makes sense because the covariances I zero-d out were very slight
 
 png("plots/mean_A_ancestry_CA_vs_AR_grey.png", 
     height = 8, width = 12, res = 300, units = "in")
 plot(meanA_CA, meanA_AR, pch = 20, col = alpha("grey", .1),
      main = "comparison of A ancestry in California vs. Argentina zone")
 dev.off()
+
+# plot 50%, 95%, 99% & .999% credible intervals for my empirical observations
+LaplacesDemon::joint.pr.plot(meanA_CA, 
+                             meanA_AR, # top 1% may not be strict enough to ID outliers
+                             quantiles=c(0.5, 0.95, 0.99, .999))
+
 
 png("plots/mean_A_ancestry_CA_vs_AR_MVNsim_outliers_blue.png", 
     height = 8, width = 12, res = 300, units = "in")
@@ -593,14 +672,7 @@ plot(meanA_CA, meanA_AR, pch = 20, col = ifelse((meanA_CA > quantile(apply(MVNsi
                                                 alpha("blue", .1), alpha("grey", .1)),
      main = "comparison of A ancestry in California vs. Argentina zone, blue = top 0.01% sim")
 dev.off()
-abline(v = quantile(apply(MVNsim_CA, 1, mean), .9999), col = "blue")
-abline(h = quantile(apply(MVNsim_AR, 1, mean), .9999), col = "blue")
-abline(v = quantile(apply(MVNsim_CA, 1, mean), .0001), col = "blue")
-abline(h = quantile(apply(MVNsim_AR, 1, mean), .0001), col = "blue")
-abline(v = quantile(apply(MVNsim_CA_bounded, 1, mean), .9999), col = "orange")
-abline(h = quantile(apply(MVNsim_AR_bounded, 1, mean), .9999), col = "orange")
-abline(v = quantile(apply(MVNsim_CA_bounded, 1, mean), .0001), col = "orange")
-abline(h = quantile(apply(MVNsim_AR_bounded, 1, mean), .0001), col = "orange")
+
 
 png("plots/mean_A_ancestry_CA_vs_AR_MVNsim_results_orange.png", 
     height = 8, width = 12, res = 300, units = "in")
@@ -623,20 +695,62 @@ points(apply(MVNsim_CA_bounded, 1, mean), apply(MVNsim_AR_bounded, 1, mean), pch
 dev.off()
 
 # how likely are these shared outliers in my simulation?
-MVNsim_AR_bounded_quantile <- quantile(apply(MVNsim_AR_bounded, 1, mean), .99)
-MVNsim_CA_bounded_quantile <- quantile(apply(MVNsim_CA_bounded, 1, mean), .99)
-table(apply(MVNsim_AR_bounded, 1, mean) > MVNsim_AR_bounded_quantile & apply(MVNsim_CA_bounded, 1, mean) > MVNsim_CA_bounded_quantile)/sim_n
+MVNsim_AR_bounded_quantile <- quantile(meanA_MVNsim_AR_bounded, .99)
+MVNsim_CA_bounded_quantile <- quantile(meanA_MVNsim_CA_bounded, .99)
+table(meanA_MVNsim_AR_bounded > MVNsim_AR_bounded_quantile & 
+        meanA_MVNsim_CA_bounded > MVNsim_CA_bounded_quantile)/sim_n
 .01^2 # it's about six times as likely under the MVN to get a double outlier at top .01% than it would be under true independence between N and S America
 # but still same order of magnitude. Also I maybe need to simulate a larger # of trials to get accuracy in the tails (only expect 1000 outliers each out of 100k, very small # overlap)
 # when I simulated 1 million MVN's I got .000521 as the probability of outliers in both CA and AR at .01%
-MVNsim_AR_bounded_quantile_low <- quantile(apply(MVNsim_AR_bounded, 1, mean), .01)
-MVNsim_CA_bounded_quantile_low <- quantile(apply(MVNsim_CA_bounded, 1, mean), .01)
-table(apply(MVNsim_AR_bounded, 1, mean) < MVNsim_AR_bounded_quantile_low & apply(MVNsim_CA_bounded, 1, mean) < MVNsim_CA_bounded_quantile_low)/sim_n
-# on the low side it's similar, .00045, when I use 1 million simulations .. still only 450 observations
+MVNsim_AR_bounded_quantile_low <- quantile(meanA_MVNsim_AR_bounded, .01)
+MVNsim_CA_bounded_quantile_low <- quantile(meanA_MVNsim_CA_bounded, .01)
+table(meanA_MVNsim_AR_bounded < MVNsim_AR_bounded_quantile_low & 
+        meanA_MVNsim_CA_bounded < MVNsim_CA_bounded_quantile_low)/sim_n
+# on the low side it's similar. some variance from low # expected hits in my simulations
 
 
 # these outliers are pretty surprising under a MVN framework
-# how about under a poisson binomial framework? I should use means from the ancestry caller
+# how about under a poisson binomial framework? even more surprising
+# first read in individual alpha estimates for mean A ancestry
+CA_indAlpha <- do.call(rbind,
+                       lapply(CA_pops_included$population, function(p) 
+  read.table(paste0("results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/", p, ".alpha.anc"),
+                                            stringsAsFactors = F)))
+AR_indAlpha <- do.call(rbind,
+                       lapply(AR_pops_included$population, function(p) 
+                         read.table(paste0("results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/", p, ".alpha.anc"),
+                                    stringsAsFactors = F)))
+
+# compare distribution between binomial and MVN for 10^5 simulations
+set.seed(101) # use same seed
+PoiBinsim_CA <- apply(do.call(rbind,
+                        lapply(CA_indAlpha$A, 
+                       function(alpha)
+                         rbinom(n = sim_n, size = 2, prob = alpha)))/2, 2, mean)
+PoiBinsim_AR <- apply(do.call(rbind,
+                                 lapply(AR_indAlpha$A, 
+                                        function(alpha)
+                                          rbinom(n = sim_n, size = 2, prob = alpha)))/2, 2, mean)
+PoiBinsim_combined <- (PoiBinsim_CA*sum(CA_pops_included$n_bees) + PoiBinsim_AR*sum(AR_pops_included$n_bees))/sum(c(CA_pops_included$n_bees, AR_pops_included$n_bees))
+                                                                                                                    
+
+# plot comparison
+png("plots/distribution_data_vs_poibin_vs_MVN_sim.png", height = 6, width = 8, units = "in", res = 300)
+hist(meanA, col = alpha("purple", .5), main = "Simulated combined A ancestry frequency distribution", freq = F,
+     ylim = c(0, 25), xlab = "Combined A Ancestry Freq.")
+hist(meanA_MVNsim_bounded, col = alpha("blue", .5), add = T, freq = F)
+hist(PoiBinsim_combined, col = alpha("yellow", .5), add = T, freq = F)
+legend("topright", 
+       legend = c("Poisson-Binomial", "Multivariate Normal (Bounded)", "Observed data"),
+       pch = 2,
+       col = c("yellow", "blue", "purple"))
+dev.off()
+
+# make sure I still have outliers if I set the negative covariances to zero in my MVN (!)
+
+
+
+# What are my false discovery rates?
 # get a 1% and 5% FDR for jointly shared outliers under the MVN (based on simulations):
 fdr_shared_high <- function(a1, a2, pop1, pop2, sims1, sims2){# takes in an ancestry, test for high ancestry in both zones
   obs <- sum(pop1 >= a1 & pop2 >= a2) # observations exceeding threshold
@@ -762,7 +876,56 @@ table(sites$scaffold[meanA_CA > FDRs$CA_high[FDRs$FDR_values==.05]]) # where are
 # about .3% of the genome is found in high shared sites at 5% FDR
 table(meanA_CA > FDRs$shared_high_CA[FDRs$FDR_values==.05] & meanA_AR > FDRs$shared_high_AR[FDRs$FDR_values == .05])/length(meanA_CA) # 0.28% of loci (very few!)
 table(sites$scaffold[meanA_CA > FDRs$shared_high_CA[FDRs$FDR_values==.1] & meanA_AR > FDRs$shared_high_AR[FDRs$FDR_values == .1]])
-# any genes?
+
+
+# make a grid where you calculate quantile for joint distribution based off of MVN simulation
+grid_n <- 10 # smoother if you use more like 100
+range_CA <- seq(from = range(meanA_CA)[1], to = range(meanA_CA)[2], length.out = grid_n)
+range_AR <- seq(from = range(meanA_AR)[1], to = range(meanA_AR)[2], length.out = grid_n)
+quantile_MVN <- matrix(0, grid_n, grid_n)
+for (i in 1:grid_n){
+  for (j in 1:grid_n){
+    quantile_MVN[i, j] <- mean(abs(meanA_MVNsim_CA_zero_bounded - mu_CA) <= abs(range_CA[i] - mu_CA) & 
+                                 abs(meanA_MVNsim_AR_zero_bounded - mu_AR) <= abs(range_AR[j] - mu_AR)) 
+  }
+}
+png("plots/contour_plot_joint_outliers_CA_AR_zero_bounded_MVN.png",
+    height = 6, width = 8, units = "in", res = 300)
+contour(x = range_CA, y = range_AR, z = quantile_MVN, 
+        levels = c(0.25, 0.5, .95, .99, 1),
+        xlab = "mean A ancestry in CA hybrid zone",
+        ylab = "mean A ancestry in AR hybrid zone",       
+        main = "contour plot for joint outliers, MVN zero bounded simulation")
+points(meanA_CA, meanA_AR, col = alpha("blue", .05), pch = 20)
+dev.off()
+
+# actually maybe what I want is simpler -- just a density plot for the MVN sim underneath my data points
+ggplot() +
+  geom_point(data = data.frame(meanA_CA = meanA_CA, meanA_AR = meanA_AR), 
+             aes(x = meanA_CA, y = meanA_AR)) +
+  geom_density_2d(data = data.frame(MVN_CA = meanA_MVNsim_CA_zero_bounded,
+                                    MVN_AR = meanA_MVNsim_AR_zero_bounded), 
+                  aes(x=MVN_CA, y=MVN_AR))
+# I can use stat_contour if I have a z gridded for what I want to display
+png("plots/density_MVN_overlay_on_scatterplot.png", height = 6, width = 8, units = "in", res = 300)
+plot(meanA_CA, meanA_AR, col = "grey", pch = 20)
+emdbook::HPDregionplot(cbind(meanA_MVNsim_CA_zero_bounded, meanA_MVNsim_AR_zero_bounded), 
+                       prob = c(0.99, 0.95, 0.75, 0.5), 
+                       col=c("yellow", "salmon", "lightblue", "lightgreen"), 
+                       lwd = 3, 
+                       add = TRUE)
+legend("topleft", legend = c(0.99, 0.95, 0.75, 0.5), 
+       title = "quantile MVN sim.",
+       pch = 20,
+       col=c("yellow", "salmon", "lightblue", "lightgreen"))
+dev.off()
+abline(v = quantile(meanA_MVNsim_CA_zero_bounded, c(0.01, 0.99)), col = "yellow")
+abline(h = quantile(meanA_MVNsim_AR_zero_bounded, c(0.01, 0.99)), col = "yellow")
+# (!) something is wrong -- how can 99% of points be left of the line and also 99% of points in the circle,
+# if the line is left of the circle?
+
+
+# any genes in outlier regions?
 
 # write a bed file with outlier regions (to compare with honeybee genes):
 # ancestry calls are extended to halfway between any two calls and end at the position of the last/first call for a scaffold
@@ -825,6 +988,23 @@ melt(AR_CA_K$K) %>%
   #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
   #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
   ggtitle("K matrix - bees AR & CA")
+ggsave("plots/k_matrix_CA_AR_pops.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
+# plot as correlation:
+melt(cov2cor(AR_CA_K$K)) %>%
+  #filter(!(Var1 == "Avalon_2014" | Var2 == "Avalon_2014")) %>%
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
+  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
+  ggtitle("K matrix correlation - bees AR & CA")
+ggsave("plots/k_matrix_correlation_CA_AR_pops.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
+
 melt(AR_CA_K$K) %>% # filter out Avalon to get better color distinction between the others
   filter(!(Var1 == "Avalon_2014" | Var2 == "Avalon_2014")) %>%
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
@@ -833,7 +1013,38 @@ melt(AR_CA_K$K) %>% # filter out Avalon to get better color distinction between 
   scale_fill_viridis(begin = 0, end = 1, direction = 1) +
   #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
   #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
-  ggtitle("K matrix - bees AR & CA")
+  ggtitle("K matrix - bees AR & CA no Avalon")
+ggsave("plots/k_matrix_CA_AR_pops_no_Avalon.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
+# get rid of diagonal to better see negative covariances:
+melt(AR_CA_K$K) %>%
+  mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
+  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
+  ggtitle("K matrix - bees AR & CA no within-pop var")
+ggsave("plots/k_matrix_CA_AR_pops_no_within_pop.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
+# no diagonal look at correlations:
+melt(cov2cor(AR_CA_K$K)) %>%
+  mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
+  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
+  ggtitle("K matrix correlations - bees AR & CA no within-pop var")
+ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_correlations.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
+
+
 
 # take away diagonal contribution of binomial sampling variance
 # the diagonal elements have variance due to drift + binomial sampling variance
@@ -889,6 +1100,8 @@ r <- read.table("results/SNPs/thin1kb_common3/included_pos_on_Wallberg_Amel4.5_c
   mutate(pos_chr = V2 + 1) %>% # because .bed files are 0 indexed
   dplyr::select(c("snp_id", "chr", "pos_chr", "cM_Mb"))
 
+# **** check on the recombination rate files!
+
 d <- bind_cols(sites, A) %>%
   left_join(., r, by = c("chr", "snp_id"))
 d$r_bin10 = with(d, cut(cM_Mb,  # note need to load map from scaffolds_to_chr.R
@@ -906,6 +1119,54 @@ d$r_bin5 = with(d, cut(cM_Mb,  # note need to load map from scaffolds_to_chr.R
                         include.lowest = T))
 table(d$r_bin5) # fewer SNPs represented in lowest recomb. bins
 head(d[is.na(d$r_bin5),]) # good, should be none
+
+# make K matrix again with only high recombination rate region of genome
+
+a <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "(38.8,100]", ]))
+a2 <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 %in% c("[0,8.49]","(8.39,15.6]"),]))
+
+melt(a$K) %>%
+  mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+  ggtitle("K matrix covariances r > 38cM/Mb - bees AR & CA no within-pop var")
+ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_highr.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
+melt(cov2cor(a$K)) %>%
+  mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+  ggtitle("K matrix correlations r > 38cM/Mb - bees AR & CA no within-pop var")
+ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_highr_correlations.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
+melt(a2$K) %>%
+  mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+  ggtitle("K matrix covariances r < 15.6cM/Mb - bees AR & CA no within-pop var")
+ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_lowr.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
+melt(cov2cor(a2$K)) %>%
+  mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+  ggtitle("K matrix correlations r < 15.6cM/Mb - bees AR & CA no within-pop var")
+ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_lowr_correlations.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
+
+
 
 
 # a better null: maybe I should take the full covariance matrix for ind. ancestries, 
