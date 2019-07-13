@@ -64,7 +64,16 @@ functional_analysis$ cat ../local_ancestry/results/ancestry_hmm/thin1kb_common3/
 
 # next steps: I found no overlap with Harpur 2019 hygeine gene set. But I also got QTL coordinates for previous work from the supplement of this GBE paper. And I have the conversion from scaffolds to chr coordinates used in this study. BUT I need to put them together to see if I have any overlap with previous QTLs for varroa hygeine. I'm still working on this in rank_genes.R
 
+# getting QTL coordinates:
+Varroa
 
+Arechavaleta-Velasco 2012
+Found one sig. time to grooming QTL (study in mexico, so not explicitly, but probably Africanized honey bees)
+I downloaded from supplementary table S1 the sequences for the markers in the QTL.
+I put these 9 short sequences into a fasta file which I aligned to Amel 4.5:
+data/honeybee_genome/QTLs/Arechavaleta-Velasco_2012_grooming$ bowtie2 -f --seed 2014 --very-sensitive-local --local -x ../../honeybee_Amel_4.5 -U markers_in_grooming_QTL.fasta --rg-id Arechavaleta-Verlasco_2012 --rg SM:QTL-grooming | samtools view -b - > markers_in_grooming_QTL.bam
+All markers had unique mappings towards the beginning of chromosome 5. I made a bed file from the results, extending 5kb on either side, and including sequence to the closest ends of the two scaffolds. The QTL spans parts of Group5.1 and Group5.2, results saved here:
+functional_analysis/results/grooming_QTL_Arechavaleta-Velasco_2012.bed
 
 
 
