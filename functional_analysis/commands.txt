@@ -75,6 +75,6 @@ data/honeybee_genome/QTLs/Arechavaleta-Velasco_2012_grooming$ bowtie2 -f --seed 
 All markers had unique mappings towards the beginning of chromosome 5. I made a bed file from the results, extending 5kb on either side, and including sequence to the closest ends of the two scaffolds. The QTL spans parts of Group5.1 and Group5.2, results saved here:
 functional_analysis/results/grooming_QTL_Arechavaleta-Velasco_2012.bed
 
-
-
+# TO DO: functional analysis of candidate genes
+What have other papers done? e.g. "We used DAVID v 6.7 (Huang et al. 2009) to identify if the list of candidate genes associated with hygienic behavior was enriched for Gene Ontology (GO) terms, focusing specifically on BP_4, MF_4, and CC_4. All tests we performed using Drosophila homologs identified with BlastP match (E-value threshold 1e-10) and because of our small gene list, we accepted any GO term with P < 0.1" - Harpur 2019
 
