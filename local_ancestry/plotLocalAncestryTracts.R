@@ -402,6 +402,58 @@ meta.pop <- meta.ind %>%
   left_join(data.frame(population = pops, stringsAsFactors = F),
             ., by = "population")
 
+# get individual ancestries for just 
+# CA_2018 and AR_2018 samples,
+# same # individuals per pop (=8)
+exclude_over8 <- c("AR0115", "AR0501", "AR0818",
+                   "AR1019", "AR1401", "AR1604", 
+                   "AR2002", "AR2303", "AR2608",
+                   "AR2912", "CA0201", "CA0502",
+                   "CA1010", "CA1302")
+meta.ind %>% 
+  #filter(!(Bee_ID %in% exclude_over8)) %>%
+  group_by(population) %>%
+  summarise(n = n()) %>%
+  filter(n > 8)
+# get ID's for 8 bees per CA and AR pop (2018)
+# divide into subgroups:
+subgroups = data.frame(population = unique(bees_all8$population),
+                       subgroup = c(rep("AR_S", 6),
+                                    rep("AR_mid", 8),
+                                    rep("AR_N", 7),
+                                    rep("CA_S", 6),
+                                    rep("CA_N", 6)),
+                       stringsAsFactors = F)
+bees_all8 <- meta.ind %>%
+  filter(!(Bee_ID %in% exclude_over8)) %>%
+  filter(group %in% c("CA_2018", "AR_2018")) %>%
+  left_join(., subgroups, by = "population") %>%
+  arrange(lat)
+# get ancestries
+A_bees_all8 <- lapply(bees_all8$Bee_ID, function(p) read.table(paste0("results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/", p, ".A.anc"),
+                                            stringsAsFactors = F))
+A_all8 <- do.call(cbind, A_bees_all8)
+colnames(A_all8) <- bees_all8$Bee_ID
+
+# make K matrix
+K_all8 <- make_K_calcs(t(A_all8))
+plot(diag(K_all8$K)/K_all8$alpha, bees_all8$lat)
+plot(diag(K_all8$K), K_all8$alpha)
+plot(diag(K_all8$K)/(K_all8$alpha*(1-K_all8$alpha)), abs(bees_all8$lat),
+     col = ifelse(bees_all8$geographic_location == "California", 
+                  "blue", "red"))
+melt(K_all8$K) %>%
+  filter(Var1 != Var2) %>%
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1) +  
+  ggtitle("K covariance - 8 bees per pop")
+ggsave("plots/k_matrix_all8_inds.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
+# divide out the variances 
+
 
 # make plots - all loci, mean ancestry across all pops
 png("plots/histogram_A_ancestry_all_loci.png", height = 6, width = 8, units = "in", res = 300)
