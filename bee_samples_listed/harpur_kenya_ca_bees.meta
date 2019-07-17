@@ -1,113 +1,113 @@
-Bee_ID	geographic_location	strain	population	year	source	group
-SRR957079	Thailand: Chiang Mai	Apis cerana	Cerana	2013	Harpur	Cerana
-SRR957080	North Rhine-Westphalia, Germany	Apis mellifera carnica	C	2013	Harpur	C
-SRR957081	North Rhine-Westphalia, Germany	Apis mellifera carnica	C	2013	Harpur	C
-SRR957082	Novalija, Pag Island, Croatia	Apis mellifera carnica	C	2013	Harpur	C
-SRR957083	Komorovac, Pag Island, Croatia	Apis mellifera carnica	C	2013	Harpur	C
-SRR957084	Baric Draga, Croatia	Apis mellifera carnica	C	2013	Harpur	C
-SRR957085	Sugarje, Croatia	Apis mellifera carnica	C	2013	Harpur	C
-SRR957086	Slovenia	Apis mellifera carnica	C	2013	Harpur	C
-SRR957087	Slovenia	Apis mellifera carnica	C	2013	Harpur	C
-SRR957088	Slovenia	Apis mellifera carnica	C	2013	Harpur	C
-SRR957061	Cordoba, Spain	Apis mellifera iberiensis	M	2013	Harpur	M
-SRR957062	Murcia, Spain	Apis mellifera iberiensis	M	2013	Harpur	M
-SRR957063	Murcia, Spain	Apis mellifera iberiensis	M	2013	Harpur	M
-SRR957064	Cordoba, Spain	Apis mellifera iberiensis	M	2013	Harpur	M
-SRR957058	Rudawka, Poland	Apis mellifera mellifera	M	2013	Harpur	M
-SRR957059	Sucha Rzeczka, Poland	Apis mellifera mellifera	M	2013	Harpur	M
-SRR957060	Sucha Rzeczka, Poland	Apis mellifera mellifera	M	2013	Harpur	M
-SRR957089	Zalewo, Poland	Apis mellifera mellifera	M	2013	Harpur	M
-SRR957090	Rudawka, Poland	Apis mellifera mellifera	M	2013	Harpur	M
-SRR957075	East Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A
-SRR957076	East Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A
-SRR957077	NW. Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A
-SRR957078	N. Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A
-SRR957091	NW. Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A
-SRR957092	West Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A
-SRR957093	Freestate, South Africa	Apis mellifera scutellata	A	2013	Harpur	A
-SRR957094	N/NW Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A
-SRR957095	NW. Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A
-SRR957096	East Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A
-SRR957097	East Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A
-SRR5270366	Kenya	Apis mellifera scutellata	A	1995	Sheppard	A
-SRR5270367	Kenya	Apis mellifera scutellata	A	1995	Sheppard	A
-SRR5270368	Kenya	Apis mellifera scutellata	A	1995	Sheppard	A
-SRR5270369	Kenya	Apis mellifera scutellata	A	1995	Sheppard	A
-SRR5270370	Kenya	Apis mellifera scutellata	A	1995	Sheppard	A
-SRR5270371	Kenya	Apis mellifera scutellata	A	1995	Sheppard	A
-ap24	Avalon	unknown	Avalon_1910	1910	Ramirez	S_CA
-ap25	Avalon	unknown	Avalon_1910	1910	Ramirez	S_CA
-SRCD49B	Avalon	unknown	Avalon_2014	2014	Ramirez	S_CA
-SRCD52A	Avalon	unknown	Avalon_2014	2014	Ramirez	S_CA
-SRCD8C	Avalon	unknown	Avalon_2014	2014	Ramirez	S_CA
-SRCD9B	Avalon	unknown	Avalon_2014	2014	Ramirez	S_CA
-SRCD9C	Avalon	unknown	Avalon_2014	2014	Ramirez	S_CA
-ap11	Berkeley	unknown	Berkeley_2011	2011	Ramirez	N_CA
-SRCD54B	Davis	unknown	Davis_1968	1968	Ramirez	N_CA
-SRCD8B	Davis	unknown	Davis_1968	1968	Ramirez	N_CA
-SRCD47B	Davis	unknown	Davis_2014	2014	Ramirez	N_CA
-SRCD49C	Davis	unknown	Davis_2014	2014	Ramirez	N_CA
-SRCD50B	Davis	unknown	Davis_2014	2014	Ramirez	N_CA
-SRCD50C	Davis	unknown	Davis_2014	2014	Ramirez	N_CA
-SRCD53A	Davis	unknown	Davis_2014	2014	Ramirez	N_CA
-SRCD55A	Domestic	unknown	Domestic_2014	2014	Ramirez	N_CA
-SRCD55B	Domestic	unknown	Domestic_2014	2014	Ramirez	N_CA
-SRCD55C	Domestic	unknown	Domestic_2014	2014	Ramirez	N_CA
-SRCD55D	Domestic	unknown	Domestic_2014	2014	Ramirez	N_CA
-SRCD55E	Domestic	unknown	Domestic_2014	2014	Ramirez	N_CA
-SRCD55F	Domestic	unknown	Domestic_2014	2014	Ramirez	N_CA
-ap20	Humboldt	unknown	Humboldt_1966	1966	Ramirez	N_CA
-ap22	Humboldt	unknown	Humboldt_1966	1966	Ramirez	N_CA
-ap29	Humboldt	unknown	Humboldt_1966	1966	Ramirez	N_CA
-ap30	Humboldt	unknown	Humboldt_1966	1966	Ramirez	N_CA
-ap31	Humboldt	unknown	Humboldt_1966	1966	Ramirez	N_CA
-SRCD53C	Humboldt	unknown	Humboldt_1966	1966	Ramirez	N_CA
-SRCD12A	Humboldt	unknown	Humboldt_2014	2014	Ramirez	N_CA
-SRCD12B	Humboldt	unknown	Humboldt_2014	2014	Ramirez	N_CA
-SRCD12C	Humboldt	unknown	Humboldt_2014	2014	Ramirez	N_CA
-SRCD45A	Humboldt	unknown	Humboldt_2014	2014	Ramirez	N_CA
-SRCD45B	Humboldt	unknown	Humboldt_2014	2014	Ramirez	N_CA
-SRCD53B	Humboldt	unknown	Humboldt_2014	2014	Ramirez	N_CA
-ap41	Placerita	unknown	Placerita_1999	1999	Ramirez	S_CA
-ap42	Placerita	unknown	Placerita_1999	1999	Ramirez	S_CA
-ap43	Placerita	unknown	Placerita_1999	1999	Ramirez	S_CA
-ap45	Placerita	unknown	Placerita_1999	1999	Ramirez	S_CA
-ap48	Placerita	unknown	Placerita_1999	1999	Ramirez	S_CA
-SRCD10C	Placerita	unknown	Placerita_2014	2014	Ramirez	S_CA
-SRCD11A	Placerita	unknown	Placerita_2014	2014	Ramirez	S_CA
-SRCD11B	Placerita	unknown	Placerita_2014	2014	Ramirez	S_CA
-SRCD54A	Placerita	unknown	Placerita_2014	2014	Ramirez	S_CA
-SRCD6B	Placerita	unknown	Placerita_2014	2014	Ramirez	S_CA
-SRCD6C	Placerita	unknown	Placerita_2014	2014	Ramirez	S_CA
-ap38	Riverside	unknown	Riverside_1983	1983	Ramirez	S_CA
-ap39	Riverside	unknown	Riverside_1983	1983	Ramirez	S_CA
-ap34	Riverside	unknown	Riverside_1999	1999	Ramirez	S_CA
-ap50	Riverside	unknown	Riverside_1999	1999	Ramirez	S_CA
-SRCD10B	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA
-SRCD47A	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA
-SRCD49A	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA
-SRCD51B	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA
-SRCD51C	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA
-SRCD54C	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA
-SRCD6A	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA
-SRCD9A	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA
-ap35	SanPedro	unknown	SanPedro_2002	2002	Ramirez	S_CA
-ap36	SanPedro	unknown	SanPedro_2002	2002	Ramirez	S_CA
-ap05	Stanislaus	unknown	Stanislaus_1976	1976	Ramirez	N_CA
-SRCD10A	Stanislaus	unknown	Stanislaus_1976	1976	Ramirez	N_CA
-SRCD11C	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez	N_CA
-SRCD46B	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez	N_CA
-SRCD47C	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez	N_CA
-SRCD50A	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez	N_CA
-SRCD51A	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez	N_CA
-SRCD8A	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez	N_CA
-ap51	Stebbins	unknown	Stebbins_1996	1996	Ramirez	N_CA
-ap52	Stebbins	unknown	Stebbins_1996	1996	Ramirez	N_CA
-ap53	Stebbins	unknown	Stebbins_1996	1996	Ramirez	N_CA
-ap54	Stebbins	unknown	Stebbins_1996	1996	Ramirez	N_CA
-ap55	Stebbins	unknown	Stebbins_1996	1996	Ramirez	N_CA
-SRCD45C	Stebbins	unknown	Stebbins_2014	2014	Ramirez	N_CA
-SRCD46C	Stebbins	unknown	Stebbins_2014	2014	Ramirez	N_CA
-SRCD48A	Stebbins	unknown	Stebbins_2014	2014	Ramirez	N_CA
-SRCD48B	Stebbins	unknown	Stebbins_2014	2014	Ramirez	N_CA
-SRCD48C	Stebbins	unknown	Stebbins_2014	2014	Ramirez	N_CA
+Bee_ID	geographic_location	strain	population	year	source	group	long	lat
+SRR957079	Thailand: Chiang Mai	Apis cerana	Cerana	2013	Harpur	Cerana	NA	NA
+SRR957080	North Rhine-Westphalia, Germany	Apis mellifera carnica	C	2013	Harpur	C	NA	NA
+SRR957081	North Rhine-Westphalia, Germany	Apis mellifera carnica	C	2013	Harpur	C	NA	NA
+SRR957082	Novalija, Pag Island, Croatia	Apis mellifera carnica	C	2013	Harpur	C	NA	NA
+SRR957083	Komorovac, Pag Island, Croatia	Apis mellifera carnica	C	2013	Harpur	C	NA	NA
+SRR957084	Baric Draga, Croatia	Apis mellifera carnica	C	2013	Harpur	C	NA	NA
+SRR957085	Sugarje, Croatia	Apis mellifera carnica	C	2013	Harpur	C	NA	NA
+SRR957086	Slovenia	Apis mellifera carnica	C	2013	Harpur	C	NA	NA
+SRR957087	Slovenia	Apis mellifera carnica	C	2013	Harpur	C	NA	NA
+SRR957088	Slovenia	Apis mellifera carnica	C	2013	Harpur	C	NA	NA
+SRR957061	Cordoba, Spain	Apis mellifera iberiensis	M	2013	Harpur	M	NA	NA
+SRR957062	Murcia, Spain	Apis mellifera iberiensis	M	2013	Harpur	M	NA	NA
+SRR957063	Murcia, Spain	Apis mellifera iberiensis	M	2013	Harpur	M	NA	NA
+SRR957064	Cordoba, Spain	Apis mellifera iberiensis	M	2013	Harpur	M	NA	NA
+SRR957058	Rudawka, Poland	Apis mellifera mellifera	M	2013	Harpur	M	NA	NA
+SRR957059	Sucha Rzeczka, Poland	Apis mellifera mellifera	M	2013	Harpur	M	NA	NA
+SRR957060	Sucha Rzeczka, Poland	Apis mellifera mellifera	M	2013	Harpur	M	NA	NA
+SRR957089	Zalewo, Poland	Apis mellifera mellifera	M	2013	Harpur	M	NA	NA
+SRR957090	Rudawka, Poland	Apis mellifera mellifera	M	2013	Harpur	M	NA	NA
+SRR957075	East Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A	NA	NA
+SRR957076	East Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A	NA	NA
+SRR957077	NW. Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A	NA	NA
+SRR957078	N. Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A	NA	NA
+SRR957091	NW. Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A	NA	NA
+SRR957092	West Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A	NA	NA
+SRR957093	Freestate, South Africa	Apis mellifera scutellata	A	2013	Harpur	A	NA	NA
+SRR957094	N/NW Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A	NA	NA
+SRR957095	NW. Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A	NA	NA
+SRR957096	East Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A	NA	NA
+SRR957097	East Cape, South Africa	Apis mellifera scutellata	A	2013	Harpur	A	NA	NA
+SRR5270366	Kenya	Apis mellifera scutellata	A	1995	Sheppard	A	NA	NA
+SRR5270367	Kenya	Apis mellifera scutellata	A	1995	Sheppard	A	NA	NA
+SRR5270368	Kenya	Apis mellifera scutellata	A	1995	Sheppard	A	NA	NA
+SRR5270369	Kenya	Apis mellifera scutellata	A	1995	Sheppard	A	NA	NA
+SRR5270370	Kenya	Apis mellifera scutellata	A	1995	Sheppard	A	NA	NA
+SRR5270371	Kenya	Apis mellifera scutellata	A	1995	Sheppard	A	NA	NA
+ap24	Avalon	unknown	Avalon_1910	1910	Ramirez	S_CA	-118.32	33.34
+ap25	Avalon	unknown	Avalon_1910	1910	Ramirez	S_CA	-118.32	33.34
+SRCD49B	Avalon	unknown	Avalon_2014	2014	Ramirez	S_CA	-118.32	33.34
+SRCD52A	Avalon	unknown	Avalon_2014	2014	Ramirez	S_CA	-118.32	33.34
+SRCD8C	Avalon	unknown	Avalon_2014	2014	Ramirez	S_CA	-118.32	33.34
+SRCD9B	Avalon	unknown	Avalon_2014	2014	Ramirez	S_CA	-118.32	33.34
+SRCD9C	Avalon	unknown	Avalon_2014	2014	Ramirez	S_CA	-118.32	33.34
+ap11	Berkeley	unknown	Berkeley_2011	2011	Ramirez	N_CA	-122.26	37.87
+SRCD54B	Davis	unknown	Davis_1968	1968	Ramirez	N_CA	-121.75	38.54
+SRCD8B	Davis	unknown	Davis_1968	1968	Ramirez	N_CA	-121.75	38.54
+SRCD47B	Davis	unknown	Davis_2014	2014	Ramirez	N_CA	-121.75	38.54
+SRCD49C	Davis	unknown	Davis_2014	2014	Ramirez	N_CA	-121.75	38.54
+SRCD50B	Davis	unknown	Davis_2014	2014	Ramirez	N_CA	-121.75	38.54
+SRCD50C	Davis	unknown	Davis_2014	2014	Ramirez	N_CA	-121.75	38.54
+SRCD53A	Davis	unknown	Davis_2014	2014	Ramirez	N_CA	-121.75	38.54
+SRCD55A	Domestic	unknown	Domestic_2014	2014	Ramirez	N_CA	NA	NA
+SRCD55B	Domestic	unknown	Domestic_2014	2014	Ramirez	N_CA	NA	NA
+SRCD55C	Domestic	unknown	Domestic_2014	2014	Ramirez	N_CA	NA	NA
+SRCD55D	Domestic	unknown	Domestic_2014	2014	Ramirez	N_CA	NA	NA
+SRCD55E	Domestic	unknown	Domestic_2014	2014	Ramirez	N_CA	NA	NA
+SRCD55F	Domestic	unknown	Domestic_2014	2014	Ramirez	N_CA	NA	NA
+ap20	Humboldt	unknown	Humboldt_1966	1966	Ramirez	N_CA	-124.07	40.87
+ap22	Humboldt	unknown	Humboldt_1966	1966	Ramirez	N_CA	-124.07	40.87
+ap29	Humboldt	unknown	Humboldt_1966	1966	Ramirez	N_CA	-124.07	40.87
+ap30	Humboldt	unknown	Humboldt_1966	1966	Ramirez	N_CA	-124.07	40.87
+ap31	Humboldt	unknown	Humboldt_1966	1966	Ramirez	N_CA	-124.07	40.87
+SRCD53C	Humboldt	unknown	Humboldt_1966	1966	Ramirez	N_CA	-124.07	40.87
+SRCD12A	Humboldt	unknown	Humboldt_2014	2014	Ramirez	N_CA	-124.07	40.87
+SRCD12B	Humboldt	unknown	Humboldt_2014	2014	Ramirez	N_CA	-124.07	40.87
+SRCD12C	Humboldt	unknown	Humboldt_2014	2014	Ramirez	N_CA	-124.07	40.87
+SRCD45A	Humboldt	unknown	Humboldt_2014	2014	Ramirez	N_CA	-124.07	40.87
+SRCD45B	Humboldt	unknown	Humboldt_2014	2014	Ramirez	N_CA	-124.07	40.87
+SRCD53B	Humboldt	unknown	Humboldt_2014	2014	Ramirez	N_CA	-124.07	40.87
+ap41	Placerita	unknown	Placerita_1999	1999	Ramirez	S_CA	-118.46	34.37
+ap42	Placerita	unknown	Placerita_1999	1999	Ramirez	S_CA	-118.46	34.37
+ap43	Placerita	unknown	Placerita_1999	1999	Ramirez	S_CA	-118.46	34.37
+ap45	Placerita	unknown	Placerita_1999	1999	Ramirez	S_CA	-118.46	34.37
+ap48	Placerita	unknown	Placerita_1999	1999	Ramirez	S_CA	-118.46	34.37
+SRCD10C	Placerita	unknown	Placerita_2014	2014	Ramirez	S_CA	-118.46	34.37
+SRCD11A	Placerita	unknown	Placerita_2014	2014	Ramirez	S_CA	-118.46	34.37
+SRCD11B	Placerita	unknown	Placerita_2014	2014	Ramirez	S_CA	-118.46	34.37
+SRCD54A	Placerita	unknown	Placerita_2014	2014	Ramirez	S_CA	-118.46	34.37
+SRCD6B	Placerita	unknown	Placerita_2014	2014	Ramirez	S_CA	-118.46	34.37
+SRCD6C	Placerita	unknown	Placerita_2014	2014	Ramirez	S_CA	-118.46	34.37
+ap38	Riverside	unknown	Riverside_1983	1983	Ramirez	S_CA	NA	NA
+ap39	Riverside	unknown	Riverside_1983	1983	Ramirez	S_CA	NA	NA
+ap34	Riverside	unknown	Riverside_1999	1999	Ramirez	S_CA	NA	NA
+ap50	Riverside	unknown	Riverside_1999	1999	Ramirez	S_CA	NA	NA
+SRCD10B	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA	-116.27	33.84
+SRCD47A	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA	-116.27	33.84
+SRCD49A	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA	-116.72	33.74
+SRCD51B	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA	-116.72	33.74
+SRCD51C	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA	-116.72	33.74
+SRCD54C	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA	-116.27	33.84
+SRCD6A	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA	-116.72	33.74
+SRCD9A	Riverside	unknown	Riverside_2014	2014	Ramirez	S_CA	-116.72	33.74
+ap35	SanPedro	unknown	SanPedro_2002	2002	Ramirez	S_CA	-118.29	33.73
+ap36	SanPedro	unknown	SanPedro_2002	2002	Ramirez	S_CA	-118.29	33.73
+ap05	Stanislaus	unknown	Stanislaus_1976	1976	Ramirez	N_CA	-120.46	37.66
+SRCD10A	Stanislaus	unknown	Stanislaus_1976	1976	Ramirez	N_CA	-120.46	37.66
+SRCD11C	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez	N_CA	-120.46	37.66
+SRCD46B	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez	N_CA	-120.46	37.66
+SRCD47C	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez	N_CA	-120.46	37.66
+SRCD50A	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez	N_CA	-120.46	37.66
+SRCD51A	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez	N_CA	-120.46	37.66
+SRCD8A	Stanislaus	unknown	Stanislaus_2014	2014	Ramirez	N_CA	-120.46	37.66
+ap51	Stebbins	unknown	Stebbins_1996	1996	Ramirez	N_CA	-122.08	38.3
+ap52	Stebbins	unknown	Stebbins_1996	1996	Ramirez	N_CA	-122.08	38.3
+ap53	Stebbins	unknown	Stebbins_1996	1996	Ramirez	N_CA	-122.08	38.3
+ap54	Stebbins	unknown	Stebbins_1996	1996	Ramirez	N_CA	-122.08	38.3
+ap55	Stebbins	unknown	Stebbins_1996	1996	Ramirez	N_CA	-122.08	38.3
+SRCD45C	Stebbins	unknown	Stebbins_2014	2014	Ramirez	N_CA	-122.08	38.3
+SRCD46C	Stebbins	unknown	Stebbins_2014	2014	Ramirez	N_CA	-122.08	38.3
+SRCD48A	Stebbins	unknown	Stebbins_2014	2014	Ramirez	N_CA	-122.08	38.3
+SRCD48B	Stebbins	unknown	Stebbins_2014	2014	Ramirez	N_CA	-122.08	38.3
+SRCD48C	Stebbins	unknown	Stebbins_2014	2014	Ramirez	N_CA	-122.08	38.3

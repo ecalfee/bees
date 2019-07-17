@@ -679,8 +679,21 @@ bind_rows(high.shared.genes, low.shared.genes, high.CA.genes, high.AR.genes, low
   arrange(outlier_type) %>%
   write.table(., "results/outlier_genes_count_by_region_A_ancestry.txt", na = "n.s.",
               sep = "\t", quote = F, col.names = T, row.names = F)
+
+# some summaries for executive report:
+# number of genes per type of outlier
 bind_rows(high.shared.genes, low.shared.genes, high.CA.genes, high.AR.genes, low.AR.genes) %>%
   group_by(outlier_type) %>%
   summarise(n = n()) %>%
   dplyr::select(n) %>%
   sum()
+# length of outlier regions:
+summary(with(high.shared.outliers, end - start))
+sum(high.shared.outliers$end - high.shared.outliers$start)/max(chr_lengths$chromosome_end)
+nrow(low.shared.outliers)
+nrow(high.CA.outliers)
+nrow(high.AR.outliers)
+nrow(low.AR.outliers)
+high.shared.outliers$length = high.shared.outliers$end - high.shared.outliers$start
+high.shared.outliers
+summary(high.shared.outliers$length)

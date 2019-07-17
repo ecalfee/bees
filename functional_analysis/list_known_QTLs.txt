@@ -17,3 +17,4 @@ Research shows Africanized honey bees have both higher grooming and VSH (Arechav
 *Many of these studies use linkage map 1995 Hunt based on RAPD markers (Genetics)
 
 	
+Behrens 2011 is probably in the end less useful because it's small effect epistatic and mapping reproduction suppression, which I'm not sure segregates in Africanized honey bees.

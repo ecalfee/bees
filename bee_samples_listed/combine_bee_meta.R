@@ -51,11 +51,23 @@ ca_bees_incl <- ca_bees %>%
   rename(Bee_ID = ID) %>%
   mutate(group = ifelse(geographic_location %in% c("Berkeley", "Stanislaus", "Humboldt", "Stebbins", "Davis", "Domestic"), "N_CA", "S_CA")) %>%
   filter(!duplicated(.))
-
+ca_bees_gps <- read.table("Cridland_CA_bee_GPS.txt",
+                          sep = "\t",
+                          header = T, stringsAsFactors = F) %>%
+  mutate(city = ifelse(city == "", "unknown", city))
+riverside_subpops <- read.table("Riverside_subpops.txt",
+                               sep = "\t",
+                               header = T, stringsAsFactors = F)
+ca_bees_incl_gps <- 
+  left_join(ca_bees_incl, riverside_subpops, 
+          by = c("geographic_location", "Bee_ID")) %>%
+  mutate(city = ifelse(is.na(city), "unknown", city)) %>%
+  left_join(., ca_bees_gps, by = c("geographic_location", "city")) %>%
+  dplyr::select(-city)
 
 # metadata for all reference panel bees from prior studies
 # combine and sort into pop. groups before printing to file
-all <- bind_rows(harpur_incl, kenya_incl, ca_bees_incl) %>%
+all <- bind_rows(harpur_incl, kenya_incl, ca_bees_incl_gps) %>%
 .[order(.$population), ] %>%
 #.[order(.$year), ] %>%
 .[order(.$strain), ]

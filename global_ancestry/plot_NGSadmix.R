@@ -9,6 +9,15 @@ library(RColorBrewer)# for color palette
 # get metadata for all individuals included in NGSadmix analysis (plus extras)
 meta <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F, 
                    header = T, sep = "\t")
+meta$label <- meta$Bee_ID
+pop2014_incl <- c("Stebbins_2014", "Stanislaus_2014", "Avalon_2014",
+                  "Placerita_2014", "Riverside_2014")
+for (i in pop2014_incl){ # make short labels for included bees from these ca_bee populations
+  meta$label[meta$population == i & !is.na(meta$population)] <- 
+    paste0(meta$geographic_location_short[meta$population == i & !is.na(meta$population)],
+           "_",
+           1:sum(meta$population == i, na.rm = T))
+}
 
 
 #IDs <- read.table("../bee_samples_listed/with_duplicated_ap50/pass1.list", stringsAsFactors = F,
@@ -125,31 +134,73 @@ ggsave(paste0("plots/NGS_admix_all_", name, ".png"),
        dpi = 200)
 
 p2 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
-  filter(group == "CA_2018" | group == "MX_2019") %>%
+  filter(group == "CA_2018") %>%
   left_join(., anc, by = "ancestry") %>%
   ggplot(., aes(fill=ancestry_label, y=p, x=reorder(Bee_ID, lat))) +
   geom_bar(stat = "identity", position = "fill") + 
   ggtitle("California 2018 bee samples") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  xlab("Individual bee samples (ordered by latitude)") +
+  ylab("Ancestry fraction") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(fill = "Ancestry")
 plot(p2)
 ggsave(paste0("plots/NGS_admix_CA_2018_", name, ".png"), 
        plot = p2, 
        device = "png", 
        width = 15, height = 8, units = "in",
        dpi = 200)
+# mexico
+p2m <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+  filter(group == "MX_2019") %>%
+  left_join(., anc, by = "ancestry") %>%
+  ggplot(., aes(fill=ancestry_label, y=p, x=reorder(Bee_ID, lat))) +
+  geom_bar(stat = "identity", position = "fill") + 
+  ggtitle("Mexico 2019 bee samples") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+plot(p2m)
+ggsave(paste0("plots/NGS_admix_MX_2019_", name, ".png"), 
+       plot = p2m, 
+       device = "png", 
+       width = 15, height = 8, units = "in",
+       dpi = 200)
+# CA 2014 and 2018
+p2_2014 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+  filter(group == "CA_2018" | population %in% pop2014_incl) %>%
+  left_join(., anc, by = "ancestry") %>%
+  ggplot(., aes(fill=ancestry_label, alpha = as.factor(year), y=p, x=reorder(label, lat))) +
+  geom_bar(stat = "identity", position = "fill") + 
+  ggtitle("California 2014 & 2018 bee samples") +
+  xlab("Individual bee samples (ordered by latitude)") +
+  ylab("Ancestry fraction") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_alpha_discrete(range = c(0.6, 1)) +
+  labs(fill = "Ancestry", alpha = "Collection")
+plot(p2_2014)
+ggsave(paste0("plots/NGS_admix_CA_2014_and_2018_", name, ".png"), 
+       plot = p2_2014, 
+       device = "png", 
+       width = 17, height = 8, units = "in",
+       dpi = 200)
+
+
+
 
 p3 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "AR_2018") %>%
   left_join(., anc, by = "ancestry") %>%
-  ggplot(., aes(fill=ancestry_label, y=p, x=reorder(Bee_ID, lat))) +
+  ggplot(., aes(fill = ancestry_label, alpha = as.factor(year), y = p, x = reorder(Bee_ID, lat))) +
   geom_bar(stat = "identity", position = "fill") + 
   ggtitle("Argentina 2018 bee samples") + 
+  xlab("Individual bee samples (ordered by latitude)") +
+  ylab("Ancestry fraction") +
+  scale_alpha_discrete(range = c(1, 1)) +
+  labs(fill = "Ancestry", alpha = "Collection") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 plot(p3)
 ggsave(paste0("plots/NGS_admix_AR_2018_", name, ".png"), 
        plot = p3, 
        device = "png", 
-       width = 15, height = 8, units = "in",
+       width = 17, height = 8, units = "in",
        dpi = 200)
 
 p4 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
