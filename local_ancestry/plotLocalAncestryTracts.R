@@ -381,9 +381,6 @@ popA <- lapply(pops, function(p) read.table(paste0("results/ancestry_hmm/thin1kb
 A <- do.call(cbind, popA)
 colnames(A) <- pops
 meanA0 <- apply(A, 1, mean)
-# with only included pops, mean of all individuals:
-meanA <- apply(A[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
-               function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(CA_pops_included$n_bees, AR_pops_included$n_bees)))
 
 sites0 <- read.table("results/SNPs/thin1kb_common3/included_scaffolds.pos", stringsAsFactors = F,
                     sep = "\t", header = F)
@@ -429,6 +426,11 @@ meanA_CA0 <- apply(CA_A, 1, mean)
 meanA_CA <- apply(CA_A, 1, function(x) sum(x*CA_pops_included$n_bees)/sum(CA_pops_included$n_bees))
 meanA_AR0 <- apply(AR_A, 1, mean)
 meanA_AR <- apply(AR_A, 1, function(x) sum(x*AR_pops_included$n_bees)/sum(AR_pops_included$n_bees))
+
+# with only included pops, mean of all individuals:
+meanA <- apply(A[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
+               function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(CA_pops_included$n_bees, AR_pops_included$n_bees)))
+
 
 sites %>%
   filter(meanA_CA > quantile(meanA_CA, .99) & 
@@ -651,6 +653,40 @@ var(meanA_MVNsim_bounded)
 var(meanA_MVNsim_zero_bounded) # very slightly higher variance -- could just be simulation noise
 # this makes sense because the covariances I zero-d out were very slight
 
+#QQ-plots:
+png("plots/QQ_plots_against_MVN.png",
+    height = 10, width = 15, res = 300, units = "in")
+par(mfrow=c(2,2))
+qqplot(meanA_MVNsim_bounded, meanA_MVNsim,
+       main = "Effect of 0-1 bounds on MVN distribution")
+abline(0, 1, col = "blue")
+qqplot(meanA_MVNsim_bounded, meanA,
+       main = "QQ-plot: MVN dist. vs. data, combined mean")
+abline(0, 1, col = "blue")
+qqplot(meanA_MVNsim_CA_bounded, meanA_CA,
+       main = "QQ-plot: MVN dist. vs. data, CA mean")
+abline(0, 1, col = "blue")
+qqplot(meanA_MVNsim_AR_bounded, meanA_AR,
+       main = "QQ-plot: MVN dist. vs. data, AR mean")
+abline(0, 1, col = "blue")
+dev.off()
+png("plots/QQ_plots_against_MVN_zero-ed_out_negK.png",
+    height = 10, width = 15, res = 300, units = "in")
+par(mfrow=c(2,2))
+qqplot(meanA_MVNsim_zero_bounded, meanA_MVNsim_bounded,
+       main = "Effect of non-neg K on MVN distribution")
+abline(0, 1, col = "blue")
+qqplot(meanA_MVNsim_zero_bounded, meanA,
+       main = "QQ-plot: MVN dist. non-neg K vs. data, combined mean")
+abline(0, 1, col = "blue")
+qqplot(meanA_MVNsim_CA_zero_bounded, meanA_MVNsim_CA_bounded,
+       main = "QQ-plot: Effect of non-neg K on MVN CA mean")
+abline(0, 1, col = "blue")
+qqplot(meanA_MVNsim_AR_zero_bounded, meanA_MVNsim_AR_bounded,
+       main = "QQ-plot: Effect of non-neg K on MVN AR mean")
+abline(0, 1, col = "blue")
+dev.off()
+
 png("plots/mean_A_ancestry_CA_vs_AR_grey.png", 
     height = 8, width = 12, res = 300, units = "in")
 plot(meanA_CA, meanA_AR, pch = 20, col = alpha("grey", .1),
@@ -745,6 +781,27 @@ legend("topright",
        pch = 2,
        col = c("yellow", "blue", "purple"))
 dev.off()
+
+# plot QQ-plots:
+#QQ-plots:
+png("plots/QQ_plots_against_PoiBin.png",
+    height = 10, width = 15, res = 300, units = "in")
+par(mfrow=c(2,2))
+qqplot(PoiBinsim_combined, meanA_MVNsim_bounded,
+       main = "Poisson Binomial vs. MVN distribution null")
+abline(0, 1, col = "blue")
+qqplot(PoiBinsim_combined, meanA,
+       main = "QQ-plot: Poisson Binomial dist. vs. data, combined mean")
+abline(0, 1, col = "blue")
+qqplot(PoiBinsim_CA, meanA_CA,
+       main = "QQ-plot: Poisson Binomial dist. vs. data, CA mean")
+abline(0, 1, col = "blue")
+qqplot(PoiBinsim_AR, meanA_AR,
+       main = "QQ-plot: Poisson Binomial dist. vs. data, AR mean")
+abline(0, 1, col = "blue")
+dev.off()
+
+
 
 # make sure I still have outliers if I set the negative covariances to zero in my MVN (!)
 
@@ -1089,6 +1146,72 @@ var(sim_pop2) # observed variance
 mean((sim_pop2 - mean(sim_pop2))^2)
 mean(sim_pop2)*(1-mean(sim_pop2))/n_binom # mean theoretical
 
+
+log(1/(1 - diag(AR_CA_K$K)/(AR_CA_K$alpha*(1 - AR_CA_K$alpha))))
+log(diag(AR_CA_K$K)/(AR_CA_K$alpha*(1 - AR_CA_K$alpha)))
+
+# simulate W-F evolution (drift):
+# 10 generations, population size N = 100, starting freq = .5
+start_freq = .5
+n_gen = 10
+N = 100
+sim_WF <- function(n_gen, N, start_freq){
+  freqs <- numeric(n_gen + 1)
+  freqs[1] <- start_freq
+  for (i in 2:(n_gen + 1)){ # each generation of drift
+    freqs[i] <- rbinom(1, 2*N, p = freqs[i - 1])/(2*N)
+  }
+  return(freqs[n_gen+1])
+}
+wf1 <- sapply(1:10000, function(x) sim_WF(n_gen = 10, N = 100, start_freq = .5))
+mean((wf1 - .5)^2)/(.5^2)
+10/(2*100)
+wf2 <- sapply(1:10000, function(x) sim_WF(n_gen = 20, N = 100, start_freq = .5))
+mean((wf2 - .5)^2)/(.5^2)
+20/(2*100)
+wf3 <- sapply(1:10000, function(x) sim_WF(n_gen = 20, N = 1000, start_freq = .5))
+mean((wf3 - .5)^2)/(.5^2)
+20/(2*1000)
+wf4 <- sapply(1:100000, function(x) sim_WF(n_gen = 5, N = 10000, start_freq = .2))
+mean((wf4 - .2)^2)/(.2*.8)
+5/(2*10000)
+# add in sample variance for sample size 16 haplotypes
+wf2_16hap <- sapply(wf2, function(x) sim_WF(n_gen = 1, N = 8, start_freq = x))
+# and 10 haplotypes
+wf2_10hap <- sapply(wf2, function(x) sim_WF(n_gen = 1, N = 5, start_freq = x))
+cov(wf2_16hap, wf2_10hap)
+var(wf2_10hap)
+var(wf2)
+AR_CA_K$K
+cov(meanA_CA, meanA_AR)/(.85*.15)*200
+cov(meanA_CA, meanA_AR)/(.5*.5)*200
+cov_CA_AR <- mean((meanA_CA-mean(meanA_CA))*(meanA_AR - mean(meanA_AR)))
+mean(meanA)
+# t/2n = cov
+# n = t/(cov * 2)
+# so if I assume 1 generation of bottleneck, n is about 200:
+# note: later I can correct for haploid/diploid
+cov_CA_AR
+1/(cov_CA_AR/(.85*.15)*2)
+1/(cov_CA_AR/(mean(meanA)*(1-mean(meanA)))*2)
+AR_CA_K$K
+1/(.001/(mean(meanA)*(1-mean(meanA)))*2)
+# how do I do the w/in pop small pop correction??
+(mean((wf2_16hap - .5)^2))/(.5*.5)
+(mean((wf2_16hap - .5)^2)*(15/16))/(.5*.5)
+(mean((wf2_16hap - .5)^2)*(1/16))/(.5*.5)
+(mean((wf2_16hap - .5)^2))/(.5*.5) - 1/16
+(mean((wf2_16hap - .5)^2))/(.5*.5) - 1/16
+(mean((wf2_16hap - .5)^2) - 1/16)/(.5*.5)
+20/(2*100) + (.5^2)/16
+hap16 <- sapply(rep(.5, 10000), function(x) sim_WF(n_gen = 1, N = 8, start_freq = x))
+mean((hap16-.5)^2)
+(mean((wf2_16hap - .2)^2))/(.5*.5) - mean((hap16-.5)^2)/(.5*.5)
+((.5^2)/16)*1/16
+var(hap16)
+(.5^2)/16
+
+# simulate quick pop split to confirm.
 
 
 r <- read.table("results/SNPs/thin1kb_common3/included_pos_on_Wallberg_Amel4.5_chr.r.bed",
