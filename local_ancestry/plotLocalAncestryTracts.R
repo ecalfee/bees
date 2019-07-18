@@ -411,49 +411,32 @@ exclude_over8 <- c("AR0115", "AR0501", "AR0818",
                    "AR2912", "CA0201", "CA0502",
                    "CA1010", "CA1302")
 meta.ind %>% 
-  #filter(!(Bee_ID %in% exclude_over8)) %>%
+  filter(!(Bee_ID %in% exclude_over8)) %>%
   group_by(population) %>%
   summarise(n = n()) %>%
-  filter(n > 8)
+  filter(n != 8)
 # get ID's for 8 bees per CA and AR pop (2018)
 # divide into subgroups:
-subgroups = data.frame(population = unique(bees_all8$population),
+bees_all8_0 <- meta.ind %>%
+  filter(!(Bee_ID %in% exclude_over8)) %>%
+  filter(group %in% c("CA_2018", "AR_2018")) %>%
+  #left_join(., subgroups, by = "population") %>%
+  arrange(lat)
+subgroups = data.frame(population = unique(bees_all8_0$population),
                        subgroup = c(rep("AR_S", 6),
                                     rep("AR_mid", 8),
                                     rep("AR_N", 7),
                                     rep("CA_S", 6),
                                     rep("CA_N", 6)),
                        stringsAsFactors = F)
-bees_all8 <- meta.ind %>%
-  filter(!(Bee_ID %in% exclude_over8)) %>%
-  filter(group %in% c("CA_2018", "AR_2018")) %>%
-  left_join(., subgroups, by = "population") %>%
-  arrange(lat)
+bees_all8 <- bees_all8_0 %>%
+  left_join(., subgroups, by = "population")
+
 # get ancestries
 A_bees_all8 <- lapply(bees_all8$Bee_ID, function(p) read.table(paste0("results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/", p, ".A.anc"),
                                             stringsAsFactors = F))
 A_all8 <- do.call(cbind, A_bees_all8)
 colnames(A_all8) <- bees_all8$Bee_ID
-
-# make K matrix
-K_all8 <- make_K_calcs(t(A_all8))
-plot(diag(K_all8$K)/K_all8$alpha, bees_all8$lat)
-plot(diag(K_all8$K), K_all8$alpha)
-plot(diag(K_all8$K)/(K_all8$alpha*(1-K_all8$alpha)), abs(bees_all8$lat),
-     col = ifelse(bees_all8$geographic_location == "California", 
-                  "blue", "red"))
-melt(K_all8$K) %>%
-  filter(Var1 != Var2) %>%
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1) +  
-  ggtitle("K covariance - 8 bees per pop")
-ggsave("plots/k_matrix_all8_inds.png", 
-       height = 6, width = 8, 
-       units = "in", device = "png")
-# divide out the variances 
-
 
 # make plots - all loci, mean ancestry across all pops
 png("plots/histogram_A_ancestry_all_loci.png", height = 6, width = 8, units = "in", res = 300)
@@ -722,6 +705,7 @@ qqplot(meanA_MVNsim_AR_bounded, meanA_AR,
        main = "QQ-plot: MVN dist. vs. data, AR mean")
 abline(0, 1, col = "blue")
 dev.off()
+
 png("plots/QQ_plots_against_MVN_zero-ed_out_negK.png",
     height = 10, width = 15, res = 300, units = "in")
 par(mfrow=c(2,2))
@@ -744,6 +728,91 @@ png("plots/mean_A_ancestry_CA_vs_AR_grey.png",
 plot(meanA_CA, meanA_AR, pch = 20, col = alpha("grey", .1),
      main = "comparison of A ancestry in California vs. Argentina zone")
 dev.off()
+
+# for how long do my quantiles match up?
+qs <- seq(0, 1, by = .01)
+qs_meanA_MVNsim_bounded <- quantile(meanA_MVNsim_bounded, probs = qs) 
+qs_meanA <- quantile(meanA, probs = qs) 
+qs_meanA_AR <- quantile(meanA_AR, probs = qs) 
+qs_meanA_CA <- quantile(meanA_CA, probs = qs) 
+qs_meanA_MVNsim_CA_bounded <- quantile(meanA_MVNsim_CA_bounded, probs = qs)
+qs_meanA_MVNsim_AR_bounded <- quantile(meanA_MVNsim_AR_bounded, probs = qs)
+qqplot(meanA_MVNsim_bounded, meanA)
+points(qs_meanA_MVNsim_bounded, qs_meanA, col = "blue")
+tail(qs_meanA_MVNsim_bounded)
+tail(qs_meanA)
+head(qs_meanA_MVNsim_bounded)
+head(qs_meanA)
+lapply(list(qs_meanA_AR, qs_meanA_MVNsim_AR_bounded, 
+            qs_meanA_CA, qs_meanA_MVNsim_CA_bounded, 
+            qs_meanA, qs_meanA_MVNsim_bounded), tail)
+lapply(list(qs_meanA_AR, qs_meanA_MVNsim_AR_bounded, 
+            qs_meanA_CA, qs_meanA_MVNsim_CA_bounded, 
+            qs_meanA, qs_meanA_MVNsim_bounded), head)
+# probably just removing top 1% is fine, but I could be safe and remove top 3% outliers
+high = "97%"
+low = "3%"
+is_outlier <- (meanA >= qs_meanA[high] | meanA_AR >=  qs_meanA_AR[high] | meanA_CA >= qs_meanA_CA[high] |
+                 meanA <= qs_meanA[low] | meanA_AR <=  qs_meanA_AR[low] | meanA_CA <= qs_meanA_CA[low])
+# what % are outliers high or low? About 12% of my data. I'll exclude this set for demographic inference
+table(is_outlier)/length(is_outlier)
+
+
+# plot K matrix with = numbers per pop (CA and AR 2018)
+# and excluding outlier SNPs
+
+
+# make K matrix
+K_all8 <- make_K_calcs(t(A_all8))
+plot(diag(K_all8$K)/K_all8$alpha, bees_all8$lat)
+plot(diag(K_all8$K), K_all8$alpha)
+plot(diag(K_all8$K)/(K_all8$alpha*(1-K_all8$alpha)), abs(bees_all8$lat),
+     col = ifelse(bees_all8$geographic_location == "California", 
+                  "blue", "red"))
+melt(K_all8$K) %>%
+  filter(Var1 != Var2) %>%
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1) +  
+  ggtitle("K covariance - 8 bees per pop")
+ggsave("plots/k_matrix_all8_inds.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
+# take out outliers
+K_all8_noOut <- make_K_calcs(t(A_all8[!is_outlier,]))
+melt(K_all8_noOut$K) %>%
+  filter(Var1 != Var2) %>%
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1) +  
+  ggtitle("K covariance - 8 bees per pop. No outlier loci.")
+ggsave("plots/k_matrix_all8_inds_noOutliers.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
+# mean covariance by group:
+melt(K_all8_noOut$K) %>%
+  filter(Var1 != Var2) %>%
+  left_join(., bees_all8[ , c("Bee_ID", "population", "subgroup")], by = c("Var1"="Bee_ID")) %>%
+  left_join(., bees_all8[ , c("Bee_ID", "population", "subgroup")], by = c("Var2"="Bee_ID")) %>%
+  mutate(comparison = paste(subgroup.x, subgroup.y, sep = ".")) %>%
+  mutate(same_pop = population.x == population.y) %>%
+  ggplot(data = ., aes(x = comparison, y = value, color = same_pop)) + 
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("K covariance - 8 bees per pop. No outlier loci.")
+melt(K_all8_noOut$K) %>%
+  filter(Var1 != Var2) %>%
+  left_join(., bees_all8[ , c("Bee_ID", "population", "subgroup")], by = c("Var1"="Bee_ID")) %>%
+  left_join(., bees_all8[ , c("Bee_ID", "population", "subgroup")], by = c("Var2"="Bee_ID")) %>%
+  mutate(comparison = paste(subgroup.x, subgroup.y, sep = ".")) %>%
+  group_by(comparison) %>%
+  summarise(mean_cov = mean(value)) %>%
+  ggplot(., aes(x = comparison, y = mean_cov)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
 
 # plot 50%, 95%, 99% & .999% credible intervals for my empirical observations
 LaplacesDemon::joint.pr.plot(meanA_CA, 
@@ -1202,6 +1271,21 @@ mean(sim_pop2)*(1-mean(sim_pop2))/n_binom # mean theoretical
 log(1/(1 - diag(AR_CA_K$K)/(AR_CA_K$alpha*(1 - AR_CA_K$alpha))))
 log(diag(AR_CA_K$K)/(AR_CA_K$alpha*(1 - AR_CA_K$alpha)))
 
+# goal: set cutoffs for when distribution doesn't match MVN anymore
+# remove outliers SNPs beyond these cutoffs
+# recalculate K matrix
+# plot new K matrix without outliers
+# group individuals into pops & calculate cov/(a0*(1-a0)*(aCA)*(aAR)) where
+# a0 is the initial pulse into the shared population before the split (vary it 0.99-0.82)
+# and (1 - aCA) is the additional European ancestry added to CA after the split
+# (so observed African ancestry in CA today is alphaCA = a0*aCA)
+# Likewise aAR is the additional European ancestry added to AR after the split
+# with this covariance, calculate N for a 1 generation bottleneck. cov = t/(2N) 
+# .. then I'll have to translate 2N into a bee population size because of haplo-diploidy
+
+# It would be good to test robustness of any results with bootstraps for covariances
+# as in, bootstrap over regions of the genome.
+
 # simulate W-F evolution (drift):
 # 10 generations, population size N = 100, starting freq = .5
 start_freq = .5
@@ -1280,7 +1364,7 @@ r <- read.table("results/SNPs/thin1kb_common3/included_pos_on_Wallberg_Amel4.5_c
 d <- bind_cols(sites, A) %>%
   left_join(., r, by = c("chr", "snp_id"))
 d$r_bin10 = with(d, cut(cM_Mb,  # note need to load map from scaffolds_to_chr.R
-                             breaks = unique(quantile(c(0, map$r, 100), # I extend bounds so that every value gets in a bin
+                             breaks = unique(quantile(c(0, r$cM_Mb, 100), # I extend bounds so that every value gets in a bin
                                                       p = seq(0, 1, by = .1))),
                              right = T,
                              include.lowest = T))
@@ -1288,17 +1372,26 @@ table(d$r_bin10) # fewer SNPs represented in lowest recomb. bins
 head(d[is.na(d$r_bin10),]) # good, should be none
 
 d$r_bin5 = with(d, cut(cM_Mb,  # note need to load map from scaffolds_to_chr.R
-                        breaks = unique(quantile(c(0, map$r, 100), # I extend bounds so that every value gets in a bin
+                        breaks = unique(quantile(c(0, r$cM_Mb, 100), # I extend bounds so that every value gets in a bin
                                                  p = seq(0, 1, by = .2))),
                         right = T,
                         include.lowest = T))
 table(d$r_bin5) # fewer SNPs represented in lowest recomb. bins
+table(d$r_bin5, is_outlier)
 head(d[is.na(d$r_bin5),]) # good, should be none
 
 # make K matrix again with only high recombination rate region of genome
 
-a <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "(38.8,100]", ]))
-a2 <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 %in% c("[0,8.49]","(8.39,15.6]"),]))
+#a <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "(38.8,100]", ]))
+#a2 <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 %in% c("[0,8.49]","(8.39,15.6]"),]))
+a <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "(39.8,100]", ]))
+a2 <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "[0,14]", ]))
+
+#a <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "(39.8,100]" & !is_outlier, ]))
+#a2 <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "[0,14]" & !is_outlier, ]))
+
+# note: I need some way of summarising these K matrices statistically 
+# to test hypotheses about low vs. high r regions.
 
 melt(a$K) %>%
   mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
@@ -1326,7 +1419,7 @@ melt(a2$K) %>%
   geom_tile() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   scale_fill_viridis(begin = 0, end = 1, direction = 1) +
-  ggtitle("K matrix covariances r < 15.6cM/Mb - bees AR & CA no within-pop var")
+  ggtitle("K matrix covariances r < 14cM/Mb - bees AR & CA no within-pop var")
 ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_lowr.png", 
        height = 6, width = 8, 
        units = "in", device = "png")
@@ -1336,12 +1429,10 @@ melt(cov2cor(a2$K)) %>%
   geom_tile() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   scale_fill_viridis(begin = 0, end = 1, direction = 1) +
-  ggtitle("K matrix correlations r < 15.6cM/Mb - bees AR & CA no within-pop var")
+  ggtitle("K matrix correlations r < 14cM/Mb - bees AR & CA no within-pop var")
 ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_lowr_correlations.png", 
        height = 6, width = 8, 
        units = "in", device = "png")
-
-
 
 
 # a better null: maybe I should take the full covariance matrix for ind. ancestries, 
