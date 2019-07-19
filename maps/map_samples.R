@@ -702,3 +702,120 @@ ggmap(get_map(location = 'El Cajon, California',
 #morph_list10 <- sapply(9:15, function(i) sort(sample(bees[bees$state == "CA" & as.integer(bees$popN) == i, "Bee_ID"], size = 12, replace = F)))
 # note: In my 12 should be the bees that I chose for sequencing..
 #write.table(morph_list10, "../labwork/ids2morph_10N_CA", col.names = F, row.names = F, quote = F)
+
+
+# plot just the bees successfully sequenced:
+# load population ancestry frequencies:
+pops.seq <- read.table("../bee_samples_listed/byPop/pops_included.list", stringsAsFactors = F)$V1
+bees.seq <- do.call(rbind, 
+                lapply(pops, function(p) data.frame(Bee_ID = read.table(paste0("../bee_samples_listed/byPop/", p, ".list"),
+                                                                        stringsAsFactors = F)$V1, population = p, stringsAsFactors = F)))
+meta.seq <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
+  left_join(bees.seq, ., by = c("Bee_ID", "population"))
+CA_pops_included <- unique(meta.seq$population[meta.seq$group %in% c("N_CA", "S_CA", "CA_2018") & meta.seq$year >= 2014])
+
+
+ggmap(get_map(location = 'Hollister, California', 
+              maptype = "toner-lite",
+              source = "stamen",
+              zoom =  9)) +
+  geom_point(aes(x = long, 
+                 y = lat,
+                 col = population,
+                 shape = factor(year)), 
+             data = meta.seq %>%
+               filter(population %in% CA_pops_included)) +
+  scale_color_distiller(palette = "RdPu")
+
+# diff background; all Argentina samples
+ggmap(get_map(location = 'Santa Fe, Argentina', 
+              maptype = "toner-lite",
+              source = "stamen",
+              zoom =  6)) +
+  geom_point(aes(x = long, 
+                 y = lat,
+                 col = popN), 
+             data = bees[bees$state == "AR",],
+             cex = .5,
+             alpha = .5)
+
+# Northern Argentina samples
+ggmap(get_map(location = 'Reconquista, Argentina', zoom =  8)) +
+  geom_point(aes(x = long, 
+                 y = lat,
+                 col = popN), 
+             data = bees[bees$state == "AR",],
+             cex = .5,
+             alpha = .5)
+
+# CA samples
+map_CA_wide <- ggmap(get_map(location = 'Palmo, California',
+  maptype = "toner-lite",
+  source = "stamen",
+  zoom = 7))
+map_CA_wider <- ggmap(get_map(location = 'California',
+                              maptype = "toner-lite",
+                              source = "stamen",
+                              zoom = 6))
+map_CA_wide +
+  geom_point(data = filter(meta.seq, population %in% CA_pops_included) %>%
+               mutate(Collection = factor(year)),
+             aes(x = long, 
+                 y = lat,
+                 color = population,
+                 shape = Collection),
+             alpha = .75) +
+  guides(color = FALSE) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  ggtitle("Map of Bees Sequenced from California")
+ggsave(filename = "plots/map_bees_sequenced_CA.png", 
+       device = "png",
+       width = 6, height = 6, 
+       units = "in",
+       dpi = 300)
+# now plot on same scale as Argentina's map:
+map_CA_wider +
+  geom_point(data = filter(meta.seq, population %in% CA_pops_included) %>%
+               mutate(Collection = factor(year)),
+             aes(x = long, 
+                 y = lat,
+                 color = population,
+                 shape = Collection),
+             alpha = .75) +
+  guides(color = FALSE) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  ggtitle("Map of Bees Sequenced from California")
+ggsave(filename = "plots/map_bees_sequenced_CA_scaled2AR.png", 
+       device = "png",
+       width = 6, height = 6, 
+       units = "in",
+       dpi = 300)
+
+# Argentina samples
+map_AR_wide <- ggmap(get_map(location = 'Colon, Argentina',
+                              maptype = "toner-lite",
+                              source = "stamen",
+                              zoom = 6))
+
+map_AR_wide +
+  geom_point(data = filter(meta.seq, geographic_location == "Argentina") %>%
+               mutate(Collection = factor(year)),
+             aes(x = long, 
+                 y = lat,
+                 color = population,
+                 shape = Collection),
+             alpha = .75) +
+  guides(color = FALSE) +
+  scale_shape_manual(values=c(17)) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  ggtitle("Map of Bees Sequenced from Argentina")
+ggsave(filename = "plots/map_bees_sequenced_AR.png", 
+       device = "png",
+       width = 6, height = 6, 
+       units = "in",
+       dpi = 300)
+
+
