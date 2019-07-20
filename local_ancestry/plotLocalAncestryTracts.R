@@ -1085,22 +1085,50 @@ ggplot() +
                                     MVN_AR = meanA_MVNsim_AR_zero_bounded), 
                   aes(x=MVN_CA, y=MVN_AR))
 # I can use stat_contour if I have a z gridded for what I want to display
-png("plots/density_MVN_overlay_on_scatterplot.png", height = 6, width = 8, units = "in", res = 300)
-plot(meanA_CA, meanA_AR, col = "grey", pch = 20)
+png("plots/density_MVN_overlay_on_scatterplot.png", 
+    height = 8, width = 8, units = "in", res = 300)
+plot(meanA_CA, meanA_AR, col = alpha("grey", alpha = .3), pch = 20,
+     main = "Ancestry frequencies in both hybrid zones across SNPs",
+     xlab = "Mean African ancestry in California bees",
+     ylab = "Mean African ancestry in Argentina bees")
+#plot(meanA_MVNsim_CA_zero_bounded, meanA_MVNsim_AR_zero_bounded, col = "grey", pch = 20)
 emdbook::HPDregionplot(cbind(meanA_MVNsim_CA_zero_bounded, meanA_MVNsim_AR_zero_bounded), 
                        prob = c(0.99, 0.95, 0.75, 0.5), 
-                       col=c("yellow", "salmon", "lightblue", "lightgreen"), 
+                       n = 100, # number of grid points
+                       #h = .1, let the function choose smoothing automatically (defaults to bandwidth.nrd())
+                       col=c("lightgreen", "salmon", "lightblue", "yellow"), 
                        lwd = 3, 
                        add = TRUE)
-legend("topleft", legend = c(0.99, 0.95, 0.75, 0.5), 
-       title = "quantile MVN sim.",
-       pch = 20,
-       col=c("yellow", "salmon", "lightblue", "lightgreen"))
+legend("bottomright", legend = c(0.99, 0.95, 0.75, 0.5), 
+       title = "Neutral simulation density",
+       lty = 1,
+       lwd = 4,
+       col=c("lightgreen", "salmon", "lightblue", "yellow"))
 dev.off()
-abline(v = quantile(meanA_MVNsim_CA_zero_bounded, c(0.01, 0.99)), col = "yellow")
-abline(h = quantile(meanA_MVNsim_AR_zero_bounded, c(0.01, 0.99)), col = "yellow")
-# (!) something is wrong -- how can 99% of points be left of the line and also 99% of points in the circle,
-# if the line is left of the circle?
+
+png("plots/density_MVN_overlay_on_scatterplot_w_ind_zone_quantiles.png", 
+    height = 8, width = 8, units = "in", res = 300)
+plot(meanA_CA, meanA_AR, col = alpha("grey", alpha = .3), pch = 20,
+     main = "Ancestry frequencies in both hybrid zones across SNPs",
+     xlab = "Mean African ancestry in California bees",
+     ylab = "Mean African ancestry in Argentina bees")
+#plot(meanA_MVNsim_CA_zero_bounded, meanA_MVNsim_AR_zero_bounded, col = "grey", pch = 20)
+emdbook::HPDregionplot(cbind(meanA_MVNsim_CA_zero_bounded, meanA_MVNsim_AR_zero_bounded), 
+                       prob = c(0.99, 0.95, 0.75, 0.5), 
+                       n = 100, # number of grid points
+                       #h = .1, let the function choose smoothing automatically (defaults to bandwidth.nrd())
+                       col=c("lightgreen", "salmon", "lightblue", "yellow"), 
+                       lwd = 3, 
+                       add = TRUE)
+
+abline(v = quantile(meanA_MVNsim_CA_zero_bounded, c(0.01, 0.99)), col = "lightgreen")
+abline(h = quantile(meanA_MVNsim_AR_zero_bounded, c(0.01, 0.99)), col = "lightgreen")
+legend("bottomright", legend = c(0.99, 0.95, 0.75, 0.5), 
+       title = "Neutral simulation (MVN) density",
+       lty = 1,
+       lwd = 4,
+       col=c("lightgreen", "salmon", "lightblue", "yellow"))
+dev.off()
 
 
 # any genes in outlier regions?

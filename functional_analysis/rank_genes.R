@@ -66,7 +66,7 @@ grooming_QTL <- read.table("results/grooming_QTL_Arechavaleta-Velasco_2012.txt",
 #Nearest marker 	AT128 	K1601 	AC074 (microsats from Solignac 2007; 155 markers, mean marker spacing 27.7cM)
 # also first half of chromosome 7 has a sig. QTL for suppression of reproduction of varroa; 
 # epistatic effects in Gotland Varroa tolerant honey bees (Behrens 2011 Ecol Evol.)
-varroa_QTL <- bind_rows(hygeine_QTL, grooming_QTL) %>%
+varroa_QTL0 <- bind_rows(hygeine_QTL, grooming_QTL) %>%
   mutate(chr = as.numeric(Chromosome))
 
 # list of genes and regions associated with hygeine from Harpur 2019
@@ -100,17 +100,22 @@ scaff_to_chr_pos <- function(scaffold, pos, mapg = varroa_scaffolds_on_chr){
 A_AR_CA$chr_start = sapply(1:nrow(A_AR_CA), function(x) scaff_to_chr_pos(scaffold = A_AR_CA[x, "scaffold"], pos = A_AR_CA[x, "start"]))
 A_AR_CA$chr_end = sapply(1:nrow(A_AR_CA), function(x) scaff_to_chr_pos(scaffold = A_AR_CA[x, "scaffold"], pos = A_AR_CA[x, "end"]))
 A_AR_CA$chr = as.numeric(sapply(A_AR_CA$scaffold, function(s) substr(strsplit(s, split = "[.]")[[1]][1], 6, 100)))
-varroa_QTL$chr = as.numeric(apply(varroa_QTL, 1, function(s) ifelse(is.na(s["chr"]), 
+varroa_QTL0$chr = as.numeric(apply(varroa_QTL, 1, function(s) ifelse(is.na(s["chr"]), 
                                                                     as.numeric(substr(strsplit(s["Scaffold_Start"], split = "[.]")[[1]][1], 6, 100)),
                                                                     s["chr"])))
-varroa_QTL$chr_start = sapply(1:nrow(varroa_QTL), function(x) ifelse(is.na(varroa_QTL[x, "Start"]), 
+varroa_QTL0$chr_start = sapply(1:nrow(varroa_QTL), function(x) ifelse(is.na(varroa_QTL[x, "Start"]), 
                                                                      scaff_to_chr_pos(scaffold = varroa_QTL[x, "Scaffold_Start"], 
                                                                                       pos = varroa_QTL[x, "Scaffold_Pos_Start"]),
                                                                      varroa_QTL[x, "Start"]))
-varroa_QTL$chr_end = sapply(1:nrow(varroa_QTL), function(x) ifelse(is.na(varroa_QTL[x, "End"]), 
+varroa_QTL0$chr_end = sapply(1:nrow(varroa_QTL), function(x) ifelse(is.na(varroa_QTL[x, "End"]), 
                                                                    scaff_to_chr_pos(scaffold = varroa_QTL[x, "Scaffold_End"], 
                                                                                     pos = varroa_QTL[x, "Scaffold_Pos_End"]),
                                                                    varroa_QTL[x, "End"]))
+
+QTL_names <- unique(varroa_QTL0[c("Reference", "Outlier_type", "Name")])
+QTL_names$name <- c("Varroa-Sensitive Hygiene putative QTL", "Varro-Sensitive Hygiene GWAS SNP", "Varroa-Sensitive Hygiene QTL", "Hygiene QTL", "Self-Grooming QTL")
+QTL_names$source <- c("Spoetter et al. 2012", "Spoetter et al. 2016", "Tsuruda et al. 2012", "Oxley et al. 2008", "Arechavaleta-Velasco et al. 2012")
+varroa_QTL <- left_join(varroa_QTL0, QTL_names, by = c("Reference", "Outlier_type", "Name"))
 
 # plot oultiers on their scaffolds with genes under outliers shown. 
 # I also want a whole-genome view to make sure the genes 'out of range' near the edges of scaffolds (past ancestry calls) 
@@ -156,6 +161,9 @@ varroa_QTL_cumulative <- varroa_QTL %>%
 
 
 # get approximate cumulative positions for all points with ancestry calls
+pretty_label_zone = data.frame(zone = c("CA", "AR"),
+                               zone_pretty = c("California", "Argentina"),
+                               stringsAsFactors = F)
 A_AR_CA_cumulative <- A_AR_CA %>%
   mutate(pos = (chr_start + chr_end)/2) %>% # proxy ok for plotting; regions are short
   left_join(., chr_lengths, by = "chr") %>%
@@ -169,29 +177,55 @@ A_AR_CA_cumulative <- A_AR_CA %>%
                                               min(x[c("FDR_shared_high", "FDR_shared_low", 
                                                       "FDR_AR_high", "FDR_AR_low")], na.rm = T)))) %>%
   mutate(color_by = ifelse(FDR == "NA", ifelse((chr %% 2 == 0), # even chromosomes different color
-                                               "n.s. - even chr", "n.s. - odd chr"), FDR))
+                                               "n.s. - even chr", "n.s. - odd chr"), FDR)) %>%
+  left_join(., pretty_label_zone, by = "zone")
+
 
 # plot with QTLs for varroa on top of 
 ggplot() +
   geom_point(data = A_AR_CA_cumulative, aes(x = pos_cum, y = A_ancestry, 
-                                            color = color_by), size = .1) +
+                                            color = color_by), size = .05) +
   xlab("bp position on chromosome") +
   ylab("mean African ancestry") +
-  scale_colour_manual(values = c("red", "orange", "skyblue", 
-                                 "limegreen", "darkgreen", "olivedrab", 
-                                 "darkgrey", "grey",
-                                 "lightseagreen", "lightgreen")) + 
+  scale_colour_manual(name = NULL,
+    values = c("0.01"="red", "0.05"="orange", "0.1"="skyblue", 
+                                 "n.s. - even chr"="darkgrey", 
+                                 "n.s. - odd chr"="grey",
+                                 "Self-Grooming QTL"="limegreen", 
+                                 "Varro-Sensitive Hygiene GWAS SNP"="darkgreen", 
+                                 "Hygiene QTL"="olivedrab", 
+                                 "Varroa-Sensitive Hygiene putative QTL"="lightseagreen", 
+                                 "Varroa-Sensitive Hygiene QTL"="lightgreen"),
+    limits = c("0.01", "0.05", "0.1", 
+               "n.s. - even chr", 
+               "n.s. - odd chr",
+               "Self-Grooming QTL", 
+               "Varro-Sensitive Hygiene GWAS SNP", 
+               "Hygiene QTL", 
+               "Varroa-Sensitive Hygiene putative QTL", 
+               "Varroa-Sensitive Hygiene QTL"),
+    labels = c("0.01 FDR", "0.05 FDR", "0.1 FDR", 
+               "n.s. - even chr", 
+               "n.s. - odd chr",
+               "Self-Grooming QTL", 
+               "Varro-Sensitive Hygiene GWAS SNP", 
+               "Hygiene QTL", 
+               "Varroa-Sensitive Hygiene putative QTL", 
+               "Varroa-Sensitive Hygiene QTL")
+                      ) + 
+  scale_x_discrete(limits=c("2", "0.5", "1")) +
   scale_x_continuous(label = chr_lengths$chr, breaks = chr_lengths$chromosome_midpoint) +
   #theme(legend.position = "none") +
-  facet_wrap(~zone, nrow = 2, ncol = 1) + 
+  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
   geom_segment(data = mutate(varroa_QTL_cumulative, # add padding to GWAS SNPs just to visualize (o/w too small to see)
                              cum_start = ifelse(Outlier_type == "GWAS_SNPs", cum_start - 20000, cum_start),
                              cum_end = ifelse(Outlier_type == "GWAS_SNPs", cum_end + 20000, cum_end)),
-               aes(x=cum_start, xend=cum_end, y=0.68, yend=0.68, color = Name),
+               aes(x=cum_start, xend=cum_end, y=0.68, yend=0.68, color = name),
                lwd = 4) +
-  ggtitle("A ancestry in both hybrid zones, showing varroa-resistance QTLs in green")
+  theme(legend.position = "bottom") +
+  ggtitle("Ancestry outliers across whole genome and co-localization with Varroa defense loci")
 ggsave("plots/A_frequency_plot_AR_CA_FDR_whole_genome_wide_VarroaQTL.png",
-       height = 5, width = 10, units = "in", device = "png")
+       height = 5, width = 9, units = "in", device = "png")
 # note: the QTL with overlap on chr1 is a putative QTL for removal of varroa-infested brood
 # based on an unpublished study in Apis mellifera carnica
 # Spotter 2012 "Denser spacing was chosen for nine genomic regions because a preliminary study 
@@ -204,17 +238,32 @@ ggplot() +
                                                               color = color_by), size = .1) +
   xlab("bp position on chromosome") +
   ylab("mean African ancestry") +
-  scale_colour_manual(values = c("red", "orange", "skyblue", 
-                                 "darkgrey",
-                                 "lightseagreen", "lightgreen")) + 
   #theme(legend.position = "none") +
-  facet_wrap(~zone, nrow = 2, ncol = 1) + 
+  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
   geom_segment(data = filter(varroa_QTL_cumulative, chr == 1), 
-               aes(x=cum_start, xend=cum_end, y=0.68, yend=0.68, color = Name),
+               aes(x=cum_start, xend=cum_end, y=0.68, yend=0.68, color = name),
                lwd = 4) +
-  ggtitle("A ancestry in both hybrid zones CHR1 showing varroa-resistance QTLs in green")
+  scale_colour_manual(name = NULL,
+                      values = c("0.01"="red", "0.05"="orange", "0.1"="skyblue", 
+                                 "n.s. - even chr"="darkgrey", 
+                                 "n.s. - odd chr"="grey",
+                                 "Varroa-Sensitive Hygiene putative QTL"="lightseagreen", 
+                                 "Varroa-Sensitive Hygiene QTL"="lightgreen"),
+                      limits = c("0.01", "0.05", "0.1", 
+                                 "n.s. - even chr", 
+                                 "n.s. - odd chr",
+                                 "Varroa-Sensitive Hygiene putative QTL", 
+                                 "Varroa-Sensitive Hygiene QTL"),
+                      labels = c("0.01 FDR", "0.05 FDR", "0.1 FDR", 
+                                 "n.s. - even chr", 
+                                 "n.s. - odd chr",
+                                 "Varroa-Sensitive Hygiene putative QTL", 
+                                 "Varroa-Sensitive Hygiene QTL")
+  ) +
+  theme(legend.position = "bottom") +
+  ggtitle("Ancestry outliers across chromosome 1 and co-localization with Varroa defense loci")
 ggsave("plots/A_frequency_plot_AR_CA_FDR_chr1_wide_VarroaQTL.png",
-       height = 5, width = 10, units = "in", device = "png")
+       height = 5, width = 9, units = "in", device = "png")
 
 
 # how much of the genome do different QTL types cover?
