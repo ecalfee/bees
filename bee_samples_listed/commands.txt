@@ -9,3 +9,8 @@ data/Cridland_2018$ awk -F"\t" '$12=="1999" || $12=="2002" {print $3}' SraRunTab
 data/Cridland_2018$ awk -F"\t" '$12=="1996" || $12=="2010" {print $3}' SraRunTable.txt > SRR_1996_2010.list
 data/Cridland_2018$ awk -F"\t" '$10=="feral" && $12=="2014" {print $0}' SraRunTable.txt | grep -v "Humboldt" | cut -f3 > SRR_2014_all_pops_but_Humboldt.list
 data/Cridland_2018$ cat SRR_2014_all_pops_but_humboldt.list SRR_1999_2002.list SRR_1996_2010.list > SRR_to_download.list
+# get sample ID’s too:
+data/Cridland_2018$ awk -F"\t" '$12=="1996" || $12=="2010" {print $9}' SraRunTable.txt > IDs_1996_2010.list
+data/Cridland_2018$ awk -F"\t" '$12=="1999" || $12=="2002" {print $9}' SraRunTable.txt > IDs_1999_2002.list
+data/Cridland_2018$ awk -F"\t" '$10=="feral" && $12=="2014" {print $0}' SraRunTable.txt | grep -v "Humboldt" | cut -f9 > IDs_2014_all_pops_but_Humboldt.list
+(base) Erins-MacBook-Air:Cridland_2018 Erin$ cat IDs_2014_all_pops_but_humboldt.list IDs_1999_2002.list IDs_1996_2010.list > IDs_to_download.list
