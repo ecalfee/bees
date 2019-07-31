@@ -21,3 +21,20 @@ data/honeybee_genome/gene_annotations$ zgrep 'Group1.21' amel_OGSv3.2.gff3.gz | 
 
 # made a new file with just genes
 honeybee_genome/gene_annotations$ zgrep 'gene' amel_OGSv3.2.gff3.gz > genes_only.gff3
+
+# Downloaded 7/22/19 latest genome assembly for apis mellifera - Amel_HAv3.1 from RefSeq NCBI.
+# Found by search NCBI accession number QIUM00000000; published in Wallberg 2019 doi: 10.1186/s12864-019-5642-0 .
+# Additional version info from NCBI (latest):
+Amel_HAv3.1
+
+Organism: Apis mellifera (honey bee)
+Infraspecific name: Strain: DH4
+Sex: male
+Submitter: Uppsala University
+Date: 2018/09/10
+Assembly level: Chromosome
+Genome representation: full
+RefSeq category: representative genome
+GenBank assembly accession: GCA_003254395.2 (latest)
+RefSeq assembly accession: GCF_003254395.2 (latest)
+IDs: 1949871 [UID] 7372188 [GenBank] 7434688 [RefSeq]

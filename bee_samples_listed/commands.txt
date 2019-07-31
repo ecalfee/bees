@@ -1,2 +1,11 @@
 # making lists of bee IDs per population (only AR1212 excluded here due to super low coverage sequencing)
 global_ancestry/results/NGSAdmix$ for i in $(cut -f2 *.ind.anc | uniq | tail -n +2); do awk -v i="$i" '$2 == i {print $1}' K3_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy250.ind.anc > ../../../bee_samples_listed/byPop/"$i".list; done
+
+# getting sequences from NCBI for julie’s bees:
+# SRA Study:SRP107650 BioProject:PRJNA385500
+# (single-ended reads)
+All 2014 samples, including Davis, but not as far north as Humboldt:
+data/Cridland_2018$ awk -F"\t" '$12=="1999" || $12=="2002" {print $3}' SraRunTable.txt > SRR_1999_2002.list
+data/Cridland_2018$ awk -F"\t" '$12=="1996" || $12=="2010" {print $3}' SraRunTable.txt > SRR_1996_2010.list
+data/Cridland_2018$ awk -F"\t" '$10=="feral" && $12=="2014" {print $0}' SraRunTable.txt | grep -v "Humboldt" | cut -f3 > SRR_2014_all_pops_but_Humboldt.list
+data/Cridland_2018$ cat SRR_2014_all_pops_but_humboldt.list SRR_1999_2002.list SRR_1996_2010.list > SRR_to_download.list
