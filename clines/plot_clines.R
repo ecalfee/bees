@@ -93,6 +93,7 @@ d_A <- d %>%
   # distance from sao paulo, centered, and in units of 1000km
   mutate(dist_c = (km_from_sao_paulo - mean(km_from_sao_paulo))/1000) %>%
   mutate(S_America = ifelse(continent == "S. America", 1, 0)) %>%
+  mutate(S_America_c = S_America - mean(S_America)) %>% # center for better fit and reduce correlation with mu estimates
   mutate(temp_c = AnnualMeanTemp - mean(AnnualMeanTemp)) %>%
   mutate(cold_c = MeanTempColdestQuarter - mean(MeanTempColdestQuarter)) %>%
   mutate(precip_c = AnnualPrecip - mean(AnnualPrecip)) %>%
@@ -100,17 +101,32 @@ d_A <- d %>%
 
 # plots
 d_A %>%
-  ggplot(., aes(x = MeanTempColdestQuarter, y = AnnualMeanTemp, color = geographic_location_short)) +
+  ggplot(., aes(y = MeanTempColdestQuarter, x = AnnualMeanTemp, color = geographic_location_short)) +
   geom_point()
 d_A %>%
-  ggplot(., aes(x = MeanTempColdestQuarter, y = abs(lat), color = geographic_location_short)) +
+  ggplot(., aes(y = MeanTempColdestQuarter, x = abs(lat), color = geographic_location_short)) +
   geom_point()
 d_A %>%
-  ggplot(., aes(x = AnnualMeanTemp, y = abs(lat), color = geographic_location_short)) +
+  ggplot(., aes(y = AnnualMeanTemp, x = abs(lat), color = geographic_location_short)) +
   geom_point()
 d_A %>%
-  ggplot(., aes(x = abs(lat), y = AnnualPrecip, color = continent)) +
+  ggplot(., aes(x = abs(lat), y = AnnualPrecip, color = geographic_location_short)) +
   geom_point() # basically S. America is wet and N. America is dry
+
+# plot some climate variables:
+d_A %>%
+  tidyr::gather(., "climate_var", "value", c("AnnualMeanTemp", "MeanTempColdestQuarter", "AnnualPrecip")) %>%
+  ggplot(., aes(x = abs(lat), y = value, color = geographic_location_short)) +
+  geom_point(size = .5) + 
+  facet_wrap(~climate_var, scales = "free_y", ncol = 1) +
+  xlab("Degrees latitude from the equator") + 
+  theme(legend.position="bottom") + 
+  labs(color = "")
+ggsave("plots/climate_variables_across_latitude.png", 
+       height = 5, width = 5, units = "in")
+# save in figures for manuscript:
+ggsave("../../bee_manuscript/figures/climate_variables_across_latitude.png", 
+       height = 5, width = 5, units = "in")
 
 # A ancestry vs. latitude:
 d_A %>%
@@ -205,7 +221,7 @@ m_lat_SA <- map( # quadratic approximation of the posterior MAP
     # beta distribution provided by the 'rethinking' package
     # where mean probability 'prob' = a/(a+b) and parameter 'theta' = a+b
     # are used instead of shape1 = a and shape2 = b
-    logit(p) <- mu + b_lat*abs_lat_c + b_SA*S_America,
+    logit(p) <- mu + b_lat*abs_lat_c + b_SA*S_America_c,
     mu ~ dnorm(0, 5),
     theta ~ dunif(0, 10),
     b_lat ~ dnorm(0, 5),
@@ -490,17 +506,17 @@ precis(m1)
 pairs(m1) # predictions for distance and latitude are negatively correlated
 
 # plot model predictions:
-link1 <- link(m1, d_A, n = 100)
-link1_mu <- apply(link1, 2, mean)
-link1_HPDI <- apply(link1, 2, HPDI, prob=0.95)
+m1.post <- sim(m1, d_A, n = 100)
+m1.post.mu <- apply(m1.post, 2, mean)
+m1.post.HPDI <- apply(m1.post, 2, HPDI, prob=0.95)
 d_A %>%
-  mutate(m1 = link1_mu) %>%
+  mutate(m1 = m1.post.mu) %>%
   tidyr::gather(., "data", "A_ancestry", c("alpha", "m1")) %>%
   ggplot(., aes(x = abs(lat), y = A_ancestry, color = data)) +
   geom_point() +
   facet_wrap(~continent)
 d_A %>%
-  mutate(m1 = link1_mu) %>%
+  mutate(m1 = m1.post.mu) %>%
   ggplot(., aes(x = alpha, y = m1, color = continent)) +
   geom_point()
 
@@ -524,16 +540,16 @@ m1_cold <- map( # quadratic approximation of the posterior MAP
   start = list(mu = -1, theta = 2, b_dist = 0, b_lat = 0, b_cold = 0))
 precis(m1_cold)
 pairs(m1_cold)
-link1_cold <- link(m1_cold, d_A, n = 100)
-link1_cold_mu <- apply(link1_cold, 2, mean)
+m1_cold.post <- sim(m1_cold, d_A, n = 100)
+m1_cold.post.mu <- apply(m1_cold.post, 2, mean)
 d_A %>%
-  mutate(m1_cold = link1_cold_mu) %>%
+  mutate(m1_cold = m1_cold.post.mu) %>%
   tidyr::gather(., "data", "A_ancestry", c("alpha", "m1_cold")) %>%
   ggplot(., aes(x = abs(lat), y = A_ancestry, color = data)) +
   geom_point() +
   facet_wrap(~continent)
 d_A %>%
-  mutate(m1_cold = link1_cold_mu) %>%
+  mutate(m1_cold = m1_cold.post.mu) %>%
   ggplot(., aes(x = alpha, y = m1_cold, color = continent)) +
   geom_point()
 
@@ -555,16 +571,16 @@ m1_temp <- map( # quadratic approximation of the posterior MAP
   start = list(mu = -1, theta = 2, b_dist = 0, b_lat = 0, b_temp = 0))
 precis(m1_temp)
 pairs(m1_temp)
-link1_temp <- link(m1_temp, d_A, n = 100)
-link1_temp_mu <- apply(link1_temp, 2, mean)
+m1_temp.post <- sim(m1_temp, d_A, n = 100)
+m1_temp.post.mu <- apply(m1_temp.post, 2, mean)
 d_A %>%
-  mutate(m1_temp = link1_temp_mu) %>%
+  mutate(m1_temp = m1_temp.post.mu) %>%
   tidyr::gather(., "data", "A_ancestry", c("alpha", "m1_temp")) %>%
   ggplot(., aes(x = abs(lat), y = A_ancestry, color = data)) +
   geom_point() +
   facet_wrap(~continent)
 d_A %>%
-  mutate(m1_temp = link1_temp_mu) %>%
+  mutate(m1_temp = m1_temp.post.mu) %>%
   ggplot(., aes(x = alpha, y = m1_temp, color = continent)) +
   geom_point()
 
@@ -586,8 +602,8 @@ m1_precip <- map( # quadratic approximation of the posterior MAP
   start = list(mu = -1, theta = 2, b_dist = 0, b_lat = 0, b_precip = 0))
 precis(m1_precip)
 pairs(m1_precip)
-link1_precip <- link(m1_precip, d_A, n = 100)
-link1_precip_mu <- apply(link1_precip, 2, mean)
+m1_precip.post <- sim(m1_precip, d_A, n = 100)
+m1_precip.post.mu <- apply(m1_precip.post, 2, mean)
 
 m1_temp_precip <- map( # quadratic approximation of the posterior MAP
   alist(
@@ -648,13 +664,13 @@ pairs(m1_cold_temp)
 
 
 d_A %>%
-  mutate(m1_precip = link1_precip_mu) %>%
+  mutate(m1_precip = m1_precip.post.mu) %>%
   tidyr::gather(., "data", "A_ancestry", c("alpha", "m1_precip")) %>%
   ggplot(., aes(x = abs(lat), y = A_ancestry, color = data)) +
   geom_point() +
   facet_wrap(~continent)
 d_A %>%
-  mutate(m1_precip = link1_precip_mu) %>%
+  mutate(m1_precip = m1_precip.post.mu) %>%
   ggplot(., aes(x = alpha, y = m1_precip, color = continent)) +
   geom_point()
 
@@ -663,9 +679,9 @@ d_A %>%
 # fading out points to make line and interval more visible
 plot(alpha ~ abs(lat), data = d_A, col = col.alpha(rangi2, 0.5) )
 # plot the MAP line, aka the mean mu for each weight
-lines(abs(d_A$lat)[order(abs(d_A$lat))], link1_mu[order(abs(d_A$lat))])
+lines(abs(d_A$lat)[order(abs(d_A$lat))], m1.postmu[order(abs(d_A$lat))])
 # plot a shaded region for 89% HPDI
-shade(link1_HPDI[ , order(abs(d_A$lat))], abs(d_A$lat)[order(abs(d_A$lat))])
+shade(m1.post.HPDI[ , order(abs(d_A$lat))], abs(d_A$lat)[order(abs(d_A$lat))])
 
 
 m2 <- map( # quadratic approximation of the posterior MAP
@@ -706,7 +722,7 @@ rethinking::compare(m, m0, m_cold, m_temp, m_precip, m_lat, m_lat_precip, m_lat_
 rethinking::compare(m, m0, m_cold, m_temp, m_precip, m_lat, m_lat_SA, m_lat_precip, m_lat_cold, m_lat_temp_cold, m_lat_temp_cold_precip, m_lat_cold_precip, m_lat_temp, m1, m0_temp, m0_cold, m0_precip, m2, m1_cold, m1_temp, m1_precip, m1_cold_precip, m1_temp_precip, m1_cold_temp)
 
 postcheck(m2)
-
+rethinking::compare(m, m_lat, m_lat_SA)
 
 # alternatively, I could cross-validate predictors if I use one hybrid zone 
 # to predict the other (?) using either latitude or temp, dist etc.
@@ -720,21 +736,37 @@ curve(rethinking::dbeta2(x, prob = logistic(coef(m1)["mu"]),
 
 # plot raw data and a line for model prediction based on latitude. Color by cold. Shape = S. America or N. America.
 # m_lat best single-predictor model:
-link_m_lat <- link(m_lat, d_A, n = 1000)
-link_m_lat_mean <- apply(link_m_lat, 2, mean)
-link_m_lat_HDPI <- apply(link_m_lat, 2, HPDI, prob=0.95)
+m_lat.post <- sim(m_lat, d_A, n = 1000)
+m_lat.post.mu <- apply(m_lat.post, 2, mean)
+m_lat.post.HDPI <- apply(m_lat.post, 2, HPDI, prob=0.95)
 # plot model prediction for m_lat:
-png("plots/m_lat_model_prediction.R", height = 6, width = 8, units = "in", res = 300)
+png("plots/m_lat_model_prediction.png", height = 6, width = 8, units = "in", res = 300)
 plot(alpha ~ abs(lat), data = d_A, col = ifelse(d_A$continent == "S. America", rangi2, "skyblue"),
      ylim = c(0, 1), main = "African ancestry predicted by latitude", xlab = "Degrees latitude from equator",
      ylab = "A ancestry proportion")
 # plot the MAP line, aka the mean mu for each weight
-lines(abs(d_A$lat)[order(abs(d_A$lat))], link_m_lat_mean[order(abs(d_A$lat))])
-# plot a shaded region for 89% HPDI
-shade(link_m_lat_HDPI[ , order(abs(d_A$lat))], abs(d_A$lat)[order(abs(d_A$lat))])
+lines(abs(d_A$lat)[order(abs(d_A$lat))], m_lat.post.mu[order(abs(d_A$lat))])
+# plot a shaded region for 95% HPDI
+shade(m_lat.post.HDPI[ , order(abs(d_A$lat))], abs(d_A$lat)[order(abs(d_A$lat))])
 legend("topright", c("S. America", "N. America", "model prediction", "95% confidence (HPDI)"),
         pch = c(1, 1, NA, 15), lty = c(NA, NA, 1, NA), col = c(rangi2, "skyblue", "black", "grey"))
 dev.off()
+# make figure again for manuscript folder:
+png("../../bee_manuscript/figures/m_lat_model_prediction.png", height = 6, width = 8, units = "in", res = 300)
+plot(alpha ~ abs(lat), data = d_A, col = ifelse(d_A$continent == "S. America", rangi2, "skyblue"),
+     ylim = c(0, 1), main = "African ancestry predicted by latitude", xlab = "Degrees latitude from equator",
+     ylab = "A ancestry proportion")
+# plot the MAP line, aka the mean mu for each weight
+lines(abs(d_A$lat)[order(abs(d_A$lat))], m_lat.post.mu[order(abs(d_A$lat))])
+# plot a shaded region for 95% HPDI
+shade(m_lat.post.HDPI[ , order(abs(d_A$lat))], abs(d_A$lat)[order(abs(d_A$lat))])
+legend("topright", c("S. America", "N. America", "model prediction", "95% confidence (HPDI)"),
+       pch = c(1, 1, NA, 15), lty = c(NA, NA, 1, NA), col = c(rangi2, "skyblue", "black", "grey"))
+dev.off()
+
+
+
+
 d_A %>%
   ggplot(., aes(x = abs(lat), y = alpha, color = MeanTempColdestQuarter)) +
   geom_point() +
@@ -744,13 +776,13 @@ d_A %>%
 
 
 d_A %>%
-  mutate(m1 = link1_mu) %>%
+  mutate(m1 = m1.post.mu) %>%
   tidyr::gather(., "data", "A_ancestry", c("alpha", "m1")) %>%
   ggplot(., aes(x = abs(lat), y = A_ancestry, color = data)) +
   geom_point() +
   facet_wrap(~continent)
 d_A %>%
-  mutate(m1 = link1_mu) %>%
+  mutate(m1 = m1.post.mu) %>%
   ggplot(., aes(x = alpha, y = m1, color = continent)) +
   geom_point()
 
