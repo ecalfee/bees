@@ -28,7 +28,7 @@ DIR_OUT="results" # results directory
 DIR_METRICS="metrics" # metrics directory
 BAM_OUT=${DIR_OUT}"/"${ID}".sort.dedup.baq.bam"
 DIR_TMP=${DIR_OUT}"/tmp/"${ID} # for memory overflow
-REF="../data/honeybee_genome/Amel_4.5_scaffolds.fa" # honeybee reference genome (indexed by samtools faidx)
+REF="../data/honeybee_genome/Amel_HAv3.1.fasta" # new honeybee reference genome (indexed by samtools faidx)
 
 # make results directory (if necessary)
 mkdir -p ${DIR_OUT}

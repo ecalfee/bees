@@ -17,23 +17,21 @@ set -x
 # command line arguments:
 ID=$1 # bee ID
 SEQ_RUN=$2
-#FASTQ_PREFIX="novo_seq/"${2}"/raw_data/"${ID}"/"${ID}"_"
 FASTQ_PREFIX=$3 #I changed this to do the new sequences with different directory structure
 
-# move from scripts to data directory
-cd ../data 
 
-mkdir -p novo_seq/bam_files
-echo ${PWD} # print current workign directory
+mkdir -p results/intermediate_bams/
+echo ${PWD} # print current working directory
 
 echo "mapping reads with bowtie2"
 
+# map to new genome
 bowtie2 --seed 2014 --very-sensitive-local --local \
--x honeybee_genome/honeybee_Amel_4.5 \
+-x ../data/honeybee_genome/Amel_HAv3.1 \
 -1 ${FASTQ_PREFIX}*_1.fq.gz \
 -2 ${FASTQ_PREFIX}*_2.fq.gz \
 --rg-id ${SEQ_RUN} --rg SM:${ID} | \
-samtools view -b - > novo_seq/bam_files/${ID}.bam
+samtools view -q 1 -b - > results/intermediate_bams/${ID}.bam
 
 echo "alignment done!"
 
@@ -44,3 +42,4 @@ echo "alignment done!"
 # -1 and -2 are for paired reads; -U would be used for unpaired reads
 # converting sam directly to bam using samtools
 # --rg-id and --rg create read group headers required by GATK downstream analysis
+# -q 1 filters reads to only include those that map

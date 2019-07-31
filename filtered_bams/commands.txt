@@ -417,8 +417,38 @@ bees/data/novo_seq/lanes2_5$ diff -q <(awk '{print $1}' ALL_MD5_expected.txt) <(
 data/novo_seq/lanes2_5/Undetermined$ cat MD5.txt > ALL_MD5_expected.txt
 bees/data/novo_seq/lanes2_5/Undetermined$ diff <(awk '{print $1}' ALL_MD5_expected.txt) <(awk '{print $1}' ALL_MD5_observed.txt) # lanes 2 and 3 have switched order -- otherwise no differences
 
+---------------------------------------------------------------------------------
+# Switching to new genome HAv3.1:
+# made symbolic link to NCBI downloaded file:
+# unzipping genome file:
+data/honeybee_genome$ gunzip GCF_003254395.2_Amel_HAv3.1_genomic.fna.gz
+# making symbolic link for shorter file name
+honeybee_genome$ ln -s GCF_003254395.2_Amel_HAv3.1_genomic.fna Amel_HAv3.1.fasta
+# indexing genome with bowtie:
+data/honeybee_genome$ bowtie2-build Amel_HAv3.1.fasta Amel_HAv3.1
+# indexing genome with samtools:
+data/honeybee_genome$ samtools faidx Amel_HAv3.1.fasta
+
+# moved old results to new directories marked Amel4.5:
+bees/filtered_bams$ mv results results_Amel4.5
+filtered_bams$ mv metrics/ metrics_Amel4.5/
+filtered_bams$ mv merged/ merged_Amel4.5/
+filtered_bams$ mv fastQ_screen fastQ_screen_Amel4.5
+filtered_bams$ mv fastQC fastQC_Amel4.5
+
+# Mapping reads (modified script from previous genome)
+filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_HAv3.1_C202SC18101772.log --jobs 4 './map_reads.sh {1} {2} ../data/novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.list ::::+ ../bee_samples_listed/lanes2_5_libraries.list &> logs/map_reads_lanes2_5_HAv3.1.out &
+[1] 17936 - RUNNING
 
 # TO DO:
+# Download Julie's bees from NCBI:
+# First get SSR ID's for NCBI download from all bees in Study. year >1994 & not Humboldt
+Done
+# Download files from NCBI (not done yet!)
+data/Cridland_2018$ nohup parallel --joblog ../../logs/download_Cridland_2018_NCBI.log --delay 2.5 --noswap 'fastq-dump --split-files -clip \
+--gzip --skip-technical -O fastq_files/ "{1}"' :::: SRR_to_download.list &> ../../logs/download_Cridland_2018_NCBI.out &
+
+# when lanes2_5 finish, also map lane 1. map reference A/C/M bees. be sure to check other mapping scripts to use new genome HAv3.1! Download Julie's bee sequences from NCBI and map.
 # decide if I'm going to try to demultiplex 'Undetermined' reads
 # Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered? Yes - likely gut symbionts
 # Adapter contamination at a low (~1-3%) is also there. I don't think this is having a large effect on my intial analysis, but I could filter out adapters e.g. with cutadapt, and check if my bams have adapter sequences that made it past filtering (?)

@@ -16,7 +16,7 @@ set -o nounset
 ID=$1 # bee ID
 DIR_IN=$2 # directory where bam is stored (pre-filtering)..local path from bees/filtered_bams
 BAM_IN=${DIR_IN}"/"${ID}".bam" # full path to starting bam
-DIR_OUT="results" # results directory
+DIR_OUT=${DIR_IN} # results directory
 BAM_SORTED=${DIR_OUT}"/"${ID}".sort.bam"
 DIR_TMP=${DIR_OUT}"/tmp/"${ID}
 
