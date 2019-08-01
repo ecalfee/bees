@@ -445,10 +445,17 @@ filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_HAv3.1_
 # First get SSR ID's for NCBI download from all bees in Study. year >1994 & not Humboldt
 Done
 # Download files from NCBI (not done yet!)
-data/Cridland_2018$ nohup parallel --joblog ../../logs/download_Cridland_2018_NCBI.log --delay 2.5 --noswap 'fastq-dump --split-files -clip \
+data/Cridland_2018$ nohup parallel --joblog ../../logs/download_Cridland_2018_NCBI.log --delay 2.5 --noswap --jobs 4 'fastq-dump --split-files -clip \
 --gzip --skip-technical -O fastq_files/ "{1}"' :::: SRR_to_download.list &> ../../logs/download_Cridland_2018_NCBI.out &
-
+[1] 6077 - BLOCKED BY FIREWALL
 # when lanes2_5 finish, also map lane 1. map reference A/C/M bees. be sure to check other mapping scripts to use new genome HAv3.1! Download Julie's bee sequences from NCBI and map.
+
+# Mapping lane 1
+filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_lane_1_HAv3.1.log --jobs 6 './map_reads.sh {1} {2} ../data/novo_seq/C202SC18101772/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../data/novo_seq/C202SC18101772/samples.list ::: L1 &> logs/map_reads_lane_1_HAv3.1.out &
+[1] 7694 - CANCELLED TO RUN WITH 6 THREADS:
+[1] 8376 - RUNNING 7.31.19
+
+
 # decide if I'm going to try to demultiplex 'Undetermined' reads
 # Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered? Yes - likely gut symbionts
 # Adapter contamination at a low (~1-3%) is also there. I don't think this is having a large effect on my intial analysis, but I could filter out adapters e.g. with cutadapt, and check if my bams have adapter sequences that made it past filtering (?)
