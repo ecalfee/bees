@@ -304,6 +304,31 @@ local_ancestry$ nohup parallel --noswap --jobs 8 --joblog logs/calc_anc_thin1kb_
 # make a bed file with the mean ancestry estimates in included AR and CA populations, using R script plotAncestryTracts.R
 results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc$ head mean_ancestry_AR_CA_included.bed
 
+----------------------------------------------------------------------------------
+# CALL HOMOZYGOUS ANCESTRY TRACTS
+
+
+# first translate variant sites to a bed file so I can get ancestry calls at SNPs -> ancestry tracts
+local_ancestry$ Rscript ./ancestry_sites_to_tracts.R results/SNPs/thin1kb_common3/included
+
+# use bedtools to get new bam files for high confidence AA, CC, and MM ancestry
+# based off of posterior output from ancestry_hmm:
+
+# small test case for > 0.8 posterior probability CC ancestry
+bees/local_ancestry$ pr -mt -s$'\t' results/SNPs/thin1kb_common3/included.var.sites.bed  <(tail -n +2 results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/CA1207.posterior | cut -f3) | awk '$5 > 0.8 {print $0}' | bedtools merge -sorted -d 1 > results/tracts/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/CC/CA1207.bed
+$3 2,0,0 CC
+$6 0,2,0 MM
+$8 0,0,2 AA
+
+# run in bulk for all bees with ancestry calls 
+# (note made script to I could use awk quotes within parallel command!):
+# work around (but ultimately made a script for clarity)
+local_ancestry$ filter_high_posterior() { awk '$5 > 0.8 {print $0}' $1; };  export -f filter_high_posterior; nohup parallel 'pr -mt -s$'\t' results/SNPs/thin1kb_common3/included.var.sites.bed  <(tail -n +2 results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{1}.posterior | cut -f{2}) | filter_high_posterior | bedtools merge -sorted -d 1 > results/tracts/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{3}/{1}.bed' :::: CA1207 ::: 3 :::+ CC
+# above command not run. made bash script instead:
+local_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/get_AA_CC_MM_ancestry_tracts_0.8.log './getHighPosteriorTracts.sh {1} {2} {3} thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot results/SNPs/thin1kb_common3/included.var.sites.bed' :::: ../bee_samples_listed/byPop/pops_included.IDs ::: 3 6 8 :::+ CC MM AA &> logs/get_AA_CC_MM_ancestry_tracts_0.8.out &
+[1] 8012 - DONE. Added genome order for Amel4.5 so it matches bams. re-doing:
+[1] 25916
+
 
 # TO DO:
 # next step is to plot new local ancestry estimates. visualize blocks, especially at the low A ancestry end because of the high t estimates for A admixture.

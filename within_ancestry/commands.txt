@@ -1,0 +1,31 @@
+# looking at diversity within A, C, and M ancestry, pi within, and Fst between populations,
+# as we move away from the origin of the Africanized honey bee invasion in Brazil
+
+# steps 
+# (0) CALL HOMOZYGOUS ANCESTRY TRACTS for AA/CC/MM ancestry above 0.8 posterior probability of having homozygous ancestry across those tracts
+output: (e.g.)
+local_ancestry/results/tracts/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/AA/CA1207.bed'
+# (1) Get bam reads that overlap tracts:
+# small test -- works great!
+bees/within_ancestry$ parallel './getBamsForTracts.sh {1} {2} {3} thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot' ::: CA1207 ::: 3 :::+ CC
+# all files:
+within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/get_BAMS_AA_CC_MM_ancestry_tracts_0.8.log './getBamsForTracts.sh {1} {2} {3} thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot' :::: ../bee_samples_listed/byPop/pops_included.IDs ::: 3 6 8 :::+ CC MM AA &> logs/get_BAMS_AA_CC_MM_ancestry_tracts_0.8.out &
+[1] 2874
+
+# (2) calculate pi for each population in ANGSD
+# quick test file:
+RUNNING (looks like it's working but may take up to a few hours per pop per ancestry)
+./pi_within_ancestry.sh AR01 CC thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot ../bee_samples_listed/byPop/AR01.list
+
+# run admixed populations
+NOT RUN YET
+within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_pi_within_ancestry.log './pi_within_ancestry.sh {1} {2} thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot ../bee_samples_listed/byPop/{1}.list' :::: bee_samples_listed/pops_included.list ::: AA CC MM &> logs/calc_pi_within_ancestry.out &
+
+# run reference populations, using all reads
+NOT RUN YET (expect a long time..)
+within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_pi_ACM_ref.log './pi.sh {1} ../bee_samples_listed/byPop/{1}.list' ::: A C M &> logs/calc_pi_ACM.out &
+
+
+# (3) calculate Fst between populations for all pairs in just a subset of 2 CA pops and 3 AR pops, and reference bees A/C/M, also in ANGSD
+
+# (4) get allele frequencies for each population and each ancestry  
