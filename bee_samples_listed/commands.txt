@@ -8,13 +8,7 @@ bee_samples_listed$ for i in $(cat byPop/pops_included.list); do cat byPop/$i.li
 # SRA Study:SRP107650 BioProject:PRJNA385500
 # (single-ended reads)
 All 2014 samples, including Davis, but not as far north as Humboldt:
-data/Cridland_2018$ awk -F"\t" '$12=="1999" || $12=="2002" {print $3}' SraRunTable.txt > SRR_1999_2002.list
-data/Cridland_2018$ awk -F"\t" '$12=="1996" || $12=="2010" {print $3}' SraRunTable.txt > SRR_1996_2010.list
-data/Cridland_2018$ awk -F"\t" '$10=="feral" && $12=="2014" {print $0}' SraRunTable.txt | grep -v "Humboldt" | cut -f3 > SRR_2014_all_pops_but_Humboldt.list
-data/Cridland_2018$ cat SRR_2014_all_pops_but_humboldt.list SRR_1999_2002.list SRR_1996_2010.list > SRR_to_download.list
-# get sample ID’s too:
-data/Cridland_2018$ awk -F"\t" '$12=="1996" || $12=="2010" {print $9}' SraRunTable.txt > IDs_1996_2010.list
-data/Cridland_2018$ awk -F"\t" '$12=="1999" || $12=="2002" {print $9}' SraRunTable.txt > IDs_1999_2002.list
-data/Cridland_2018$ awk -F"\t" '$10=="feral" && $12=="2014" {print $0}' SraRunTable.txt | grep -v "Humboldt" | cut -f9 > IDs_2014_all_pops_but_Humboldt.list
-(base) Erins-MacBook-Air:Cridland_2018 Erin$ cat IDs_2014_all_pops_but_humboldt.list IDs_1999_2002.list IDs_1996_2010.list > IDs_to_download.list
+data/Cridland_2018$ awk -F"\t" '$10=="feral" && $12>1994 {print $0}' SraRunTable.txt | grep -v "Humboldt" > post1994_feral_noHumbold.txt
+data/Cridland_2018$ cut -f7 post1994_feral_noHumbold.txt > SRR_to_download.list
+data/Cridland_2018$ cut -f9 post1994_feral_noHumbold.txt > IDs_to_download.list
 
