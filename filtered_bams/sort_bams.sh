@@ -24,7 +24,6 @@ DIR_TMP=${DIR_OUT}"/tmp/"${ID}
 mkdir -p ${DIR_OUT}
 mkdir -p ${DIR_TMP}
 echo ${PWD} # print current working directory
-echo "files:" $(ls *)
 
 echo "sorting reads with samtools"
 # (1) SAMTOOLS sort reads by coordinate position

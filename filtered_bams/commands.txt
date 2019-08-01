@@ -451,10 +451,12 @@ data/Cridland_2018$ nohup parallel --joblog ../../logs/download_Cridland_2018_NC
 # when lanes2_5 finish, also map lane 1. map reference A/C/M bees. be sure to check other mapping scripts to use new genome HAv3.1! Download Julie's bee sequences from NCBI and map.
 
 # Mapping lane 1
-filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_lane_1_HAv3.1.log --jobs 6 './map_reads.sh {1} {2} ../data/novo_seq/C202SC18101772/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../data/novo_seq/C202SC18101772/samples.list ::: L1 &> logs/map_reads_lane_1_HAv3.1.out &
+filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_lane_1_HAv3.1.log --jobs 6 './map_reads.sh {1} {2} ../data/novo_seq/C202SC18101772/raw_data/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../data/novo_seq/C202SC18101772/samples.list ::: L1 &> logs/map_reads_lane_1_HAv3.1.out &
 [1] 7694 - CANCELLED TO RUN WITH 6 THREADS:
-[1] 8376 - RUNNING 7.31.19
-
+[1] 8376 - RUNNING. OOPS needed to fix Picard variable for running on Nancy's Mac:
+# (same version 2.18.2, but running on Mac it's called differently):
+filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_lane_1_HAv3.1.log --jobs 8 './map_reads.sh {1} {2} ../data/novo_seq/C202SC18101772/raw_data/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams_mac.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../data/novo_seq/C202SC18101772/samples.list ::: L1 &> logs/map_reads_lane_1_HAv3.1.out &
+[1] 18333
 
 # decide if I'm going to try to demultiplex 'Undetermined' reads
 # Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered? Yes - likely gut symbionts
