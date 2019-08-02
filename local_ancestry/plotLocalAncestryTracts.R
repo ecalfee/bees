@@ -7,6 +7,7 @@ library(reshape2)
 library(viridis)
 library(LaplacesDemon)
 library(emdbook)
+library(betareg)
 
 source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
 source("../../covAncestry/forqs_sim/k_matrix.R") # import useful functions
@@ -385,7 +386,7 @@ meanA0 <- apply(A, 1, mean)
 sites0 <- read.table("results/SNPs/thin1kb_common3/included_scaffolds.pos", stringsAsFactors = F,
                     sep = "\t", header = F)
 colnames(sites0) <- c("scaffold", "pos")
-sites <- separate(sites0, scaffold, c("chr", "scaffold_n"), remove = F) %>%
+sites <- tidyr::separate(sites0, scaffold, c("chr", "scaffold_n"), remove = F) %>%
   mutate(scaffold_n = as.numeric(scaffold_n)) %>%
   mutate(chr_n = as.numeric(substr(chr, 6, 100))) %>%
   mutate(snp_id = paste0("snp", chr_n, ".", scaffold, ".", pos))
@@ -1493,4 +1494,245 @@ AbyPopr5 %>%
 
 # it would be much better to use NGSAdmix for different SNP sets
 # to get global ancestry estimates
+
+# plot ancestry across all populations by mean latitude in that pop, separate by hybrid zone
+# first make data frame with all pops
+meta.pop.lat.long <- meta.ind %>%
+  group_by(., population) %>%
+  summarise(lat = mean(lat), long = mean(long)) %>%
+  left_join(., meta.pop, by = "population") %>%
+  mutate(zone = ifelse(group == "AR_2018", "S. America", "N. America"))
+# use Riverside 2014 coordinates for Riverside 1999. 
+# Note there are two Riverside collection sites, close in latitude, but different in temp etc. due to elevation
+meta.pop.lat.long[meta.pop.lat.long$population == "Riverside_1999", c("lat", "long")] <- meta.pop.lat.long[meta.pop.lat.long$population == "Riverside_2014", c("lat", "long")]
+a <- cbind(A_AR_CA, A) %>%
+  left_join(., dplyr::select(sites, c("chr", "pos", "chr_n", "snp_id")), by = "snp_id") %>%
+  tidyr::gather(., "population", "A_ancestry", colnames(A)) %>%
+  left_join(., meta.pop.lat.long, by = "population")
+a_mean <- a %>%
+  group_by(population) %>%
+  summarise(A_ancestry = mean(A_ancestry)) %>%
+  left_join(meta.pop.lat.long, by = "population") %>%
+  mutate(abs_lat = abs(lat)) %>%
+  mutate(abs_lat_c = abs_lat - mean(abs_lat))
+
+# plot some ancestry clines across latitude for top SNPs:
+# start with high shared outliers (there's only 15 regions):
+high.shared.outliers
+i = 1
+a_shared_high_outlier_.05sig <- a %>%
+  mutate(combined = (AR + CA)/2) %>%
+  dplyr::select(combined, scaffold, pos, FDR_shared_high, snp_id) %>%
+  dplyr::filter(FDR_shared_high != "NA") %>%
+  unique() %>%
+  filter(scaffold == high.shared.outliers[i, "chr"] &
+           pos >= high.shared.outliers[i, "start"] &
+           pos <= high.shared.outliers[i, "end"]) %>%
+  dplyr::arrange(combined) %>%
+  .[1, "snp_id"]
+
+# ID SNPs from very top outliers:
+shared_high_top_snp <- a %>%
+  mutate(combined = (AR + CA)/2) %>%
+  dplyr::select(combined, scaffold, pos, FDR_shared_high, snp_id) %>%
+  dplyr::filter(FDR_shared_high != "NA") %>%
+  unique() %>%
+  dplyr::arrange(desc(combined)) %>%
+  .[1, "snp_id"]
+shared_low_top_snp <- a %>%
+  mutate(combined = (AR + CA)/2) %>%
+  dplyr::select(combined, scaffold, pos, FDR_shared_low, snp_id) %>%
+  dplyr::filter(FDR_shared_low != "NA") %>%
+  unique() %>%
+  dplyr::arrange(combined) %>%
+  .[1, "snp_id"]
+
+# just AR
+AR_high_only_top_snp <- a %>%
+  dplyr::select(scaffold, pos, AR, CA, FDR_AR_high, FDR_CA_high, FDR_shared_high, snp_id) %>%
+  dplyr::filter(FDR_AR_high != "NA" & FDR_shared_high == "NA") %>%
+  unique() %>%
+  dplyr::arrange(desc(AR)) %>%
+  .[1, "snp_id"]
+AR_low_only_top_snp <- a %>%
+  dplyr::select(scaffold, pos, AR, CA, FDR_AR_low, FDR_CA_low, FDR_shared_low, snp_id) %>%
+  dplyr::filter(FDR_AR_low != "NA" & FDR_shared_low == "NA") %>%
+  unique() %>%
+  dplyr::arrange(AR) %>%
+  .[1, "snp_id"]
+# just CA
+CA_high_only_top_snp <- a %>%
+  dplyr::select(scaffold, pos, AR, CA, FDR_AR_high, FDR_CA_high, FDR_shared_high, snp_id) %>%
+  dplyr::filter(FDR_CA_high != "NA" & FDR_shared_high == "NA") %>%
+  unique() %>%
+  dplyr::arrange(desc(CA)) %>%
+  .[1, "snp_id"]
+# put together into data frame:
+some_snp_outliers <- data.frame(
+  snp_id = c(a_shared_high_outlier_.05sig,
+             shared_high_top_snp,
+             shared_low_top_snp,
+             AR_high_only_top_snp,
+             AR_low_only_top_snp,
+             CA_high_only_top_snp),
+  label = c("a 5% FDR outlier shared high A ancestry",
+            "the top outlier shared high A ancestry",
+            "the top outlier shared low A ancestry",
+            "the top outlier Argentina-only high A ancestry",
+            "the top outlier Argentina-only low A ancestry",
+            "the top outlier California-only high A ancestry"),
+  name = c("a_shared_high_outlier_.05sig",
+           "shared_high_top_snp",
+           "shared_low_top_snp",
+           "AR_high_only_top_snp",
+           "AR_low_only_top_snp",
+           "CA_high_only_top_snp"))
+  
+# make plots:
+for (i in 1:nrow(some_snp_outliers)){
+my_plot <- a %>%
+    filter(snp_id == some_snp_outliers[i, "snp_id"]) %>%
+    ggplot(aes(x = abs(lat), y = A_ancestry, color = population)) +
+    geom_point() +
+    geom_point(data = a_mean, shape = 2) +
+    ggtitle(paste0("cline across latitude for ", some_snp_outliers[i, "label"], ": ", some_snp_outliers[i, "snp_id"])) +
+    xlab("absolute latitude") +
+    ylab("population mean African ancestry") +
+    facet_grid(zone ~ .)
+ggsave(paste0("plots/outlier_clines_", some_snp_outliers[i, "name"], ".png"),
+       plot = my_plot,
+       height = 5, 
+       width = 10, 
+       units = "in", 
+       device = "png")
+}
+
+# Is this consistent with no spatial pattern to selection? Either selected only in Brazil.
+# or selected at low selection coefficient across the whole S. American hybrid zone
+# ok so in Brazil bees are 84% A ancestry and at this locus they are 54% A ancestry.
+# so if all the selection happened in Brazil, then spread South neutrally,
+# we'd expect 64% (54/84) x (mean A ancestry genomewide) at this locus for S. American bees
+# This is a conservative test of early selection in Brazil (assuming it all happened early), 
+# then neutral spread, and it doesn't fit well in Argentina (too high A) or CA (too low A). 
+a_mean_64percent <- a_mean %>%
+  #filter(zone == "S. America") %>%
+  mutate(A_ancestry = .64*A_ancestry)
+a %>%
+  filter(snp_id == AR_low_only_top_snp) %>%
+  #filter(zone == "S. America") %>%
+  ggplot(aes(x = abs(lat), y = A_ancestry, color = population)) +
+  geom_point() +
+  geom_point(data = a_mean_64percent, shape = 2) +
+  ggtitle(paste0("cline across latitude for ", "low region in AR compared to 64% mean A ancestry", ": ", AR_low_only_top_snp)) +
+  xlab("absolute latitude") +
+  ylab("population mean African ancestry") +
+  facet_grid(zone ~ .)
+ggsave(paste0("plots/outlier_clines_low_AR_against_64perc_dilution_hypothesis.png"),
+       height = 5, 
+       width = 10, 
+       units = "in", 
+       device = "png")
+
+# fit mean ancestry beta regression model
+m_lat.hmm <- map( # quadratic approximation of the posterior MAP
+  alist(
+    A_ancestry ~ dbeta2(prob = p, theta = theta),
+    logit(p) <- mu + b_lat*abs_lat_c,
+    mu ~ dnorm(0, 5),
+    theta ~ dunif(0, 30),
+    b_lat ~ dnorm(0, 5)
+  ),
+  data = data.frame(a_mean, stringsAsFactors = F),
+  start = list(mu = -1, theta = 5, b_lat = 0.5))
+precis(m_lat.hmm)
+pairs(m_lat.hmm)
+m_lat.hmm.betareg <- betareg(A_ancestry ~ abs_lat_c,
+                         link = "logit",
+                         data = a_mean)
+
+# m_lat best single-predictor model:
+full_range_data_hmm = list(abs_lat_c = seq(from = range(a_mean$abs_lat_c)[1], 
+                                       to = range(a_mean$abs_lat_c)[2], 
+                                       length.out = 20),
+                       abs_lat = seq(from = range(a_mean$abs_lat_c)[1], 
+                                     to = range(a_mean$abs_lat_c)[2], 
+                                     length.out = 20) + mean(a_mean$abs_lat))
+m_lat.hmm.post <- sim(m_lat.hmm, full_range_data_hmm, n = 10000)
+m_lat.hmm.post.mu <- apply(m_lat.hmm.post, 2, mean)
+m_lat.hmm.post.HDPI <- apply(m_lat.hmm.post, 2, HPDI, prob=0.95)
+
+
+
+# plot model prediction for m_lat:
+png("plots/m_lat_model_prediction_hmm_with_top_shared_outlier.png", height = 6, width = 8, units = "in", res = 300)
+plot(A_ancestry ~ abs_lat, data = a_mean, col = ifelse(a_mean$zone == "S. America", rangi2, "skyblue"),
+     ylim = c(0, 1), main = "African ancestry predicted by latitude", xlab = "Degrees latitude from equator",
+     ylab = "A ancestry proportion (ancestry_hmm)")
+
+# plot MAP line from model coefficients:
+curve(logistic(coef(m_lat.hmm)["mu"] + (x - mean(a_mean$abs_lat))*coef(m_lat.hmm)["b_lat"]), 
+               from = range(a_mean$abs_lat)[1], to = range(a_mean$abs_lat)[2], n = 1000, add = T,
+      col = "darkgrey")
+# plot a shaded region for 95% HPDI
+shade(m_lat.hmm.post.HDPI, full_range_data_hmm$abs_lat)
+# plot snp of interest:
+a %>%
+  filter(snp_id == shared_high_top_snp) %>%
+  with(., points(x = abs(lat), y = A_ancestry, pch = 17,
+                 col = ifelse(a_mean$zone == "S. America", rangi2, "skyblue")))
+legend("topright", c("S. America", "N. America", "model prediction (MAP)", "95% confidence (HPDI)"),
+       pch = c(1, 1, NA, 15), lty = c(NA, NA, 1, NA), col = c(rangi2, "skyblue", "black", "grey"))
+dev.off()
+
+# get logistic curve for outlier SNP:
+m_lat.shared.high.outlier.betareg <- a %>%
+  filter(snp_id == shared_high_top_snp) %>%
+  mutate(abs_lat_c = abs(lat) - mean(abs(lat))) %>%
+  betareg(A_ancestry ~ abs_lat_c,
+          link = "logit",
+          data = .)
+# plot curve
+# curve:
+curve(logistic(coef(m_lat.shared.high.outlier.betareg)["(Intercept)"] + 
+                 (x - mean(a_mean$abs_lat))*coef(m_lat.shared.high.outlier.betareg)["abs_lat_c"]), 
+      from = range(a_mean$abs_lat)[1], to = range(a_mean$abs_lat)[2], n = 1000, add = F,
+      main = "estimated logistic cline at top shared high A outlier SNP",
+      xlab = "degrees latitude from the equator",
+      ylab = "mean population A ancestry")
+a %>%
+  filter(snp_id == shared_high_top_snp) %>%
+  with(., points(x = abs(lat), y = A_ancestry, pch = 17,
+                 col = ifelse(a_mean$zone == "S. America", rangi2, "skyblue")))
+
+# make a plot comparing NGSadmix and ancestry_hmm output
+d_hmm_NGSadmix <- d_A %>% # d_A is loaded from plot_clines.R script
+  group_by(population) %>%
+  summarise(NGSAdmix = mean(alpha)) %>%
+  left_join(., rename(a_mean, ancestry_hmm = A_ancestry), by = "population")
+#%>%
+#  tidyr::gather(., "model", "A_ancestry", c("NGSAdmix", "ancestry_hmm"))
+ggplot(d_hmm_NGSadmix, aes(x = NGSAdmix, y = ancestry_hmm, color = zone)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1) +
+  xlim(c(0,1)) +
+  ylim(c(0,1)) +
+  ggtitle("Comparison of population mean genomewide A ancestry from ancestry_hmm and NGSAdmix")
+ggsave("plots/comparison_pop_mean_ancestry_hmm_vs_NGSAdmix.png",
+       height = 5, width = 7, units = "in", device= "png")
+# TO DO: I should remake this plot with the individuals, not their population means
+
+# it's hard to fit a logistic because I'm only observing a small portion of the cline for this SNP
+# basically it's not bounded high or low, just consistently high A across the zone
+
+
+
+
+# TO DO: I want to make a plot for top SNP within each peak region (only a few regions really, I could include them all):
+# also add the logit fit for mean african ancestry (from ancestry_hmm calls) to the plot. 
+# For the supplement, I need to compare the ancestry_hmm mean with the NGSadmix mean
+
+# For each peak, ID the top SNP. Then plot it's frequency across latitude with logit in background.
+
+# For low ancestry peaks, check if they are M vs. C
+
 

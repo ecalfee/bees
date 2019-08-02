@@ -19,7 +19,7 @@ RUNNING (looks like it's working but may take up to a few hours per pop per ance
 
 # run admixed populations
 NOT RUN YET
-within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_pi_within_ancestry.log './pi_within_ancestry.sh {1} {2} thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot ../bee_samples_listed/byPop/{1}.list' :::: bee_samples_listed/pops_included.list ::: AA CC MM &> logs/calc_pi_within_ancestry.out &
+within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_pi_within_ancestry.log './pi_within_ancestry.sh {2} {1} thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot ../bee_samples_listed/byPop/{2}.list' ::: AA CC MM :::: bee_samples_listed/pops_included.list &> logs/calc_pi_within_ancestry.out &
 
 # run reference populations, using all reads
 NOT RUN YET (expect a long time..)

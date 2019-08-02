@@ -5,6 +5,7 @@ library(geosphere)
 library(rethinking)
 library(dplyr)
 library(ggplot2)
+library(betareg) # alternative ML fitting
 
 retrieve_data_new <- F
 
@@ -86,8 +87,11 @@ d <- bees.clim %>%
 
 # make some new variables, standardized for better model fitting
 d_A <- d %>%
+  filter(geographic_location != "Mexico") %>% # filter out mexico
   # limit to A ancestry
   filter(ancestry_label == "A") %>%
+  # absolute latitude
+  mutate(abs_lat = abs(lat)) %>%
   # mean absolute latitude, centered
   mutate(abs_lat_c = abs(lat) - mean(abs(lat))) %>%
   # distance from sao paulo, centered, and in units of 1000km
@@ -96,8 +100,8 @@ d_A <- d %>%
   mutate(S_America_c = S_America - mean(S_America)) %>% # center for better fit and reduce correlation with mu estimates
   mutate(temp_c = AnnualMeanTemp - mean(AnnualMeanTemp)) %>%
   mutate(cold_c = MeanTempColdestQuarter - mean(MeanTempColdestQuarter)) %>%
-  mutate(precip_c = AnnualPrecip - mean(AnnualPrecip)) %>%
-  filter(geographic_location != "Mexico")
+  mutate(precip_c = AnnualPrecip - mean(AnnualPrecip))
+
 
 # plots
 d_A %>%
@@ -213,6 +217,11 @@ m_lat <- map( # quadratic approximation of the posterior MAP
   start = list(mu = -1, theta = 2, b_lat = 0))
 precis(m_lat)
 pairs(m_lat)
+# alternative ML model fit:
+m_lat_betareg <- betareg(alpha ~ abs_lat_c,
+                     link = "logit",
+                     data = d_A) # basically gives the same result
+
 
 # latitude and continent:
 m_lat_SA <- map( # quadratic approximation of the posterior MAP
@@ -268,23 +277,23 @@ precis(m_lat_cold)
 pairs(m_lat_cold)
 
 # also add in different variance for S. America vs. N. America (doesn't work):
-m_lat_cold_varSA <- map( # quadratic approximation of the posterior MAP
+m_lat_varSA <- map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = (1 - S_America)*theta_NA + S_America*theta_SA), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
     # where mean probability 'prob' = a/(a+b) and parameter 'theta' = a+b
     # are used instead of shape1 = a and shape2 = b
-    logit(p) <- mu + b_cold*cold_c + b_lat*abs_lat_c,
+    logit(p) <- mu +  b_lat*abs_lat_c + mu_SA*S_America,
     mu ~ dnorm(0, 5),
-    theta_NA ~ dunif(0, 20),
-    theta_SA ~ dunif(0, 20),
-    b_cold ~ dnorm(0, 5),
+    mu_SA ~ dnorm(0, 5),
+    theta_NA ~ dunif(0, 50),
+    theta_SA ~ dunif(0, 50),
     b_lat ~ dnorm(0, 5)
   ),
   data = d_A,
-  start = list(mu = -1, theta_NA = 7, theta_SA = 7, b_cold = 0, b_lat = 0))
-precis(m_lat_cold_varSA)
-pairs(m_lat_cold_varSA)
+  start = list(mu = -1, theta_NA = 7, theta_SA = 7, b_lat = 0))
+precis(m_lat_varSA)
+pairs(m_lat_varSA)
 
 
 m_lat_temp <- map( # quadratic approximation of the posterior MAP
@@ -719,7 +728,10 @@ rethinking::compare(m, m0, m_cold, m_temp, m_precip, m_lat, m_lat_precip, m1, m0
 # but from the simpler models, latitude is the single best predictor,
 # and latitude + cold (mean temp in coldest quarter) is the best double-predictor (despite correlations)
 rethinking::compare(m, m0, m_cold, m_temp, m_precip, m_lat, m_lat_precip, m_lat_cold, m_lat_temp, m1, m0_temp, m0_cold, m0_precip)
-rethinking::compare(m, m0, m_cold, m_temp, m_precip, m_lat, m_lat_SA, m_lat_precip, m_lat_cold, m_lat_temp_cold, m_lat_temp_cold_precip, m_lat_cold_precip, m_lat_temp, m1, m0_temp, m0_cold, m0_precip, m2, m1_cold, m1_temp, m1_precip, m1_cold_precip, m1_temp_precip, m1_cold_temp)
+rethinking::compare(m, m0, m_cold, m_temp, m_precip, m_lat, m_lat_SA, m_lat_precip, m_lat_cold, m_lat_temp_cold, m_lat_temp_cold_precip, m_lat_cold_precip, m_lat_temp, m1, m0_temp, m0_cold, m0_precip, m2, m1_cold, m1_temp, m1_precip, m1_cold_precip, m1_temp_precip, m1_cold_temp, m_lat_varSA)
+# I'm not sure it really makes sense to give the two continents different variances,
+# but what it's capturing is more divergence from the logit in SA, not variance in alpha for a given latitude
+# which is what I (naively) thought it might capture
 
 postcheck(m2)
 rethinking::compare(m, m_lat, m_lat_SA)
@@ -736,19 +748,38 @@ curve(rethinking::dbeta2(x, prob = logistic(coef(m1)["mu"]),
 
 # plot raw data and a line for model prediction based on latitude. Color by cold. Shape = S. America or N. America.
 # m_lat best single-predictor model:
-m_lat.post <- sim(m_lat, d_A, n = 1000)
+full_range_data = list(abs_lat_c = seq(from = range(d_A$abs_lat_c)[1], 
+                                       to = range(d_A$abs_lat_c)[2], 
+                                       length.out = 20),
+                       abs_lat = seq(from = range(d_A$abs_lat_c)[1], 
+                                     to = range(d_A$abs_lat_c)[2], 
+                                     length.out = 20) + mean(abs(d_A$lat)))
+m_lat.post <- sim(m_lat, full_range_data, n = 10000)
 m_lat.post.mu <- apply(m_lat.post, 2, mean)
+m_lat.post.mode <- apply(m_lat.post, 2, mode)
+m_lat.post.median <- apply(m_lat.post, 2, median)
 m_lat.post.HDPI <- apply(m_lat.post, 2, HPDI, prob=0.95)
+
 # plot model prediction for m_lat:
 png("plots/m_lat_model_prediction.png", height = 6, width = 8, units = "in", res = 300)
 plot(alpha ~ abs(lat), data = d_A, col = ifelse(d_A$continent == "S. America", rangi2, "skyblue"),
      ylim = c(0, 1), main = "African ancestry predicted by latitude", xlab = "Degrees latitude from equator",
      ylab = "A ancestry proportion")
-# plot the MAP line, aka the mean mu for each weight
-lines(abs(d_A$lat)[order(abs(d_A$lat))], m_lat.post.mu[order(abs(d_A$lat))])
+# plot the mean mu for each observation as a line
+#lines(abs(d_A$lat)[order(abs(d_A$lat))], m_lat.post.mu[order(abs(d_A$lat))])
+
+# plot MAP line from model coefficients:
+curve(logistic(coef(m_lat)["mu"] + (x - mean(abs(d_A$lat)))*coef(m_lat)["b_lat"]), range(abs(d_A$lat)), n = 1000, add = T)
+# plot MAP line from ML fit -- fits the same 
+# (so it's not the prior, but an asymmetric posterior that makes the 
+# mean posterior lower than the MAP model fit line)
+#curve(logistic(coef(m_lat_betareg)["(Intercept)"] + 
+#                 (x - mean(abs(d_A$lat)))*coef(m_lat_betareg)["abs_lat_c"]), 
+#      range(abs(d_A$lat)), n = 1000, col = "red", add = T)
+
 # plot a shaded region for 95% HPDI
-shade(m_lat.post.HDPI[ , order(abs(d_A$lat))], abs(d_A$lat)[order(abs(d_A$lat))])
-legend("topright", c("S. America", "N. America", "model prediction", "95% confidence (HPDI)"),
+shade(m_lat.post.HDPI, full_range_data$abs_lat)
+legend("topright", c("S. America", "N. America", "model prediction (MAP)", "95% confidence (HPDI)"),
         pch = c(1, 1, NA, 15), lty = c(NA, NA, 1, NA), col = c(rangi2, "skyblue", "black", "grey"))
 dev.off()
 # make figure again for manuscript folder:
@@ -756,11 +787,11 @@ png("../../bee_manuscript/figures/m_lat_model_prediction.png", height = 6, width
 plot(alpha ~ abs(lat), data = d_A, col = ifelse(d_A$continent == "S. America", rangi2, "skyblue"),
      ylim = c(0, 1), main = "African ancestry predicted by latitude", xlab = "Degrees latitude from equator",
      ylab = "A ancestry proportion")
-# plot the MAP line, aka the mean mu for each weight
-lines(abs(d_A$lat)[order(abs(d_A$lat))], m_lat.post.mu[order(abs(d_A$lat))])
+# plot MAP line from model coefficients:
+curve(logistic(coef(m_lat)["mu"] + (x - mean(abs(d_A$lat)))*coef(m_lat)["b_lat"]), range(abs(d_A$lat)), n = 1000, add = T)
 # plot a shaded region for 95% HPDI
-shade(m_lat.post.HDPI[ , order(abs(d_A$lat))], abs(d_A$lat)[order(abs(d_A$lat))])
-legend("topright", c("S. America", "N. America", "model prediction", "95% confidence (HPDI)"),
+shade(m_lat.post.HDPI, full_range_data$abs_lat)
+legend("topright", c("S. America", "N. America", "model prediction (MAP)", "95% confidence (HPDI)"),
        pch = c(1, 1, NA, 15), lty = c(NA, NA, 1, NA), col = c(rangi2, "skyblue", "black", "grey"))
 dev.off()
 
