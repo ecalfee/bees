@@ -479,7 +479,10 @@ filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_lane_1_
 [1] 8376 - RUNNING. OOPS needed to fix Picard variable for running on Nancy's Mac:
 # (same version 2.18.2, but running on Mac it's called differently):
 filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_lane_1_HAv3.1.log --jobs 8 './map_reads.sh {1} {2} ../data/novo_seq/C202SC18101772/raw_data/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams_mac.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../data/novo_seq/C202SC18101772/samples.list ::: L1 &> logs/map_reads_lane_1_HAv3.1.out &
-[1] 18333
+[1] 18333 - COMPLETED 8.1.19
+
+# transferring files over to Nancy's Mac for much faster alignment:
+bees/data/novo_seq$ irsync -r --retries 3 -v -N 8 i:/iplant/home/ecalfee/lanes2_5 . 
 
 # decide if I'm going to try to demultiplex 'Undetermined' reads
 # Use fastq_screen to see what the reads look like that don't have any hits -- are they contaminants from something I haven't considered? Yes - likely gut symbionts
