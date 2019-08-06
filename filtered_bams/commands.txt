@@ -448,10 +448,19 @@ filtered_bams$ cp logs/map_reads_lanes2_5_HAv3.1_2.log logs/map_reads_lanes2_5_H
 # start jop after a ~4 hour delay to download all the files:
 filtered_bams$ sleep 20000; nohup parallel --resume --noswap --delay 1 --joblog logs/map_reads_lanes2_5_HAv3.1_2resume.log --jobs 8 './map_reads.sh {1} {2} ../data/novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.list ::::+ ../bee_samples_listed/lanes2_5_libraries.list &> logs/map_reads_lanes2_5_HAv3.1_2resume.out &
 # (!) NOTE: I may need to redo or check the output for the last one run
+[5] 1846. Oops! I accidentally rant this on Barbara over the weekend and it started from the beginning and wrote over many of the finished files. I killed all the bowtie-align and looked at timestamps to figure out what partial files need to be re-done: AR1301, AR1302, AR1306, AR1311, AR1314 may be messed up. Also re-do AR1214
+AR1214, AR1401 were still working (I'll let let picard dedup finish)
+In addition, AR0813 and AR0506 had issues, zero file size, and I will rerun.
+AT 09:55:33 I killed 5 bowtie2 threads, so with the exception of AR1214 and AR1401
+(which I saw .sort. files ahead of time, so alignment was done), all .dedup.baq.bams created after 9:55am are suspect.
+RE-DO ALL OF THESE:
+AR1214, AR1301, AR1302, AR1306, AR1311, AR1314, AR1401 (AR1305 ended 9:53, .bai made 9:54 right as I was cancelling 8-threads, so it is A-okay).
+In addition, redo AR0813 and AR0506 (no logged error, but zero file size)
 
-# ACTUALLY RESUMING WITH 1 THREAD ON BARBARA FOR WEEKEND (after waiting 3 hrs):
-filtered_bams$ cp logs/map_reads_lanes2_5_HAv3.1.log logs/map_reads_lanes2_5_HAv3.1_2resume_Barbara8.2.19.log
-filtered_bams$ sleep 15000; nohup parallel --resume --noswap --delay 1 --joblog logs/map_reads_lanes2_5_HAv3.1_2resume_Barbara8.2.19.log --jobs 1 './map_reads.sh {1} {2} ../data/novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.list ::::+ ../bee_samples_listed/lanes2_5_libraries.list &> logs/map_reads_lanes2_5_HAv3.1_2resume_Barbara8.2.19.out &
+# ok so I broke this task up into 4 batches (batch0 already completed with barbara):
+# I will run these batches separately and transfer the completed bams back
+# running batch1:
+filtered_bams$ nohup parallel --resume --noswap --delay 1 --joblog logs/map_reads_lanes2_5_HAv3.1.batch1.log --jobs 6 './map_reads.sh {1} {2} ../data/novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.batch1.list ::::+ ../bee_samples_listed/lanes2_5_libraries.batch1.list &> logs/map_reads_lanes2_5_HAv3.1.batch1.out &
 
 
 # TO DO:

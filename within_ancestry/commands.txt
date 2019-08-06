@@ -33,14 +33,14 @@ data/bees_new_positions$ awk '$3>=.05 && $5!='0' && $6!='0' {print $0}' ALL.bim 
 data/bees_new_positions$ angsd sites index ALL.var.sites
 # calculate allele frequencies at all those SNPs using simple counts:
 within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq_within_ancestry.log './allele_freq_within_ancestry.sh {2} {1} thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot ../bee_samples_listed/byPop/{2}.list ../data/bees_new_positions/ALL.var.sites' ::: AA CC MM :::: ../bee_samples_listed/byPop/pops_included.list &> logs/calc_allele_freq_within_ancestry.out &
-[2] 1142 - RUNNING 8.2.19
+[2] 1142 - RUNNING 8.2.19. COMPLETED.
 # TO DO: get allele freq's for reference bees too, so I can calculate Fst and have a reference for expected diversity pi (e.g. shouldn't exceed or ancestry calls are off).
 # really I want allele freq's for all populations at all the SNPs (across ancestries)
 (!) NOTE - I may have swapped major/minor alleles when going from plink to sites file
 # because the reference should match the major allele most of the time, not the minor 
 # get allele freqs at snps for all bees at all sites (ignoring ancestry)
 within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq_all.log './allele_freq.sh {1} ../bee_samples_listed/byPop/{1}.list ../data/bees_new_positions/ALL.var.sites' :::: ../bee_samples_listed/byPop/pops_included_plus_ACM.list &> logs/calc_allele_freq_all.out &
-[3] 9833 - RUNNING 8.2.19
+[3] 9833 - RUNNING 8.2.19. COMPLETED.
 
 # (3) calculate Fst between populations for all pairs in just a subset of 2 CA pops and 3 AR pops, and reference bees A/C/M, also in ANGSD
 
