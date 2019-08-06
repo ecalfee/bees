@@ -438,11 +438,25 @@ filtered_bams$ mv fastQC fastQC_Amel4.5
 
 # Mapping reads (modified script from previous genome)
 filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_HAv3.1_C202SC18101772.log --jobs 4 './map_reads.sh {1} {2} ../data/novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.list ::::+ ../bee_samples_listed/lanes2_5_libraries.list &> logs/map_reads_lanes2_5_HAv3.1.out &
-[1] 17936 - RUNNING
+[1] 17936 - RUNNING. KILLED 8.2.19. I will continue where this left off on Nancy's mac (a lot faster), or at least with fewer threads here so I can run other things too.
+filtered_bams$ cp logs/map_reads_HAv3.1_C202SC18101772.log logs/map_reads_lanes2_5_HAv3.1.log
+
+# note: bams are about double fastq in terms of storage space
+# TO DO: on Nancy's mac: BUT I'M WAITING DUE TO LACK OF STORAGE SPACE
+I NEED TO SPLIT THIS TASK UP INTO SMALLER PIECES SO I HAVE ENOUGH SPACE
+filtered_bams$ cp logs/map_reads_lanes2_5_HAv3.1_2.log logs/map_reads_lanes2_5_HAv3.1_2resume.log
+# start jop after a ~4 hour delay to download all the files:
+filtered_bams$ sleep 20000; nohup parallel --resume --noswap --delay 1 --joblog logs/map_reads_lanes2_5_HAv3.1_2resume.log --jobs 8 './map_reads.sh {1} {2} ../data/novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.list ::::+ ../bee_samples_listed/lanes2_5_libraries.list &> logs/map_reads_lanes2_5_HAv3.1_2resume.out &
+# (!) NOTE: I may need to redo or check the output for the last one run
+
+# ACTUALLY RESUMING WITH 1 THREAD ON BARBARA FOR WEEKEND (after waiting 3 hrs):
+filtered_bams$ cp logs/map_reads_lanes2_5_HAv3.1.log logs/map_reads_lanes2_5_HAv3.1_2resume_Barbara8.2.19.log
+filtered_bams$ sleep 15000; nohup parallel --resume --noswap --delay 1 --joblog logs/map_reads_lanes2_5_HAv3.1_2resume_Barbara8.2.19.log --jobs 1 './map_reads.sh {1} {2} ../data/novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.list ::::+ ../bee_samples_listed/lanes2_5_libraries.list &> logs/map_reads_lanes2_5_HAv3.1_2resume_Barbara8.2.19.out &
+
 
 # TO DO:
 # Download Julie's bees from NCBI:
-# First get SSR ID's for NCBI download from all bees in Study. year >1994 & not Humboldt
+# First get SSR ID's for NCBI download from all bees in Study. year >1994 & not Humboldt. Actually I should just get Humboldt too maybe if I have space/time.
 Done
 # Download files from NCBI (not done yet!)
 data/Cridland_2018$ nohup parallel --joblog ../../logs/download_Cridland_2018_NCBI.log --delay 2.5 --noswap --jobs 4 'fastq-dump --split-files -clip \

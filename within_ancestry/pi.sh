@@ -8,7 +8,7 @@
 POP="${1}"
 BEE_ID_FILE="${2}"
 DIR_BAMS="../filtered_bams/results_Amel4.5"
-DIR_OUT=results/pi
+DIR_OUT=results/pi_all
 BAM_LIST="$DIR_OUT"/"$POP".bams
 
 # general bash script settings to make sure if any errors in the pipeline fail
