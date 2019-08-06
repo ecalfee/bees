@@ -42,6 +42,18 @@ within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq
 within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq_all.log './allele_freq.sh {1} ../bee_samples_listed/byPop/{1}.list ../data/bees_new_positions/ALL.var.sites' :::: ../bee_samples_listed/byPop/pops_included_plus_ACM.list &> logs/calc_allele_freq_all.out &
 [3] 9833 - RUNNING 8.2.19. COMPLETED.
 
+# translate allele freqs over to all sites (including NA for no data):
+# across all ancestries:
+within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/combine_allele_freq_all.log 'Rscript ./combine_pop_allele_freqs.R {1} results/allele_freq_all ../data/bees_new_positions/ALL.var.sites' :::: ../bee_samples_listed/byPop/pops_included_plus_ACM.list &> logs/combine_allele_freq_all.out &
+[1] 3151 - RUNNING 8.5.19
+# for each ancestry separately:
+within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/combine_allele_freq_within_ancestry.log 'Rscript ./combine_pop_allele_freqs.R {2} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{1}/allele_freq  ../data/bees_new_positions/ALL.var.sites' ::: AA CC MM :::: ../bee_samples_listed/byPop/pops_included.list &> logs/combine_allele_freq_within_ancestry.out &
+[2] 3855 - RUNNING 8.5.19
+# TO DO: paste results together across populations to get 1 file. possibly filter to 1/10 of data for genome-wide estimate.
+
+# alternatively, I could take subsets of the SNPs, or filter by # in pop. with data
+
+
 # (3) calculate Fst between populations for all pairs in just a subset of 2 CA pops and 3 AR pops, and reference bees A/C/M, also in ANGSD
 
 # (4) get allele frequencies for each population and each ancestry  
