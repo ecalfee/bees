@@ -12,3 +12,7 @@ data/Cridland_2018$ awk -F"\t" '$10=="feral" && $12>1994 {print $0}' SraRunTable
 data/Cridland_2018$ cut -f7 post1994_feral_noHumbold.txt > SRR_to_download.list
 data/Cridland_2018$ cut -f9 post1994_feral_noHumbold.txt > IDs_to_download.list
 
+#include humboldt:
+data/Cridland_2018$ awk -F"\t" '$10=="feral" && $12>1994 {print $0}' SraRunTable.txt > post1994_feral.txt
+data/Cridland_2018$ cut -f7 post1994_feral.txt > SRR_to_download.list
+data/Cridland_2018$ cut -f9 post1994_feral.txt > IDs_to_download.list

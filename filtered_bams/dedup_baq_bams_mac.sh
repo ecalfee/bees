@@ -35,7 +35,7 @@ mkdir -p ${DIR_OUT}
 mkdir -p ${DIR_TMP}
 mkdir -p ${DIR_METRICS}
 echo "working directory:"${PWD} # print current working directory
-echo "picard path:" ${PICARD}
+#echo "picard path:" ${PICARD}
 
 echo "marking duplicates with PICARD and calculating BAQ with SAMTOOLS"
 picard MarkDuplicates \
