@@ -49,7 +49,18 @@ within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/combine_allele_f
 # for each ancestry separately:
 within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/combine_allele_freq_within_ancestry.log 'Rscript ./combine_pop_allele_freqs.R {2} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{1}/allele_freq  ../data/bees_new_positions/ALL.var.sites' ::: AA CC MM :::: ../bee_samples_listed/byPop/pops_included.list &> logs/combine_allele_freq_within_ancestry.out &
 [2] 3855 - RUNNING 8.5.19
-# TO DO: paste results together across populations to get 1 file. possibly filter to 1/10 of data for genome-wide estimate.
+
+# TO DO: paste results together across populations to get 1 file. possibly filter to 1/10 of data before loading into R for genome-wide estimate.
+# Plot these first, but then use ANGSD to just get a random subset of the genome
+# and pi/Fst across the top outliers for shared ancestry
+
+# for some reason these summary files will not be created in parallel easily:
+bees/within_ancestry$ for anc in AA CC MM; do paste $(for i in $(cat ../bee_samples_listed/byPop/pops_included.list); do echo results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/$anc/allele_freq/$i.freqs.txt; done ) | awk 'NR == 1 || NR % 100 == 0' > results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/$anc/allele_freq/pops_included_every100th_SNP.freqs.txt; done
+bees/within_ancestry$ for anc in AA CC MM; do paste $(for i in $(cat ../bee_samples_listed/byPop/pops_included.list); do echo results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/$anc/allele_freq/$i.nInd; done ) | awk 'NR == 1 || NR % 10 == 0' > results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/$anc/allele_freq/pops_included_every10th_SNP.nInd; done
+
+# for across all ancestry frequencies
+/results/allele_freq_all$ paste $(for i in $(cat /media/erin/8TB/Documents/gitErin/bees/bee_samples_listed/byPop/pops_included_plus_ACM.list); do echo $i.freqs.txt; done ) | awk 'NR == 1 || NR % 100 == 0' > pops_included_plus_ACM_every100th_SNP.freqs.txt
+/results/allele_freq_all$ paste $(for i in $(cat /media/erin/8TB/Documents/gitErin/bees/bee_samples_listed/byPop/pops_included_plus_ACM.list); do echo $i.freqs.txt; done ) | awk 'NR == 1 || NR % 10 == 0' > pops_included_plus_ACM_every10th_SNP.freqs.txt
 
 # alternatively, I could take subsets of the SNPs, or filter by # in pop. with data
 
