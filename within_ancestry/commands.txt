@@ -61,9 +61,11 @@ bees/within_ancestry$ for anc in AA CC MM; do paste $(for i in $(cat ../bee_samp
 # for across all ancestry frequencies
 /results/allele_freq_all$ paste $(for i in $(cat /media/erin/8TB/Documents/gitErin/bees/bee_samples_listed/byPop/pops_included_plus_ACM.list); do echo $i.freqs.txt; done ) | awk 'NR == 1 || NR % 100 == 0' > pops_included_plus_ACM_every100th_SNP.freqs.txt
 /results/allele_freq_all$ paste $(for i in $(cat /media/erin/8TB/Documents/gitErin/bees/bee_samples_listed/byPop/pops_included_plus_ACM.list); do echo $i.freqs.txt; done ) | awk 'NR == 1 || NR % 10 == 0' > pops_included_plus_ACM_every10th_SNP.freqs.txt
+/results/allele_freq_all$ paste $(for i in $(cat /media/erin/8TB/Documents/gitErin/bees/bee_samples_listed/byPop/pops_included_plus_ACM.list); do echo $i.nInd; done ) | awk 'NR == 1 || NR % 100 == 0' > pops_included_plus_ACM_every100th_SNP.nInd
+/results/allele_freq_all$ paste $(for i in $(cat /media/erin/8TB/Documents/gitErin/bees/bee_samples_listed/byPop/pops_included_plus_ACM.list); do echo $i.nInd; done ) | awk 'NR == 1 || NR % 10 == 0' > pops_included_plus_ACM_every10th_SNP.nInd
 
 # alternatively, I could take subsets of the SNPs, or filter by # in pop. with data
-
+# TO DO: I could also do PCA instead of all pairwise Fst's, at least to start
 
 # (3) calculate Fst between populations for all pairs in just a subset of 2 CA pops and 3 AR pops, and reference bees A/C/M, also in ANGSD
 

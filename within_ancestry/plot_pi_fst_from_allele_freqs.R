@@ -1,0 +1,346 @@
+library(ggplot2)
+library(dplyr)
+library(reshape2)
+library(viridis)
+library(gridExtra)
+
+# this script takes the population allele frequencies
+# from combine_pop_allele_freqs.R
+# and calculates pi and Fst between all populations
+
+pops <- read.table("../bee_samples_listed/byPop/pops_included.list",
+                   stringsAsFactors = F)$V1
+ACM <- c("A", "C", "M")
+ACM_pops <- c(ACM, pops)
+ancestries <- c("AA", "CC", "MM")
+
+# read in the SFS's that were successfully calculated (for comparison):
+has_SFS <- c("AR06", "AR10", "AR11", "AR12", "AR13") # most failed
+SFS <- lapply(has_SFS, function(x) 
+  read.table(paste0("results/pi_all/", x, ".sfs"),
+             stringsAsFactors = F))
+
+plot(1:17, SFS[[1]]) # figure out how to calculate pi using angsd
+
+
+# read in 1/100th of the allele freq data:
+n_snp = 10
+freqs <- 1 - read.table(paste0("results/allele_freq_all/pops_included_plus_ACM_every", n_snp, "th_SNP.freqs.txt"),
+                    stringsAsFactors = F, header = T)
+hets <- 2*freqs*(1-freqs) # heterozygosity at every locus
+het_mean <- apply(hets, 2, function(x) mean(x, na.rm = T))
+table(complete.cases(hets)) # mostly no NAs
+# how many alleles sampled at a site?
+ns <- read.table(paste0("results/allele_freq_all/pops_included_plus_ACM_every", n_snp, "th_SNP.nInd"),
+                 stringsAsFactors = F, header = T)*2 # x2 because diploid
+
+# freqs and heterozygosity within AA CC MM ancestry
+freqs_by_ancestry <- lapply(ancestries, function(a) 
+  cbind(freqs[ , ACM], 
+        1 - read.table(paste0("results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/", 
+                              a, "/allele_freq/pops_included_every", n_snp, "th_SNP.freqs.txt"),
+             stringsAsFactors = F, header = T)))
+hets_by_ancestry <- lapply(freqs_by_ancestry, function(f) 2*f*(1-f))
+het_mean_by_ancestry <- lapply(hets_by_ancestry, function(h) 
+  apply(h, 2, function(x) mean(x, na.rm = T)))
+
+# all AA heterozygosities are below ref bee pop A (makes sense):
+hist(het_mean_by_ancestry[[1]][pops], xlim = c(0, 0.1),
+     main = "histogram of pi within AA homozygous ancestry regions",
+     xlab = "population pi for AA ancestry")
+abline(v = het_mean["A"], col = "blue")
+
+
+# how many alleles were sampled at each site?
+ns_by_ancestry <- lapply(ancestries, function(a) 
+  cbind(ns[ , ACM], read.table(paste0("results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/", 
+                                      a, "/allele_freq/pops_included_every", n_snp, "th_SNP.nInd"),
+                                      stringsAsFactors = F, header = T)*2))
+
+# get bee population meta data
+bees <- do.call(rbind, 
+                lapply(pops, function(p) data.frame(Bee_ID = read.table(paste0("../bee_samples_listed/byPop/", p, ".list"),
+                                                                        stringsAsFactors = F)$V1, population = p, stringsAsFactors = F)))
+meta.ind <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
+  left_join(bees, ., by = c("Bee_ID", "population")) 
+meta.pop <- meta.ind %>%
+  dplyr::select(c("population", "source", "year", "group", "lat", "long")) %>%
+  dplyr::group_by(population, source, year, group) %>%
+  dplyr::summarise(n_bees = n(),
+                   lat = mean(lat),
+                   long = mean(long)) %>%
+  mutate(zone = ifelse(group == "AR_2018", "S. America", "N. America")) %>%
+  left_join(data.frame(population = pops, stringsAsFactors = F),
+            ., by = "population") %>%
+  mutate(lat = ifelse(population == "Riverside_1999", .[.$population == "Riverside_2014", "lat"], lat))
+
+d_het <- data.frame(population = ACM_pops,
+                    AA = het_mean_by_ancestry[[1]],
+                    CC = het_mean_by_ancestry[[2]],
+                    MM = het_mean_by_ancestry[[3]],
+                    combined = het_mean,
+                    ref_pop = c(rep(T, 3), rep(F, length(pops)))) %>%
+  left_join(., meta.pop, by = "population")
+ACM_het <- data.frame(ancestry = ancestries,
+                      combined = het_mean[ACM],
+                      ref_pop = T)
+
+# plot heterozygosity overall and within ancestry as you move across the hybrid zone:
+d_het %>%
+  filter(!ref_pop) %>%
+  tidyr::gather(., "ancestry", "pi", c(ancestries, "combined")) %>%
+  ggplot(., aes(x = abs(lat), y = pi, color = ancestry, shape = factor(year))) +
+  geom_point() +
+  facet_wrap(~zone, scales = "free_x") +
+  geom_abline(data = ACM_het, aes(intercept = combined, slope = 0, color = ancestry))
+table(is.na(freqs_AA[, "AR01"]))
+
+# heterozygosity corrected for small sample size:
+het_small_sample_correction <- function(p, n) 2*(p - p^2*(n/(n-1)) + p*(1/(n-1)))
+hets_small_sample <- do.call(cbind, 
+                             lapply(1:ncol(freqs), function(i) het_small_sample_correction(p = freqs[ , i],
+                                                                                           n = ns[ , i])))
+colnames(hets_small_sample) <- ACM_pops
+het_small_sample_mean <- apply(hets_small_sample, 2, function(x) mean(x, na.rm = T))
+
+hets_small_sample_by_ancestry <- lapply(1:3, function(a) do.call(cbind, 
+                                                                 lapply(1:ncol(freqs_by_ancestry[[a]]), 
+                                                                        function(i) het_small_sample_correction(p = freqs_by_ancestry[[a]][ , i],                                                                                                             n = ns_by_ancestry[[a]][ , i])))) 
+het_small_sample_mean_by_ancestry <- lapply(hets_small_sample_by_ancestry, function(h) 
+  apply(h, 2, function(x) mean(x, na.rm = T)))
+d_het_small_sample <- data.frame(population = ACM_pops,
+                                 AA = het_small_sample_mean_by_ancestry[[1]],
+                                 CC = het_small_sample_mean_by_ancestry[[2]],
+                                 MM = het_small_sample_mean_by_ancestry[[3]],
+                                 combined = het_small_sample_mean,
+                                 ref_pop = c(rep(T, 3), rep(F, length(pops)))) %>%
+  left_join(., meta.pop, by = "population")
+ACM_het_small_sample <- data.frame(ancestry = ancestries,
+                                   combined = het_small_sample_mean[ACM],
+                                   ref_pop = T)
+
+d_het_small_sample %>%
+  filter(!ref_pop) %>%
+  tidyr::gather(., "ancestry", "pi", c(ancestries, "combined")) %>%
+  ggplot(., aes(x = abs(lat), y = pi, color = ancestry, shape = factor(year))) +
+  geom_point() +
+  xlab("Degrees latitude from the equator") +
+  facet_grid(zone ~ ., scales = "free_x") +
+  geom_abline(data = ACM_het_small_sample, aes(intercept = combined, slope = 0, color = ancestry))
+ggsave("plots/pi_by_latitude_including_mexico.png", device = "png",
+       width = 10, height = 5)
+d_het_small_sample %>%
+  filter(!ref_pop) %>%
+  filter(population != "MX10") %>%
+  tidyr::gather(., "ancestry", "pi", c(ancestries, "combined")) %>%
+  ggplot(., aes(x = abs(lat), y = pi, color = ancestry, shape = factor(year))) +
+  geom_point() +
+  ggtitle("Allelic diversity at known SNPs within ancestries and combined across all ancestries") +
+  xlab("Degrees latitude from the equator") +
+  facet_grid(. ~ zone, scales = "free_x") +
+  geom_abline(data = ACM_het_small_sample, aes(intercept = combined, slope = 0, color = ancestry))
+ggsave("plots/pi_by_latitude.png", device = "png",
+       width = 10, height = 5)
+
+
+# plot Fst -- populations further apart should have higher Fst
+calc_Fst <- function(v1, v2){
+  exclude = is.na(v1) | is.na(v2)
+  v_1 = v1[!exclude]
+  v_2 = v2[!exclude]
+  het_1 = 2*v_1*(1-v_1)
+  het_2 = 2*v_2*(1-v_2)
+  v_tot = (v_1 + v_2)/2
+  het_tot = 2*v_tot*(1-v_tot)
+  fst = 1 - (mean(het_1)+mean(het_2))/2/mean(het_tot)
+  return(fst)
+}
+calc_dxy <- function(v1, v2){
+  exclude = is.na(v1) | is.na(v2)
+  v_1 = v1[!exclude]
+  v_2 = v2[!exclude]
+  dxy = mean(v_1*(1-v_2) + v_2*(1-v_1))
+  return(dxy) 
+}
+# Hudson pairwise Fst estimator from Bhatia 2012 
+# (I implement equation 10 from the supplement & take the ratio of the avg. numerator & denominator) 
+calc_hudson_Fst <- function(v1, v2, n1, n2){ # allele frequencies and number of alleles sampled
+  exclude = is.na(v1) | is.na(v2)
+  p_1 = v1[!exclude]
+  p_2 = v2[!exclude]
+  n_1 = n1[!exclude]
+  n_2 = n2[!exclude]
+
+  N = (p_1 - p_2)^2 - p_1*(1 - p_1)/(n_1 - 1) - p_2*(1-p_2)/(n_2 - 1)
+  D = p_1*(1 - p_2) + (1 - p_1)*p_2
+  
+  fst = mean(N)/mean(D)
+  return(fst)
+}
+
+# sort populations by latitude
+pops_order_lat <- meta.pop$population[order(meta.pop$lat)]
+ACM_pops_order_lat <- c(ACM, pops_order_lat)
+
+# get fst pairwise between all pops
+fst_matrix <- matrix(0, length(ACM_pops), length(ACM_pops))
+for (i in 1:length(ACM_pops)){
+  for (j in 1:length(ACM_pops)){
+    fst_matrix[i, j] <- calc_Fst(v1 = freqs[ , ACM_pops[i]], v2 = freqs[ , ACM_pops[j]])
+  }
+}
+colnames(fst_matrix) <- ACM_pops
+rownames(fst_matrix) <- ACM_pops
+
+
+reshape2::melt(fst_matrix[ACM_pops_order_lat, ACM_pops_order_lat]) %>%
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 1, end = 0, direction = 1) +  
+  #scale_fill_viridis(begin = 0, end = 1, direction = 1) +  
+  ggtitle("Fst - bees")
+
+# get fst by ancestry
+# make all within ancestry plots:
+fst_matrix_by_ancestry <- lapply(freqs_by_ancestry, function(a){
+
+  fst_matrix_a <- matrix(0, length(ACM_pops), length(ACM_pops))
+  for (i in 1:length(ACM_pops)){
+    for (j in 1:length(ACM_pops)){
+      fst_matrix_a[i, j] <- calc_Fst(v1 = a[ , ACM_pops[i]], v2 = a[ , ACM_pops[j]])
+    }
+  }
+  colnames(fst_matrix_a) <- ACM_pops
+  rownames(fst_matrix_a) <- ACM_pops
+  return(fst_matrix_a)
+  }
+)
+plots_fst_by_ancestry <- lapply(1:3, function(i) 
+  reshape2::melt(fst_matrix_by_ancestry[[i]][ACM_pops_order_lat, ACM_pops_order_lat]) %>%
+    ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+    geom_tile() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    #scale_fill_viridis(begin = 0, end = 1, direction = 1) +  
+    scale_fill_viridis(begin = 1, end = 0, direction = 1) +  
+    ggtitle(paste0("Fst ", ancestries[[i]], " ancestry - bees")))
+
+plots_fst_by_ancestry
+
+
+# Hudson Fst estimator:
+# blind to ancestry:
+# hudson estimator of Fst
+fst_hudson_matrix <- matrix(0, length(ACM_pops), length(ACM_pops))
+for (i in 1:length(ACM_pops)){
+  for (j in 1:length(ACM_pops)){
+    fst_hudson_matrix[i, j] <- calc_hudson_Fst(v1 = freqs[ , ACM_pops[i]], 
+                                               v2 = freqs[ , ACM_pops[j]],
+                                               n1 = ns[ , ACM_pops[i]],
+                                               n2 = ns[ , ACM_pops[j]])
+  }
+}
+colnames(fst_hudson_matrix) <- ACM_pops
+rownames(fst_hudson_matrix) <- ACM_pops
+# plot hudson Fst
+plot_fst_hudson <- reshape2::melt(fst_hudson_matrix[ACM_pops_order_lat, ACM_pops_order_lat]) %>%
+  filter(! Var1 == Var2) %>% # don't plot diagonal
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  #scale_fill_viridis(begin = 1, end = 0, direction = 1) +  
+  scale_fill_viridis(begin = 0, end = 1, direction = 1) +  
+  ggtitle("Hudson Fst - bees")
+plot_fst_hudson
+
+
+# for each ancestry:
+fst_hudson_matrix_by_ancestry <- lapply(1:3, function(a){
+  fst_hudson_matrix_a <- matrix(0, length(ACM_pops), length(ACM_pops))
+  for (i in 1:length(ACM_pops)){
+    for (j in 1:length(ACM_pops)){
+      fst_hudson_matrix_a[i, j] <- calc_hudson_Fst(v1 = freqs_by_ancestry[[a]][ , ACM_pops[i]], 
+                                            v2 = freqs_by_ancestry[[a]][ , ACM_pops[j]],
+                                            n1 = ns_by_ancestry[[a]][ , ACM_pops[i]],
+                                            n2 = ns_by_ancestry[[a]][ , ACM_pops[j]]
+                                            )
+    }
+  }
+  colnames(fst_hudson_matrix_a) <- ACM_pops
+  rownames(fst_hudson_matrix_a) <- ACM_pops
+  return(fst_hudson_matrix_a)
+}
+)
+
+plots_fst_hudson_by_ancestry <- lapply(1:3, function(i) 
+  reshape2::melt(fst_hudson_matrix_by_ancestry[[i]][ACM_pops_order_lat, ACM_pops_order_lat]) %>%
+    filter(! Var1 == Var2) %>% # don't plot diagonal
+    ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+    geom_tile() +
+    xlab(NULL) +
+    ylab(NULL) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    scale_fill_viridis(begin = 0, end = 1, direction = 1) +  
+    #scale_fill_viridis(begin = 1, end = 0, direction = 1) +  
+    ggtitle(paste0("Hudson Fst ", ancestries[[i]], " ancestry - bees")))
+
+plots_fst_hudson_by_ancestry
+
+grid.arrange(plot_fst_hudson,
+             plots_fst_hudson_by_ancestry[[1]],
+             plots_fst_hudson_by_ancestry[[2]],
+             plots_fst_hudson_by_ancestry[[3]],
+             nrow = 2, 
+             ncol = 2)
+ggsave("plots/fst_overall_and_within_ancestry.png",
+       device = "png",
+       height = 8,
+       width = 9,
+       units = "in")
+
+fst_matrix_by_ancestry[[1]]["AR01", "CA14"]
+fst_matrix_by_ancestry[[1]]["AR01", "AR03"]
+fst_matrix_by_ancestry[[1]]["CA12", "CA14"]
+fst_matrix_by_ancestry[[1]]["CA12", "AR03"]
+fst_matrix_by_ancestry[[1]]["CA03", "AR03"]
+
+# plot dxy too
+# get fst by ancestry
+# make all within ancestry plots:
+dxy_matrix_by_ancestry <- lapply(freqs_by_ancestry, function(a){
+  
+  dxy_matrix_a <- matrix(0, length(pops), length(pops))
+  for (i in 1:length(pops)){
+    for (j in 1:length(pops)){
+      dxy_matrix_a[i, j] <- calc_dxy(v1 = a[ , pops[i]], v2 = a[ , pops[j]])
+    }
+  }
+  colnames(dxy_matrix_a) <- pops
+  rownames(dxy_matrix_a) <- pops
+  return(dxy_matrix_a)
+}
+)
+plots_dxy_by_ancestry <- lapply(1:3, function(i) 
+  reshape2::melt(dxy_matrix_by_ancestry[[i]][pops_order_lat, pops_order_lat]) %>%
+    ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+    geom_tile() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    scale_fill_viridis(begin = 0, end = 1, direction = 1) +  
+    ggtitle(paste0("dxy ", ancestries[[i]], " ancestry - bees")))
+
+grid.arrange(plots_dxy_by_ancestry[[1]],
+             plots_dxy_by_ancestry[[2]],
+             plots_dxy_by_ancestry[[3]],
+             nrow = 2, 
+             ncol = 2)
+
+# can I plot ancestry heterozygosity too?
+
+# TO DO: for outlier regions, get pi and Fst across the outliers for each ancestry,
+# group samples: N. America (just include 2014), S. America, A, C, M. 
+# Step 1: get list of outlier regions in a format ANGSD understands.
+# I will also need some neutral outlier regions to get backgroun mean pi and Fst.
+# Also plot PCA for within-ancestry diversity.
+
+
+
