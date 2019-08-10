@@ -16,3 +16,7 @@ data/Cridland_2018$ cut -f9 post1994_feral_noHumbold.txt > IDs_to_download.list
 data/Cridland_2018$ awk -F"\t" '$10=="feral" && $12>1994 {print $0}' SraRunTable.txt > post1994_feral.txt
 data/Cridland_2018$ cut -f7 post1994_feral.txt > SRR_to_download.list
 data/Cridland_2018$ cut -f9 post1994_feral.txt > IDs_to_download.list
+
+# I grouped populations 2014 and 2018 except Avalon into North America and South America (NA and SA) groupings for FST and pi analysis etc.
+# _3 is all included pops in the hybrid zone, and SA has 3 groups: 0, 1, 2 while NA has 2 groups: 1, 2 with ~ 60 bees each:
+bee_samples_listed/byPop$ parallel '(for pop in $(cat {1}_{2}.pops); do cat $pop.list; done) > {1}_{2}.list' ::: NA SA ::: 0 1 2 3

@@ -100,17 +100,17 @@ scaff_to_chr_pos <- function(scaffold, pos, mapg = varroa_scaffolds_on_chr){
 A_AR_CA$chr_start = sapply(1:nrow(A_AR_CA), function(x) scaff_to_chr_pos(scaffold = A_AR_CA[x, "scaffold"], pos = A_AR_CA[x, "start"]))
 A_AR_CA$chr_end = sapply(1:nrow(A_AR_CA), function(x) scaff_to_chr_pos(scaffold = A_AR_CA[x, "scaffold"], pos = A_AR_CA[x, "end"]))
 A_AR_CA$chr = as.numeric(sapply(A_AR_CA$scaffold, function(s) substr(strsplit(s, split = "[.]")[[1]][1], 6, 100)))
-varroa_QTL0$chr = as.numeric(apply(varroa_QTL, 1, function(s) ifelse(is.na(s["chr"]), 
+varroa_QTL0$chr = as.numeric(apply(varroa_QTL0, 1, function(s) ifelse(is.na(s["chr"]), 
                                                                     as.numeric(substr(strsplit(s["Scaffold_Start"], split = "[.]")[[1]][1], 6, 100)),
                                                                     s["chr"])))
-varroa_QTL0$chr_start = sapply(1:nrow(varroa_QTL), function(x) ifelse(is.na(varroa_QTL[x, "Start"]), 
+varroa_QTL0$chr_start = sapply(1:nrow(varroa_QTL0), function(x) ifelse(is.na(varroa_QTL0[x, "Start"]), 
                                                                      scaff_to_chr_pos(scaffold = varroa_QTL[x, "Scaffold_Start"], 
-                                                                                      pos = varroa_QTL[x, "Scaffold_Pos_Start"]),
-                                                                     varroa_QTL[x, "Start"]))
-varroa_QTL0$chr_end = sapply(1:nrow(varroa_QTL), function(x) ifelse(is.na(varroa_QTL[x, "End"]), 
-                                                                   scaff_to_chr_pos(scaffold = varroa_QTL[x, "Scaffold_End"], 
-                                                                                    pos = varroa_QTL[x, "Scaffold_Pos_End"]),
-                                                                   varroa_QTL[x, "End"]))
+                                                                                      pos = varroa_QTL0[x, "Scaffold_Pos_Start"]),
+                                                                     varroa_QTL0[x, "Start"]))
+varroa_QTL0$chr_end = sapply(1:nrow(varroa_QTL0), function(x) ifelse(is.na(varroa_QTL0[x, "End"]), 
+                                                                   scaff_to_chr_pos(scaffold = varroa_QTL0[x, "Scaffold_End"], 
+                                                                                    pos = varroa_QTL0[x, "Scaffold_Pos_End"]),
+                                                                   varroa_QTL0[x, "End"]))
 
 QTL_names <- unique(varroa_QTL0[c("Reference", "Outlier_type", "Name")])
 QTL_names$name <- c("Varroa-Sensitive Hygiene putative QTL", "Varro-Sensitive Hygiene GWAS SNP", "Varroa-Sensitive Hygiene QTL", "Hygiene QTL", "Self-Grooming QTL")
@@ -122,7 +122,7 @@ varroa_QTL <- left_join(varroa_QTL0, QTL_names, by = c("Reference", "Outlier_typ
 # aren't likely ancestry outliers
 A_AR_CA %>%
   mutate(CA = -1*CA) %>% # flip CA axis
-  rename(FDR_shared_low = "\n                       FDR_shared_low") %>% # rename one weird column
+  #rename(FDR_shared_low = "\n                       FDR_shared_low") %>% # rename one weird column
   arrange(chr) %>% # sort by chromosome order
   tidyr::gather(., "zone", "A_ancestry", c("CA", "AR")) %>%
   mutate(FDR = apply(., 1, function(x) ifelse(x["zone"] == "CA", 
@@ -285,13 +285,15 @@ varroa_QTL_cumulative %>%
 #plot(density(x2) , main="" , xlab="Value of my variable", ylim=c(1,0) , las=1 , col="tomato3" , lwd=4)  
 
 # group outliers into contiguous regions
+threshold_extend_region <- 0.1
+threshold_keep_region <- 0.05 # only keep contiguous regions that meet FDR 0.05 cutoff, but extend them out to the 0.1 cutoff
 # start with high A shared outliers
 high.shared <- A_AR_CA %>%
   dplyr::select(c("scaffold", "start", "end", "snp_id", "AR", "CA", "FDR_shared_high")) %>%
   mutate(FDR_shared_high = as.numeric(FDR_shared_high)) %>%
   rename(chr = scaffold) %>%
   filter(!is.na(FDR_shared_high)) %>%
-  filter(FDR_shared_high <= .05)
+  filter(FDR_shared_high <= theshold_extend_region)
 table(is.valid.region(high.shared, check.chr = F))
 length(bedr.merge.region(high.shared, check.chr = F))
 high.shared.outliers <- bedr(
@@ -302,7 +304,8 @@ high.shared.outliers <- bedr(
   check.chr = F
 ) %>%
   mutate(region = rownames(.)) %>%
-  data.table::setnames(c("chr", "start", "end", "min_FDR", "region"))
+  data.table::setnames(c("chr", "start", "end", "min_FDR", "region")) %>%
+  filter(min_FDR <= threshold_keep_region)
 
 # low shared outliers:
 low.shared <- A_AR_CA %>%
@@ -310,7 +313,7 @@ low.shared <- A_AR_CA %>%
   mutate(FDR_shared_low = as.numeric(FDR_shared_low)) %>%
   rename(chr = scaffold) %>%
   filter(!is.na(FDR_shared_low)) %>%
-  filter(FDR_shared_low <= .05)
+  filter(FDR_shared_low <= threshold_extend_region)
 table(is.valid.region(low.shared, check.chr = F))
 length(bedr.merge.region(low.shared, check.chr = F))
 low.shared.outliers <- bedr(
@@ -330,25 +333,27 @@ high.CA <- A_AR_CA %>%
   mutate(FDR_CA_high = as.numeric(FDR_CA_high)) %>%
   rename(chr = scaffold) %>%
   filter(!is.na(FDR_CA_high)) %>%
-  filter(FDR_CA_high <= 0.05)
+  filter(FDR_CA_high <= threshold_extend_region)
 
-high.CA.only <- high.CA # use for now
+#high.CA.only <- high.CA # use for now
 
 # high in CA only (not a shared outlier)
 # exclude if it's in a 'shared outlier' region
-# ***************************Not working & I am not sure why ******************************
 high.CA.only <- bedr(
   engine = "bedtools", 
-  input = list(a = high.CA,
-               b = high.shared.outliers), 
+  input = list(a = high.CA[ , c("chr", "start", "end")],
+               b = high.shared.outliers[ , c("chr", "start", "end")]), 
   method = "intersect", 
-  params = "-sorted -v -g ../data/honeybee_genome/ordered_scaffolds.lengths", # exclude if it's in a 'shared outlier' region
+  params = "-sorted -wao -g ../data/honeybee_genome/ordered_scaffolds.lengths", # exclude if it's in a 'shared outlier' region
   check.chr = F
-)
+) %>%
+  left_join(., high.CA, by = c("chr", "start", "end")) %>%
+  filter(V7 == 0) %>%
+  dplyr::select(colnames(high.CA))
 
 
 # merge into contiguous regions
-high.CA.outliers <- bedr(
+high.CA.only.outliers <- bedr(
   engine = "bedtools", 
   input = list(i = high.CA.only), 
   method = "merge", 
@@ -356,7 +361,8 @@ high.CA.outliers <- bedr(
   check.chr = F
 ) %>%
   mutate(region = rownames(.)) %>%
-  data.table::setnames(c("chr", "start", "end", "min_FDR", "region"))
+  data.table::setnames(c("chr", "start", "end", "min_FDR", "region")) %>%
+  filter(min_FDR <= threshold_keep_region)
 
 # high AR outliers:
 high.AR <- A_AR_CA %>%
@@ -365,13 +371,24 @@ high.AR <- A_AR_CA %>%
   mutate(FDR_AR_high = as.numeric(FDR_AR_high)) %>%
   rename(chr = scaffold) %>%
   filter(!is.na(FDR_AR_high)) %>%
-  filter(FDR_AR_high <= 0.05)
+  filter(FDR_AR_high <= threshold_extend_region)
 
-high.AR.only <- high.AR # use for now
-
+#high.AR.only <- high.AR # use for now
+high.AR.only <- bedr( # exclude regions that overlap with high shared outliers
+  engine = "bedtools", 
+  input = list(a = high.AR[ , c("chr", "start", "end")],
+               b = high.shared.outliers[ , c("chr", "start", "end")]), 
+  method = "intersect", 
+  params = "-sorted -wao -g ../data/honeybee_genome/ordered_scaffolds.lengths", # exclude if it's in a 'shared outlier' region
+  check.chr = F
+) %>%
+  #View() # I did a visual check.
+  left_join(., high.AR, by = c("chr", "start", "end")) %>%
+  filter(V7 == 0) %>%
+  dplyr::select(colnames(high.AR))
 
 # merge into contiguous regions
-high.AR.outliers <- bedr(
+high.AR.only.outliers <- bedr(
   engine = "bedtools", 
   input = list(i = high.AR.only), 
   method = "merge", 
@@ -379,7 +396,8 @@ high.AR.outliers <- bedr(
   check.chr = F
 ) %>%
   mutate(region = rownames(.)) %>%
-  data.table::setnames(c("chr", "start", "end", "min_FDR", "region"))
+  data.table::setnames(c("chr", "start", "end", "min_FDR", "region")) %>%
+  filter(min_FDR <= threshold_keep_region)
 
 # low AR outliers (there are no low CA outliers -- underpowered)
 low.AR <- A_AR_CA %>%
@@ -388,13 +406,26 @@ low.AR <- A_AR_CA %>%
   mutate(FDR_AR_low = as.numeric(FDR_AR_low)) %>%
   rename(chr = scaffold) %>%
   filter(!is.na(FDR_AR_low)) %>%
-  filter(FDR_AR_low <= 0.05)
+  filter(FDR_AR_low <= threshold_extend_region)
 
-low.AR.only <- low.AR # use for now
-
+#low.AR.only <- low.AR # use for now
+# NOTE: Group 1.23 has a low outlier that is only partially overlaps with the shared.low but
+# but probably shouldn't really be considerd an 'AR' low only
+low.AR.only <- bedr( # exclude regions that overlap with high shared outliers
+  engine = "bedtools", 
+  input = list(a = low.AR[ , c("chr", "start", "end")],
+               b = low.shared.outliers[ , c("chr", "start", "end")]), 
+  method = "intersect", 
+  params = "-sorted -wao -g ../data/honeybee_genome/ordered_scaffolds.lengths", # exclude if it's in a 'shared outlier' region
+  check.chr = F
+) %>%
+  #View() # I did a visual check.
+  left_join(., low.AR, by = c("chr", "start", "end")) %>%
+  filter(V7 == 0) %>%
+  dplyr::select(colnames(low.AR))
 
 # merge into contiguous regions
-low.AR.outliers <- bedr(
+low.AR.only.outliers <- bedr(
   engine = "bedtools", 
   input = list(i = low.AR.only), 
   method = "merge", 
@@ -402,19 +433,98 @@ low.AR.outliers <- bedr(
   check.chr = F
 ) %>%
   mutate(region = rownames(.)) %>%
-  data.table::setnames(c("chr", "start", "end", "min_FDR", "region"))
+  data.table::setnames(c("chr", "start", "end", "min_FDR", "region")) %>%
+  filter(min_FDR <= threshold_keep_region)
 
-
-# ******************not working******************
-high.both.outliers <- bedr( # no loci meet criteria for both outliers independently
+# don't filter out shared sites, just ID them:
+# don't filter out shared sites, just ID
+high.CA.intersect <- bedr( # exclude regions that overlap with high shared outliers
   engine = "bedtools", 
-  input = list(a = high.AR.only,
-               b = high.CA.only), 
+  input = list(a = high.CA[ , c("chr", "start", "end")],
+               b = high.shared.outliers[ , c("chr", "start", "end")]), 
   method = "intersect", 
-  params = "-g ../data/honeybee_genome/ordered_scaffolds.lengths", # merge if within 1kb
+  params = "-sorted -wao -g ../data/honeybee_genome/ordered_scaffolds.lengths", # exclude if it's in a 'shared outlier' region
   check.chr = F
-)
+) %>%
+  #View() # I did a visual check.
+  left_join(., high.CA, by = c("chr", "start", "end")) %>%
+  mutate(bp_shared_outliers = V7) %>%
+  dplyr::select(c(colnames(high.CA), bp_shared_outliers))
 
+# merge into contiguous regions
+high.CA.outliers <- bedr(
+  engine = "bedtools", 
+  input = list(i = high.CA.intersect), 
+  method = "merge", 
+  params = "-d 10000 -c 7,8 -o min,sum", # merge if within 1kb
+  check.chr = F
+) %>%
+  mutate(region = rownames(.)) %>%
+  data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers", "region")) %>%
+  filter(min_FDR <= threshold_keep_region)
+
+high.AR.intersect <- bedr( # exclude regions that overlap with high shared outliers
+  engine = "bedtools", 
+  input = list(a = high.AR[ , c("chr", "start", "end")],
+               b = high.shared.outliers[ , c("chr", "start", "end")]), 
+  method = "intersect", 
+  params = "-sorted -wao -g ../data/honeybee_genome/ordered_scaffolds.lengths", # exclude if it's in a 'shared outlier' region
+  check.chr = F
+) %>%
+  #View() # I did a visual check.
+  left_join(., high.AR, by = c("chr", "start", "end")) %>%
+  mutate(bp_shared_outliers = V7) %>%
+  dplyr::select(c(colnames(high.AR), bp_shared_outliers))
+
+# merge into contiguous regions
+high.AR.outliers <- bedr(
+  engine = "bedtools", 
+  input = list(i = high.AR.intersect), 
+  method = "merge", 
+  params = "-d 10000 -c 7,8 -o min,sum", # merge if within 1kb
+  check.chr = F
+) %>%
+  mutate(region = rownames(.)) %>%
+  data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers", "region")) %>%
+  filter(min_FDR <= threshold_keep_region)
+
+
+low.AR.intersect <- bedr( # exclude regions that overlap with high shared outliers
+  engine = "bedtools", 
+  input = list(a = low.AR[ , c("chr", "start", "end")],
+               b = low.shared.outliers[ , c("chr", "start", "end")]), 
+  method = "intersect", 
+  params = "-sorted -wao -g ../data/honeybee_genome/ordered_scaffolds.lengths", # exclude if it's in a 'shared outlier' region
+  check.chr = F
+) %>%
+  #View() # I did a visual check.
+  left_join(., low.AR, by = c("chr", "start", "end")) %>%
+  mutate(bp_shared_outliers = V7) %>%
+  dplyr::select(c(colnames(low.AR), bp_shared_outliers))
+
+# merge into contiguous regions
+low.AR.outliers <- bedr(
+  engine = "bedtools", 
+  input = list(i = low.AR.intersect), 
+  method = "merge", 
+  params = "-d 10000 -c 7,8 -o min,sum", # merge if within 1kb
+  check.chr = F
+) %>%
+  mutate(region = rownames(.)) %>%
+  data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers", "region")) %>%
+  filter(min_FDR <= threshold_keep_region)
+
+# write files with outliers regions:
+outlier_sets <- list(high.shared.outliers, low.shared.outliers, high.AR.outliers, low.AR.outliers, high.CA.outliers)
+outlier_set_names <- c("high_shared", "low_shared", "high_AR", "low_AR", "high_CA")
+for (i in 1:length(outlier_sets)){
+  write.table(outlier_sets[[i]], 
+              paste0("results/outlier_regions/", outlier_set_names[i], ".bed"),
+              quote = F, col.names = T, row.names = F, sep = "\t")
+  write.table(outlier_sets[[i]], 
+              paste0("results/outlier_regions/", outlier_set_names[i], ".noHeader.bed"),
+              quote = F, col.names = F, row.names = F, sep = "\t")
+}
 
 
 # plots
