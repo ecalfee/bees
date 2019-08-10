@@ -377,11 +377,127 @@ pops <- read.table("../bee_samples_listed/byPop/pops_included.list", stringsAsFa
 bees <- do.call(rbind, 
                 lapply(pops, function(p) data.frame(Bee_ID = read.table(paste0("../bee_samples_listed/byPop/", p, ".list"),
                                                     stringsAsFactors = F)$V1, population = p, stringsAsFactors = F)))
-popA <- lapply(pops, function(p) read.table(paste0("results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/", p, ".A.anc"),
+
+# get metadata
+meta.ind <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
+  left_join(bees, ., by = c("Bee_ID", "population")) 
+meta.pop <- meta.ind %>%
+  dplyr::select(c("population", "source", "year", "group", "lat", "long")) %>%
+  dplyr::group_by(population, source, year, group) %>%
+  dplyr::summarise(n_bees = n(),
+                   lat = mean(lat),
+                   long = mean(long)) %>%
+  left_join(data.frame(population = pops, stringsAsFactors = F),
+            ., by = "population") %>%
+  mutate(lat = ifelse(population == "Riverside_1999", .[.$population == "Riverside_2014", "lat"], lat)) %>%
+  mutate(zone = ifelse(group == "AR_2018", "S. America", "N. America"))
+
+
+# get ancestry frequencies for each population across the genome
+dir_results <- "results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot"
+
+popA <- lapply(pops, function(p) read.table(paste0(dir_results, "/anc/", p, ".A.anc"),
                                             stringsAsFactors = F))
 A <- do.call(cbind, popA)
 colnames(A) <- pops
+popM <- lapply(pops, function(p) read.table(paste0(dir_results, "/anc/", p, ".M.anc"),
+                                            stringsAsFactors = F))
+M <- do.call(cbind, popM)
+colnames(M) <- pops
+popC <- lapply(pops, function(p) read.table(paste0(dir_results, "/anc/", p, ".C.anc"),
+                                            stringsAsFactors = F))
+C <- do.call(cbind, popC)
+colnames(C) <- pops
+
+# mean ancestry across populations
 meanA0 <- apply(A, 1, mean)
+meanC0 <- apply(C, 1, mean)
+meanM0 <- apply(M, 1, mean)
+
+# mean ancestry across the genome for each pop
+admix_proportions <- data.frame(population = pops,
+                                A = apply(A, 2, mean),
+                                C = apply(C, 2, mean),
+                                M = apply(M, 2, mean),
+                                stringsAsFactors = F)
+
+# get time of admixture estimates
+time_pops <- read.table(paste0(dir_results, "/", "time_pops.txt"), 
+                        stringsAsFactors = F, header = F) %>%
+  data.table::setnames("population")
+admix_times <- do.call(rbind, lapply(c("A", "C", "M"), function(anc) read.table(paste0(dir_results, "/", "time_", anc, ".txt"), 
+                     stringsAsFactors = F, header = F) %>%
+  data.table::setnames(c("ancestry_n", "time", "proportion")) %>%
+    mutate(ancestry = anc) %>% 
+    cbind(time_pops, .)))
+
+# the ancestry proportion values in the log (and admix_proportions) are just the priors from NGSAdmix:
+ancestry_NGSadmix <- d_A %>% # d_A is loaded from plot_clines.R script
+  group_by(population) %>%
+  summarise(NGSAdmix = mean(alpha))
+left_join(ancestry_NGSadmix, filter(admix_times, ancestry == "A"), by = "population") %>%
+  with(., plot(NGSAdmix, proportion, xlim = 0:1, ylim = 0:1, col = "blue"))
+
+# compare the priors with the mean inferred ancestry from ancestry_hmm
+colors_3 <- scales::hue_pal()(3)
+# save plot locally and in bee_manuscript figures folder
+for (path in c("plots/mean_ancestry_prior_posterior_ancestry_hmm.png", 
+               "../../bee_manuscript/figures/mean_ancestry_prior_posterior_ancestry_hmm.png")){
+  png(path,
+      height = 5, width = 6, units = "in", res= 300)
+  left_join(admix_proportions, filter(admix_times, ancestry == "A"), by = "population") %>%
+    with(., plot(proportion, A, xlim = 0:1, ylim = 0:1, col = colors_3[1], 
+                 xlab = "mean ancestry prior (NGSAdmix)",
+                 ylab = "mean ancestry posterior (ancestry_hmm)", 
+                 main = "Effect of HMM on inferred mean population ancestry"))
+  left_join(admix_proportions, filter(admix_times, ancestry == "M"), by = "population") %>%
+    with(., points(proportion, M, xlim = 0:1, ylim = 0:1, col = colors_3[3]))
+  left_join(admix_proportions, filter(admix_times, ancestry == "C"), by = "population") %>%
+    with(., points(proportion, C, xlim = 0:1, ylim = 0:1, col = colors_3[2]))
+  abline(0, 1)
+  legend("bottomright", legend = c("A", "C", "M"),
+         col = colors_3,
+         pch = 1,
+         title = "Ancestry")
+  dev.off()
+}
+
+
+# plot ancestry times vs. mean ancestry proportion:
+admix_times %>%
+  left_join(., meta.pop, by = "population") %>%
+  filter(., ancestry != "C") %>% # no time, first ancestry
+  ggplot(., aes(x = abs(lat), y = time, color = zone, shape = factor(year))) +
+  geom_point() +
+  facet_grid(. ~ ancestry) +
+  ggtitle("Inferred time of admixture pulses from HMM") +
+  ylab("Time (generations)") +
+  xlab("Degrees latitude from the equator") +
+  labs(color = "Hybrid Zone", shape = "Collection")
+ggsave("plots/time_of_admixture_vs_latitude.png",
+       height = 5, width = 14, units = "in")
+ggsave("../../bee_manuscript/figures/time_of_admixture_vs_latitude.png",
+       height = 5, width = 14, units = "in")
+
+# compare California and Argentina: 
+# For the same ancestry proportions, do they have similar inferred times of admixture?
+# This would be evidence for different amounts of ongoing gene flow in the two zones.
+admix_times %>%
+  left_join(., meta.pop, by = "population") %>%
+  #filter(., ancestry == "A") %>%
+  filter(., ancestry != "C") %>%
+  ggplot(., aes(x = proportion, y = time, color = zone, shape = factor(year))) +
+  geom_point() +
+  ggtitle("African ancestry blocks in CA are slightly shorter") +
+  facet_grid(. ~ ancestry) +
+  ylab("Time of admixture (generations in the past)") +
+  xlab("Admixture proportion (ancestry_hmm)") +
+  labs(color = "Hybrid Zone", shape = "Collection")
+ggsave("plots/California_has_shorter_ancestry_blocks.png",
+       height = 5, width = 14, units = "in")
+ggsave("../../bee_manuscript/figures/California_has_shorter_ancestry_blocks.png",
+       height = 5, width = 14, units = "in")
+
 
 sites0 <- read.table("results/SNPs/thin1kb_common3/included_scaffolds.pos", stringsAsFactors = F,
                     sep = "\t", header = F)
@@ -393,15 +509,6 @@ sites <- tidyr::separate(sites0, scaffold, c("chr", "scaffold_n"), remove = F) %
 #test_id <- read.table("results/SNPs/thin1kb_common3/included.snplist", stringsAsFactors = F,
 #                      sep = "\t", header = F)$V1
 #table(test_id == sites$snp_id) # good
-
-meta.ind <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
-  left_join(bees, ., by = c("Bee_ID", "population")) 
-meta.pop <- meta.ind %>%
-  dplyr::select(c("population", "source", "year", "group")) %>%
-  dplyr::group_by(population, source, year, group) %>%
-  dplyr::summarise(n_bees = n()) %>%
-  left_join(data.frame(population = pops, stringsAsFactors = F),
-            ., by = "population")
 
 # get individual ancestries for just 
 # CA_2018 and AR_2018 samples,

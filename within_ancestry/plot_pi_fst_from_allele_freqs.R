@@ -141,6 +141,8 @@ d_het_small_sample %>%
   geom_abline(data = ACM_het_small_sample, aes(intercept = combined, slope = 0, color = ancestry))
 ggsave("plots/pi_by_latitude.png", device = "png",
        width = 10, height = 5)
+ggsave("../../bee_manuscript_figures/pi_by_latitude.png", device = "png",
+       width = 10, height = 5)
 
 
 # plot Fst -- populations further apart should have higher Fst
@@ -248,6 +250,8 @@ plot_fst_hudson <- reshape2::melt(fst_hudson_matrix[ACM_pops_order_lat, ACM_pops
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  xlab("") +
+  ylab("") +
   #scale_fill_viridis(begin = 1, end = 0, direction = 1) +  
   scale_fill_viridis(begin = 0, end = 1, direction = 1) +  
   ggtitle("Hudson Fst - bees")
@@ -286,16 +290,23 @@ plots_fst_hudson_by_ancestry <- lapply(1:3, function(i)
 
 plots_fst_hudson_by_ancestry
 
-grid.arrange(plot_fst_hudson,
+plots_fst_hudson_4 <- grid.arrange(plot_fst_hudson,
              plots_fst_hudson_by_ancestry[[1]],
              plots_fst_hudson_by_ancestry[[2]],
              plots_fst_hudson_by_ancestry[[3]],
              nrow = 2, 
              ncol = 2)
 ggsave("plots/fst_overall_and_within_ancestry.png",
+       plot = plots_fst_hudson_4,
        device = "png",
-       height = 8,
-       width = 9,
+       height = 14,
+       width = 14,
+       units = "in")
+ggsave("../../bee_manuscript/figures/fst_overall_and_within_ancestry.png",
+       plot = plots_fst_hudson_4,
+       device = "png",
+       height = 14,
+       width = 14,
        units = "in")
 
 fst_matrix_by_ancestry[[1]]["AR01", "CA14"]
@@ -305,34 +316,67 @@ fst_matrix_by_ancestry[[1]]["CA12", "AR03"]
 fst_matrix_by_ancestry[[1]]["CA03", "AR03"]
 
 # plot dxy too
-# get fst by ancestry
-# make all within ancestry plots:
+# combined across all ancestries
+dxy_matrix <- matrix(0, length(ACM_pops), length(ACM_pops))
+for (i in 1:length(ACM_pops)){
+  for (j in 1:length(ACM_pops)){
+    dxy_matrix[i, j] <- calc_dxy(v1 = freqs[ , ACM_pops[i]], v2 = freqs[ , ACM_pops[j]])
+  }
+}
+colnames(dxy_matrix) <- ACM_pops
+rownames(dxy_matrix) <- ACM_pops
+plots_dxy <- reshape2::melt(dxy_matrix[ACM_pops_order_lat, ACM_pops_order_lat]) %>%
+    ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+    geom_tile() +
+    xlab("") +
+    ylab("") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    scale_fill_viridis(begin = 0, end = 1, direction = 1) +  
+    ggtitle("dxy combined - bees")
+plots_dxy
+
+# within ancestry
 dxy_matrix_by_ancestry <- lapply(freqs_by_ancestry, function(a){
   
-  dxy_matrix_a <- matrix(0, length(pops), length(pops))
-  for (i in 1:length(pops)){
-    for (j in 1:length(pops)){
-      dxy_matrix_a[i, j] <- calc_dxy(v1 = a[ , pops[i]], v2 = a[ , pops[j]])
+  dxy_matrix_a <- matrix(0, length(ACM_pops), length(ACM_pops))
+  for (i in 1:length(ACM_pops)){
+    for (j in 1:length(ACM_pops)){
+      dxy_matrix_a[i, j] <- calc_dxy(v1 = a[ , ACM_pops[i]], v2 = a[ , ACM_pops[j]])
     }
   }
-  colnames(dxy_matrix_a) <- pops
-  rownames(dxy_matrix_a) <- pops
+  colnames(dxy_matrix_a) <- ACM_pops
+  rownames(dxy_matrix_a) <- ACM_pops
   return(dxy_matrix_a)
 }
 )
 plots_dxy_by_ancestry <- lapply(1:3, function(i) 
-  reshape2::melt(dxy_matrix_by_ancestry[[i]][pops_order_lat, pops_order_lat]) %>%
+  reshape2::melt(dxy_matrix_by_ancestry[[i]][ACM_pops_order_lat, ACM_pops_order_lat]) %>%
     ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
     geom_tile() +
+    xlab("") +
+    ylab("") +
     theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
     scale_fill_viridis(begin = 0, end = 1, direction = 1) +  
     ggtitle(paste0("dxy ", ancestries[[i]], " ancestry - bees")))
 
-grid.arrange(plots_dxy_by_ancestry[[1]],
+plots_dxy_4 <- grid.arrange(plots_dxy,
+  plots_dxy_by_ancestry[[1]],
              plots_dxy_by_ancestry[[2]],
              plots_dxy_by_ancestry[[3]],
              nrow = 2, 
              ncol = 2)
+ggsave("plots/dxy_overall_and_within_ancestry.png",
+       plot = plots_dxy_4,
+       device = "png",
+       height = 14,
+       width = 14,
+       units = "in")
+ggsave("../../bee_manuscript/figures/dxy_overall_and_within_ancestry.png",
+       plot = plots_dxy_4,
+       device = "png",
+       height = 14,
+       width = 14,
+       units = "in")
 
 # can I plot ancestry heterozygosity too?
 
