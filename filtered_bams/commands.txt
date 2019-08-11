@@ -469,9 +469,11 @@ filtered_bams$ nohup parallel --resume --noswap --delay 1 --joblog logs/map_read
 # First get SSR ID's for NCBI download from all bees in Study. year >1994 & not Humboldt. Actually I should just get Humboldt too maybe if I have space/time.
 Done
 # Download files from NCBI (not done yet!)
-data/Cridland_2018$ nohup parallel --joblog ../../logs/download_Cridland_2018_NCBI.log --delay 2.5 --noswap --jobs 4 'fastq-dump --split-files -clip \
+data/Cridland_2018$ nohup parallel --joblog ../../logs/download_Cridland_2018_NCBI.log --delay 2.5 --noswap --jobs 8 'fastq-dump --split-files -clip \
 --gzip --skip-technical -O fastq_files/ "{1}"' :::: SRR_to_download.list &> ../../logs/download_Cridland_2018_NCBI.out &
 [1] 6077 - BLOCKED BY FIREWALL
+[1] 14939 - RUNNING 6.10.19
+
 # when lanes2_5 finish, also map lane 1. map reference A/C/M bees. be sure to check other mapping scripts to use new genome HAv3.1! Download Julie's bee sequences from NCBI and map.
 
 # Mapping lane 1
