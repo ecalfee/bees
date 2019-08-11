@@ -459,8 +459,9 @@ high.CA.outliers <- bedr(
   params = "-d 10000 -c 7,8 -o min,sum", # merge if within 1kb
   check.chr = F
 ) %>%
+  data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers")) %>%
   mutate(region = rownames(.)) %>%
-  data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers", "region")) %>%
+  dplyr::select(c("chr", "start", "end", "min_FDR", "region", "bp_shared_outliers")) %>%
   filter(min_FDR <= threshold_keep_region)
 
 high.AR.intersect <- bedr( # exclude regions that overlap with high shared outliers
@@ -484,8 +485,9 @@ high.AR.outliers <- bedr(
   params = "-d 10000 -c 7,8 -o min,sum", # merge if within 1kb
   check.chr = F
 ) %>%
+  data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers")) %>%
   mutate(region = rownames(.)) %>%
-  data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers", "region")) %>%
+  dplyr::select(c("chr", "start", "end", "min_FDR", "region", "bp_shared_outliers")) %>%
   filter(min_FDR <= threshold_keep_region)
 
 
@@ -510,8 +512,9 @@ low.AR.outliers <- bedr(
   params = "-d 10000 -c 7,8 -o min,sum", # merge if within 1kb
   check.chr = F
 ) %>%
+  data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers")) %>%
   mutate(region = rownames(.)) %>%
-  data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers", "region")) %>%
+  dplyr::select(c("chr", "start", "end", "min_FDR", "region", "bp_shared_outliers")) %>%
   filter(min_FDR <= threshold_keep_region)
 
 # write files with outliers regions:
@@ -525,7 +528,42 @@ for (i in 1:length(outlier_sets)){
               paste0("results/outlier_regions/", outlier_set_names[i], ".noHeader.bed"),
               quote = F, col.names = F, row.names = F, sep = "\t")
 }
-
+# write one file with all types of outliers
+outliers_all <- do.call(bind_rows,
+                        lapply(1:length(outlier_sets), function(i)
+   return(mutate(outlier_sets[[i]], outlier_type = outlier_set_names[i]))))
+outliers_all_genome_sort <- bedr(
+  engine = "bedtools", 
+  input = list(i = outliers_all), 
+  method = "sort", 
+  params = "-faidx ../data/honeybee_genome/Amel_4.5_scaffolds.fa.fai",
+  check.chr = F
+) %>%
+  data.table::setnames(colnames(outliers_all)) %>%
+  mutate(region_n = 1:nrow(.))
+  
+write.table(outliers_all_genome_sort,
+            paste0("results/outlier_regions/all.bed"),
+            quote = F, col.names = T, row.names = F, sep = "\t")
+write.table(outliers_all_genome_sort,
+            paste0("results/outlier_regions/all.noHeader.bed"),
+            quote = F, col.names = F, row.names = F, sep = "\t")
+# add 20kb buffer on either side of the outlier region & put in genome order
+outliers_all_buffer <- bedr(
+  engine = "bedtools", 
+  input = list(i = outliers_all_genome_sort), 
+  method = "slop", 
+  params = "-b 20000 -g ../data/honeybee_genome/genome_order_scaffolds.lengths",
+  check.chr = F
+) %>%
+  data.table::setnames(colnames(outliers_all_genome_sort))
+# write output files:
+write.table(outliers_all_buffer,
+            paste0("results/outlier_regions/all.plus20kb.bed"),
+            quote = F, col.names = T, row.names = F, sep = "\t")
+write.table(outliers_all_buffer,
+            paste0("results/outlier_regions/all.plus20kb.noHeader.bed"),
+            quote = F, col.names = F, row.names = F, sep = "\t")
 
 # plots
 # plot just scaffolds with high A shared outliers (later add genes):

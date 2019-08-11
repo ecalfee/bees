@@ -70,3 +70,36 @@ bees/within_ancestry$ for anc in AA CC MM; do paste $(for i in $(cat ../bee_samp
 # (3) calculate Fst between populations for all pairs in just a subset of 2 CA pops and 3 AR pops, and reference bees A/C/M, also in ANGSD
 
 # (4) get allele frequencies for each population and each ancestry  
+
+
+
+# For outlier regions, I want to confirm ancestry by getting pi and Fst 
+# combined across all ancestries for my groups: NA_1, NA_2, SA_0, SA_1, SA_2, 
+# all NA (NA_3), all SA (SA_3), A, C, and M.
+# first test parallel for pulling out column ID's by their name:
+within_ancestry$ parallel --header : --colsep '\t' echo sample={pop} region={region_n} chr={chr} :::: groups_theta.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed
+# works great!
+# now run script:
+# I add a 20kb buffer to either side of the putative selected region, looking for return to neutral background
+within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_pi_outliers.log --header : --colsep '\t' 'echo group={pop} region={region}, n={region_n}; ./calc_theta_regions.sh {pop} ../bee_samples_listed/byPop/{pop}.list {region} {region_n}' :::: groups_theta.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_pi_outliers.out &
+[1] 4083 - RUNNING 8.10.19 (pretty fast)
+
+# now get Fst for these outlier regions:
+within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_fst_outliers.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2} region={region} region_n={region_n}; ./calc_pairwise_fst.sh {pop1} {pop2} results/outlier_regions/region_{region_n}/combined/' :::: pairs_fst.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_fst_outliers.out &
+WAITING FOR pi TO FINISH FIRST!
+
+# now calculate pi and fst within ancestry.
+
+
+
+
+
+# For genomewide background comparison, I do the same but for a set of random regions, excluding outliers, about 5% of the genome.
+
+# for an outlier region: calculate SFS, then pi, then Fst:
+
+
+
+
+
+

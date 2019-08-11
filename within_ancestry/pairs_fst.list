@@ -1,0 +1,11 @@
+pop1	pop2
+A	C
+A	M
+A	NA_3
+A	SA_3
+C	M
+C	NA_3
+C	SA_3
+M	NA_3
+M	SA_3
+NA_3	SA_3

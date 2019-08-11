@@ -1,0 +1,11 @@
+pop1	pop2
+NA_2	NA_1
+NA_2	SA_0
+NA_2	SA_1
+NA_2	SA_2
+NA_1	SA_0
+NA_1	SA_1
+NA_1	SA_2
+SA_0	SA_1
+SA_0	SA_2
+SA_1	SA_2
