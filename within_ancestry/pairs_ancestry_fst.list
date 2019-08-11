@@ -1,0 +1,10 @@
+pop1	pop2	ancestry
+A	NA_3	AA
+A	SA_3	AA
+C	NA_3	CC
+C	SA_3	CC
+M	NA_3	MM
+M	SA_3	MM
+NA_3	SA_3	AA
+NA_3	SA_3	CC
+NA_3	SA_3	MM

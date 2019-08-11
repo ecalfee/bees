@@ -565,7 +565,7 @@ write.table(outliers_all_buffer,
             paste0("results/outlier_regions/all.plus20kb.noHeader.bed"),
             quote = F, col.names = F, row.names = F, sep = "\t")
 
-# plots
+  # plots
 # plot just scaffolds with high A shared outliers (later add genes):
 for (x in unique(high.shared.outliers$chr)){
   custom_colors <- c("red", "orange", "skyblue", 

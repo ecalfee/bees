@@ -82,19 +82,53 @@ within_ancestry$ parallel --header : --colsep '\t' echo sample={pop} region={reg
 # now run script:
 # I add a 20kb buffer to either side of the putative selected region, looking for return to neutral background
 within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_pi_outliers.log --header : --colsep '\t' 'echo group={pop} region={region}, n={region_n}; ./calc_theta_regions.sh {pop} ../bee_samples_listed/byPop/{pop}.list {region} {region_n}' :::: groups_theta.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_pi_outliers.out &
-[1] 4083 - RUNNING 8.10.19 (pretty fast)
+[1] 4083 - RUNNING 8.10.19 (will take a few hours)
 
 # now get Fst for these outlier regions:
 within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_fst_outliers.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2} region={region} region_n={region_n}; ./calc_pairwise_fst.sh {pop1} {pop2} results/outlier_regions/region_{region_n}/combined/' :::: pairs_fst.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_fst_outliers.out &
 WAITING FOR pi TO FINISH FIRST!
 
-# now calculate pi and fst within ancestry.
+# now get a set of neutral non-outlier regions to calculate background Fst
+# in total, I generate 1Mb in short non-overlapping 100bp regions spread randomly across 
+# all non-outlier regions of the genom:
+within_ancestry$ bedtools random -seed 600 -n 10000 -l 100 -g ../data/honeybee_genome/genome_order_scaffolds_chr_only.lengths | bedtools shuffle -seed 200 -i stdin -excl ../functional_analysis/results/outlier_regions/all.plus20kb.noHeader.bed -noOverlapping -g ../data/honeybee_genome/genome_order_scaffolds_chr_only.lengths | bedtools sort -i stdin -faidx ../data/honeybee_genome/genome_order_scaffolds_chr_only.lengths > results/1Mb_of_non-outlier_100bp.bed
+# convert to angsd 1-index instead of bed 0-indexing:
+within_ancestry$ awk '{print $1"\t"$2+1"\t"$3}' results/1Mb_of_non-outlier_100bp.bed > results/1Mb_of_non-outlier_100bp.regions
+
+# calculate background pi
+# quick test (starts up ok):
+./calc_theta_random_background.sh A ../bee_samples_listed/byPop/A.list 1Mb_of_non-outlier_100bp combined ../filtered_bams/results_Amel4.5 
+# running all:
+within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_random_background.log --header : --colsep '\t' 'echo group={pop}; ./calc_theta_random_background.sh {pop} ../bee_samples_listed/byPop/{pop}.list 1Mb_of_non-outlier_100bp combined ../filtered_bams/results_Amel4.5' :::: groups_theta.list &> logs/calc_pi_random_background.out &
+[2] 8957 - RUNNING 8.10.19
+
+# and calculate background fst:
+within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_fst_random_background.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2}; ./calc_pairwise_fst.sh {pop1} {pop2} results/non-outlier_regions/1Mb_of_non-outlier_100bp/combined/' :::: pairs_fst.list &> logs/calc_fst_random_background.out &
+WAITING 4 pi/single SFS to finish!
+
+
+# now calculate pi and fst within ancestry for outliers:
+# starting with pi for just combined NA and SA groups:
+
+
+within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_outliers_NA_SA_3_within_ancestry.log --header : --colsep '\t' 'echo group={pop} region={region}, n={region_n}; ./calc_theta_regions_within_ancestry.sh {pop} ../bee_samples_listed/byPop/{pop}.list {region} {region_n} {ancestry} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{ancestry}/bams' :::: AA_MM_CC.list :::: NA_SA_3.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_pi_outliers_NA_SA_3_within_anestry.out &
+[3] 12118 - RUNNING 8.10.19
+
+
+# and pi within ancestry for background non-outliers:
+# here start with AA ancestry and calculate pi for each individual population 
+# then after you can look at MM and CC ancestries
 
 
 
 
 
-# For genomewide background comparison, I do the same but for a set of random regions, excluding outliers, about 5% of the genome.
+
+
+# first get slightly stricter ancestry segments: 
+
+
+
 
 # for an outlier region: calculate SFS, then pi, then Fst:
 

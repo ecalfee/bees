@@ -1842,4 +1842,19 @@ ggsave("plots/comparison_pop_mean_ancestry_hmm_vs_NGSAdmix.png",
 
 # For low ancestry peaks, check if they are M vs. C
 
-
+# what are my tract lengths like? Start by looking at high confidence tracts > 0.8
+some_inds <- c("AR0101", "AR0506", "AR1112", "AR1910", "AR2701", "CA0529", "CA1109", "CA1419", "SRCD6C")
+some_tracts <- lapply(some_inds, function(ind) 
+  read.table(paste0("results/tracts/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/AA/", ind, ".bed"),
+                          stringsAsFactors = F, header = F, sep = "\t") %>%
+  data.table::setnames(c("chr", "start", "end")) %>%
+    mutate(length = end - start))
+par(mfrow=c(3,3))
+lapply(1:9, function(x) hist(some_tracts[[x]]$length, freq = F, xlim = c(0, 500000), main = some_inds[x]))
+par(mfrow=c(1,1))
+# I'm not seeing a bunch (a higher %) of super short tracts for low A individuals
+# (the high confidence filter probably takes care of this)
+lapply(1:9, function(x) table(some_tracts[[x]]$length <= 10000))
+lapply(1:9, function(x) table(some_tracts[[x]]$length <= 5000))
+lapply(1:9, function(x) table(some_tracts[[x]]$length <= 1000))
+lapply(1:9, function(x) table(some_tracts[[x]]$length <= 2000))
