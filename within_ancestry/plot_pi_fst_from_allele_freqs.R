@@ -386,5 +386,33 @@ ggsave("../../bee_manuscript/figures/dxy_overall_and_within_ancestry.png",
 # I will also need some neutral outlier regions to get backgroun mean pi and Fst.
 # Also plot PCA for within-ancestry diversity.
 
+# look at pi for some outliers:
+# this is just a CA selected high A outlier:
+pi1_AA_NA <- read.table("results/outlier_regions/region_1/AA/NA_3.thetas.windows.pestPG",
+                  header = F, stringsAsFactors = F) %>%
+  data.table::setnames(c("window", "chr", "pos", "theta_Wattersons", "theta_pairwise", "theta_FuLi", "theta_FayH", "theta_L", "tajima_D", "FuLi_F", "FuLi_D", "FayH", "ZengE", "n_effective_sites"))
+pi1_NA <- read.table("results/outlier_regions/region_1/combined/NA_3.thetas.windows.pestPG",
+                        header = F, stringsAsFactors = F) %>%
+  data.table::setnames(c("window", "chr", "pos", "theta_Wattersons", "theta_pairwise", "theta_FuLi", "theta_FayH", "theta_L", "tajima_D", "FuLi_F", "FuLi_D", "FayH", "ZengE", "n_effective_sites"))
 
+
+pi1_AA_SA <- read.table("results/outlier_regions/region_1/AA/SA_3.thetas.windows.pestPG",
+                        header = F, stringsAsFactors = F) %>%
+  data.table::setnames(c("window", "chr", "pos", "theta_Wattersons", "theta_pairwise", "theta_FuLi", "theta_FayH", "theta_L", "tajima_D", "FuLi_F", "FuLi_D", "FayH", "ZengE", "n_effective_sites"))
+pi1_A <- read.table("results/outlier_regions/region_1/combined/A.thetas.windows.pestPG",
+                        header = F, stringsAsFactors = F) %>%
+  data.table::setnames(c("window", "chr", "pos", "theta_Wattersons", "theta_pairwise", "theta_FuLi", "theta_FayH", "theta_L", "tajima_D", "FuLi_F", "FuLi_D", "FayH", "ZengE", "n_effective_sites"))
+
+
+# undexpected that diversity would be higher in the CA samples
+# except if they're not truly all A
+with(pi1_A, plot(pos, theta_Wattersons/n_effective_sites, col = "blue",
+                 ylim = c(0, 0.1)))
+with(pi1_AA_NA, points(pos, theta_Wattersons/n_effective_sites))
+with(pi1_NA, points(pos, theta_Wattersons/n_effective_sites, col = "orange"))
+
+
+fstA1 <- read.table("results/outlier_regions/region_1/combined/A-NA_3.fst.windows",
+                    stringsAsFactors = F, sep = "\t")
+plot(fstA1$Nsites)
 

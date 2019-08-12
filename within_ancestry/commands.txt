@@ -124,7 +124,8 @@ within_ancestry$ nohup parallel --noswap --jobs 2 --header : --colsep '\t' --job
 ::: ancestry AA AA CC :::+ region_n 5 16 37 \
 :::+ region Group1.21:180923-220357 Group1.23:563676-564830 Group6.30:3617-5122 \
 :::: NA_SA_3.list &> logs/calc_pi_outliers_NA_SA_3_within_ancestry_repeat_failed.out &
-[1] 31772 - RUNNING 8.12.19
+[1] 31772 - RUNNING 8.12.19. oops I forgot to use the +20kb regions. Try again:
+
 
 # and pi within ancestry for background non-outliers:
 # here start with AA ancestry and calculate pi for each individual population
