@@ -1,7 +1,7 @@
 # looking at diversity within A, C, and M ancestry, pi within, and Fst between populations,
 # as we move away from the origin of the Africanized honey bee invasion in Brazil
 
-# steps 
+# steps
 # (0) CALL HOMOZYGOUS ANCESTRY TRACTS for AA/CC/MM ancestry above 0.8 posterior probability of having homozygous ancestry across those tracts
 output: (e.g.)
 local_ancestry/results/tracts/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/AA/CA1207.bed'
@@ -37,7 +37,7 @@ within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq
 # TO DO: get allele freq's for reference bees too, so I can calculate Fst and have a reference for expected diversity pi (e.g. shouldn't exceed or ancestry calls are off).
 # really I want allele freq's for all populations at all the SNPs (across ancestries)
 (!) NOTE - I may have swapped major/minor alleles when going from plink to sites file
-# because the reference should match the major allele most of the time, not the minor 
+# because the reference should match the major allele most of the time, not the minor
 # get allele freqs at snps for all bees at all sites (ignoring ancestry)
 within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq_all.log './allele_freq.sh {1} ../bee_samples_listed/byPop/{1}.list ../data/bees_new_positions/ALL.var.sites' :::: ../bee_samples_listed/byPop/pops_included_plus_ACM.list &> logs/calc_allele_freq_all.out &
 [3] 9833 - RUNNING 8.2.19. COMPLETED.
@@ -69,12 +69,12 @@ bees/within_ancestry$ for anc in AA CC MM; do paste $(for i in $(cat ../bee_samp
 
 # (3) calculate Fst between populations for all pairs in just a subset of 2 CA pops and 3 AR pops, and reference bees A/C/M, also in ANGSD
 
-# (4) get allele frequencies for each population and each ancestry  
+# (4) get allele frequencies for each population and each ancestry
 
 
 
-# For outlier regions, I want to confirm ancestry by getting pi and Fst 
-# combined across all ancestries for my groups: NA_1, NA_2, SA_0, SA_1, SA_2, 
+# For outlier regions, I want to confirm ancestry by getting pi and Fst
+# combined across all ancestries for my groups: NA_1, NA_2, SA_0, SA_1, SA_2,
 # all NA (NA_3), all SA (SA_3), A, C, and M.
 # first test parallel for pulling out column ID's by their name:
 within_ancestry$ parallel --header : --colsep '\t' echo sample={pop} region={region_n} chr={chr} :::: groups_theta.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed
@@ -82,14 +82,14 @@ within_ancestry$ parallel --header : --colsep '\t' echo sample={pop} region={reg
 # now run script:
 # I add a 20kb buffer to either side of the putative selected region, looking for return to neutral background
 within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_pi_outliers.log --header : --colsep '\t' 'echo group={pop} region={region}, n={region_n}; ./calc_theta_regions.sh {pop} ../bee_samples_listed/byPop/{pop}.list {region} {region_n}' :::: groups_theta.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_pi_outliers.out &
-[1] 4083 - RUNNING 8.10.19 (will take a few hours)
+[1] 4083 - RUNNING 8.10.19 (will take a few hours). COMPLETED. check files because of 'failed' terms in log.
 
 # now get Fst for these outlier regions:
 within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_fst_outliers.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2} region={region} region_n={region_n}; ./calc_pairwise_fst.sh {pop1} {pop2} results/outlier_regions/region_{region_n}/combined/' :::: pairs_fst.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_fst_outliers.out &
-WAITING FOR pi TO FINISH FIRST!
+[2] 14414 - RUNNING 8.12.19
 
 # now get a set of neutral non-outlier regions to calculate background Fst
-# in total, I generate 1Mb in short non-overlapping 100bp regions spread randomly across 
+# in total, I generate 1Mb in short non-overlapping 100bp regions spread randomly across
 # all non-outlier regions of the genom:
 within_ancestry$ bedtools random -seed 600 -n 10000 -l 100 -g ../data/honeybee_genome/genome_order_scaffolds_chr_only.lengths | bedtools shuffle -seed 200 -i stdin -excl ../functional_analysis/results/outlier_regions/all.plus20kb.noHeader.bed -noOverlapping -g ../data/honeybee_genome/genome_order_scaffolds_chr_only.lengths | bedtools sort -i stdin -faidx ../data/honeybee_genome/genome_order_scaffolds_chr_only.lengths > results/1Mb_of_non-outlier_100bp.bed
 # convert to angsd 1-index instead of bed 0-indexing:
@@ -97,10 +97,12 @@ within_ancestry$ awk '{print $1"\t"$2+1"\t"$3}' results/1Mb_of_non-outlier_100bp
 
 # calculate background pi
 # quick test (starts up ok):
-./calc_theta_random_background.sh A ../bee_samples_listed/byPop/A.list 1Mb_of_non-outlier_100bp combined ../filtered_bams/results_Amel4.5 
+./calc_theta_random_background.sh A ../bee_samples_listed/byPop/A.list 1Mb_of_non-outlier_100bp combined ../filtered_bams/results_Amel4.5
 # running all:
 within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_random_background.log --header : --colsep '\t' 'echo group={pop}; ./calc_theta_random_background.sh {pop} ../bee_samples_listed/byPop/{pop}.list 1Mb_of_non-outlier_100bp combined ../filtered_bams/results_Amel4.5' :::: groups_theta.list &> logs/calc_pi_random_background.out &
-[2] 8957 - RUNNING 8.10.19
+[2] 8957 - RUNNING 8.10.19. No progress in 2 days. Maybe too large
+# KILLED. CREATING HUGE FILES. I NEED TO LOOK AT THEM (!)
+# and I should provide sites (?).
 
 # and calculate background fst:
 within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_fst_random_background.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2}; ./calc_pairwise_fst.sh {pop1} {pop2} results/non-outlier_regions/1Mb_of_non-outlier_100bp/combined/' :::: pairs_fst.list &> logs/calc_fst_random_background.out &
@@ -112,11 +114,20 @@ WAITING 4 pi/single SFS to finish!
 
 
 within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_outliers_NA_SA_3_within_ancestry.log --header : --colsep '\t' 'echo group={pop} region={region}, n={region_n}; ./calc_theta_regions_within_ancestry.sh {pop} ../bee_samples_listed/byPop/{pop}.list {region} {region_n} {ancestry} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{ancestry}/bams' :::: AA_MM_CC.list :::: NA_SA_3.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_pi_outliers_NA_SA_3_within_anestry.out &
-[3] 12118 - RUNNING 8.10.19
-
+[3] 12118 - RUNNING 8.10.19. check results log looks ok but .out has some 'failed' terms
+plus these files have empty sfs files:
+AA - 5 Group1.21:180923-220357, 16 Group1.23:563676-564830
+CC - 37 Group6.30:3617-5122
+within_ancestry$ nohup parallel --noswap --jobs 2 --header : --colsep '\t' --joblog logs/calc_pi_outliers_NA_SA_3_within_ancestry_repeat_failed.log \
+'echo group={pop} region={region}, n={region_n}; ./calc_theta_regions_within_ancestry.sh {pop} \
+../bee_samples_listed/byPop/{pop}.list {region} {region_n} {ancestry} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{ancestry}/bams' \
+::: ancestry AA AA CC :::+ region_n 5 16 37 \
+:::+ region Group1.21:180923-220357 Group1.23:563676-564830 Group6.30:3617-5122 \
+:::: NA_SA_3.list &> logs/calc_pi_outliers_NA_SA_3_within_ancestry_repeat_failed.out &
+[1] 31772 - RUNNING 8.12.19
 
 # and pi within ancestry for background non-outliers:
-# here start with AA ancestry and calculate pi for each individual population 
+# here start with AA ancestry and calculate pi for each individual population
 # then after you can look at MM and CC ancestries
 
 
@@ -125,15 +136,9 @@ within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_outliers
 
 
 
-# first get slightly stricter ancestry segments: 
+# first get slightly stricter ancestry segments:
 
 
 
 
 # for an outlier region: calculate SFS, then pi, then Fst:
-
-
-
-
-
-

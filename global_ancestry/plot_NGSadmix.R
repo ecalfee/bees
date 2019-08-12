@@ -372,7 +372,7 @@ for (i in 1:5){
     filter(., est_coverage > .05) # filters out one bee, AR1212, which had extremely low coverage -- I think it wasn't actually added to library pool
   # what should the different ancestries be called? use the group with the highest frequency
   anc5 <- data.frame(ancestry = colnames(admix5),
-                    ancestry_label = sapply(colnames(admix5), function(x) names(which.max(tapply(d5[ , x], d5$population, sum)))),
+                    ancestry_label = sapply(colnames(admix5), function(x) names(which.max(tapply(d5[ , x], d5$population, mean)))),
                     stringsAsFactors = F)
   byR_list[[i]] <- d5 %>%
     mutate(., rbin = i) %>%
