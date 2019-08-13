@@ -556,7 +556,8 @@ outliers_all_buffer <- bedr(
   params = "-b 20000 -g ../data/honeybee_genome/genome_order_scaffolds.lengths",
   check.chr = F
 ) %>%
-  data.table::setnames(colnames(outliers_all_genome_sort))
+  data.table::setnames(colnames(outliers_all_genome_sort)) %>%
+  mutate(region_w_buffer = paste0(chr, ":", start, "-", end))
 # write output files:
 write.table(outliers_all_buffer,
             paste0("results/outlier_regions/all.plus20kb.bed"),
@@ -565,7 +566,7 @@ write.table(outliers_all_buffer,
             paste0("results/outlier_regions/all.plus20kb.noHeader.bed"),
             quote = F, col.names = F, row.names = F, sep = "\t")
 
-  # plots
+# plots
 # plot just scaffolds with high A shared outliers (later add genes):
 for (x in unique(high.shared.outliers$chr)){
   custom_colors <- c("red", "orange", "skyblue", 

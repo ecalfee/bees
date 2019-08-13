@@ -86,27 +86,8 @@ within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_pi_outliers
 
 # now get Fst for these outlier regions:
 within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_fst_outliers.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2} region={region} region_n={region_n}; ./calc_pairwise_fst.sh {pop1} {pop2} results/outlier_regions/region_{region_n}/combined/' :::: pairs_fst.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_fst_outliers.out &
-[2] 14414 - RUNNING 8.12.19
-
-# now get a set of neutral non-outlier regions to calculate background Fst
-# in total, I generate 1Mb in short non-overlapping 100bp regions spread randomly across
-# all non-outlier regions of the genom:
-within_ancestry$ bedtools random -seed 600 -n 10000 -l 100 -g ../data/honeybee_genome/genome_order_scaffolds_chr_only.lengths | bedtools shuffle -seed 200 -i stdin -excl ../functional_analysis/results/outlier_regions/all.plus20kb.noHeader.bed -noOverlapping -g ../data/honeybee_genome/genome_order_scaffolds_chr_only.lengths | bedtools sort -i stdin -faidx ../data/honeybee_genome/genome_order_scaffolds_chr_only.lengths > results/1Mb_of_non-outlier_100bp.bed
-# convert to angsd 1-index instead of bed 0-indexing:
-within_ancestry$ awk '{print $1"\t"$2+1"\t"$3}' results/1Mb_of_non-outlier_100bp.bed > results/1Mb_of_non-outlier_100bp.regions
-
-# calculate background pi
-# quick test (starts up ok):
-./calc_theta_random_background.sh A ../bee_samples_listed/byPop/A.list 1Mb_of_non-outlier_100bp combined ../filtered_bams/results_Amel4.5
-# running all:
-within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_random_background.log --header : --colsep '\t' 'echo group={pop}; ./calc_theta_random_background.sh {pop} ../bee_samples_listed/byPop/{pop}.list 1Mb_of_non-outlier_100bp combined ../filtered_bams/results_Amel4.5' :::: groups_theta.list &> logs/calc_pi_random_background.out &
-[2] 8957 - RUNNING 8.10.19. No progress in 2 days. Maybe too large
-# KILLED. CREATING HUGE FILES. I NEED TO LOOK AT THEM (!)
-# and I should provide sites (?).
-
-# and calculate background fst:
-within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_fst_random_background.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2}; ./calc_pairwise_fst.sh {pop1} {pop2} results/non-outlier_regions/1Mb_of_non-outlier_100bp/combined/' :::: pairs_fst.list &> logs/calc_fst_random_background.out &
-WAITING 4 pi/single SFS to finish!
+[2] 14414 - RUNNING 8.12.19. Accidentally rerunning:
+[1] 27092 - 8.12.19
 
 
 # now calculate pi and fst within ancestry for outliers:
@@ -124,16 +105,62 @@ within_ancestry$ nohup parallel --noswap --jobs 2 --header : --colsep '\t' --job
 ::: ancestry AA AA CC :::+ region_n 5 16 37 \
 :::+ region Group1.21:180923-220357 Group1.23:563676-564830 Group6.30:3617-5122 \
 :::: NA_SA_3.list &> logs/calc_pi_outliers_NA_SA_3_within_ancestry_repeat_failed.out &
-[1] 31772 - RUNNING 8.12.19. oops I forgot to use the +20kb regions. Try again:
+[1] 31772 - RUNNING 8.12.19. 
+
+# calculate Fst within ancestry for all outlier regions:
+within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_fst_outliers_NA_SA_3_within_ancestry.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2} region={region}, n={region_n}; ./calc_pairwise_fst.sh {pop1} {pop2} results/outlier_regions/region_{region_n}/{ancestry}' :::: AA_MM_CC.list :::: NA_SA_3.list :::: pairs_fst.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_fst_outliers_NA_SA_3_within_ancestry.out &
+[1] 22093 - RUNNING 8.13.19. oops needs to find correct directory for A/C/M files. redone:
+[1] 454 - RUNNING 8.13.19. KILLED because repeating more often due to NA_SA_3.list unnecessarily in there:
+within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_fst_outliers_NA_SA_3_within_ancestry.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2} region={region}, n={region_n}; ./calc_pairwise_fst.sh {pop1} {pop2} results/outlier_regions/region_{region_n}/{ancestry}' :::: AA_MM_CC.list :::: pairs_fst_NA_SA_only.list  :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_fst_outliers_NA_SA_3_within_ancestry.out &
+[3] 27124 # RUNNING 8.13.19 - 924 calls, but each only a few seconds, should take a few hours.
 
 
-# and pi within ancestry for background non-outliers:
+# NOTE: OOPS! The 20kb file didn't actually have any 20kb buffer added (mistake) .. I'll have to remake
+# I will keep the files above, knowing they have no buffer, and remake the non-outlier regions:
+
+
+# now get a set of neutral non-outlier regions to calculate background Fst
+# in total, I generate 1Mb in short non-overlapping 100bp regions spread randomly across
+# all non-outlier regions of the genom:
+within_ancestry$ bedtools random -seed 600 -n 10000 -l 100 -g ../data/honeybee_genome/genome_order_scaffolds_chr_only.lengths | bedtools shuffle -seed 200 -i stdin -excl ../functional_analysis/results/outlier_regions/all.plus20kb.noHeader.bed -noOverlapping -g ../data/honeybee_genome/genome_order_scaffolds_chr_only.lengths | bedtools sort -i stdin -faidx ../data/honeybee_genome/genome_order_scaffolds_chr_only.lengths > results/1Mb_of_non-outlier_100bp.bed
+# convert to angsd 1-index instead of bed 0-indexing and ANGSD format chr:start-end :
+within_ancestry$ awk '{print $1":"$2+1"-"$3}' results/1Mb_of_non-outlier_100bp.bed > results/1Mb_of_non-outlier_100bp.regions
+
+# calculate background pi
+# quick test (starts up ok):
+./calc_theta_random_background.sh A ../bee_samples_listed/byPop/A.list 1Mb_of_non-outlier_100bp combined ../filtered_bams/results_Amel4.5
+# running all:
+within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_random_background.log --header : --colsep '\t' 'echo group={pop}; ./calc_theta_random_background.sh {pop} ../bee_samples_listed/byPop/{pop}.list 1Mb_of_non-outlier_100bp combined ../filtered_bams/results_Amel4.5' :::: groups_theta.list &> logs/calc_pi_random_background.out &
+[2] 8957 - RUNNING 8.10.19. No progress in 2 days. Maybe too large
+# KILLED. CREATING HUGE FILES. I NEED TO LOOK AT THEM (!). Regions need to be specified chr:start-end (!). If fixed the regions file and am re-running (should be WAY faster!):
+[2] 7007 - RUNNING 8.13.19
+
+# and calculate background fst:
+within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_fst_1Mb_random_background.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2}; ./calc_pairwise_fst.sh {pop1} {pop2} results/non-outlier_regions/1Mb_of_non-outlier_100bp/combined/' :::: pairs_fst.list &> logs/calc_fst_1Mb_random_background.out &
+NOT RUN YET
+WAITING 4 pi/single SFS to finish!
+
+# Calculate background pi within ancestry for just NA_3 and SA_3:
+within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_pi_NA_SA_1Mb_random_background.log --header : --colsep '\t' 'echo group={pop} ancestry={ancestry}; ./calc_theta_random_background.sh {pop} ../bee_samples_listed/byPop/{pop}.list 1Mb_of_non-outlier_100bp {ancestry} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{ancestry}/bams' :::: AA_MM_CC.list :::: NA_SA_3.list &> logs/calc_pi_NA_SA_1Mb_random_background.out &
+[4] 16698 - RUNNING 8.13.19
+
+# Calculate background fst within ancestry for NA_3 and SA_3:
+within_ancestry$ nohup parallel --noswap --jobs 2 --joblog calc_fst_within_ancestry_NA_SA_1Mb_random_background.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2}; ./calc_pairwise_fst.sh {pop1} {pop2} results/non-outlier_regions/1Mb_of_non-outlier_100bp/combined/' :::: pairs_fst_NA_SA_only.list &> logs/calc_fst_within_ancestry_NA_SA_1Mb_random_background.out &
+NOT RUN YET. WAITING 4 pi CALCS TO FINISH FIRST.
+
+
+# Demographic inference of loss of heterozygosity overall and within ancestry:
+# calculate pi within ancestry for background non-outliers:
 # here start with AA ancestry and calculate pi for each individual population
 # then after you can look at MM and CC ancestries
+1Mb_of_non-outlier_100bp
+within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_all_pops_within_ancestry_1Mb_random_background.log './calc_theta_random_background.sh {2} ../bee_samples_listed/byPop/{2}.list 1Mb_of_non-outlier_100bp {1} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{1}/bams' ::: AA MM CC :::: ../bee_samples_listed/byPop/pops_included.list &> calc_pi_all_pops_within_ancestry_1Mb_random_background.out &
+[5] 22628 - RUNNING 8.13.19
 
+# get across all ancestries estimate:
+within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_pi_all_pops_1Mb_random_background.log './calc_theta_random_background.sh {2} ../bee_samples_listed/byPop/{2}.list 1Mb_of_non-outlier_100bp {1} ../filtered_bams/results_Amel4.5' ::: combined :::: ../bee_samples_listed/byPop/pops_included.list &> calc_pi_all_pops_1Mb_random_background.out &
 
-
-
+NOT RUN YET! - WAITING FOR CPU OPEN
 
 
 

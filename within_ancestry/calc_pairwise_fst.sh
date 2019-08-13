@@ -21,12 +21,26 @@ set –o nounset
 echo "Calculating fst for POP1 $POP1 and POP2 $POP2"
 echo "Directory: $DIR"
 
+if [[ "$POP1" =~ ^(A|C|M)$ ]]; then
+    echo "pop1 is A/C/M go to combined ancestry directory for saf.idx"
+    DIR1="$DIR"/../combined
+else
+    DIR1="$DIR"
+fi
+if [[ "$POP2" =~ ^(A|C|M)$ ]]; then
+    echo "pop2 is A/C/M go to combined ancestry directory for saf.idx"
+    DIR2="$DIR"/../combined
+else
+    DIR2="$DIR"
+fi
+
+
 echo "getting 2D SFS"
 
-realSFS "$DIR"/"$POP1".saf.idx "$DIR"/"$POP2".saf.idx -fold 1 -P 2 > "$DIR"/"$POP1"-"$POP2".folded.sfs
+realSFS "$DIR1"/"$POP1".saf.idx "$DIR2"/"$POP2".saf.idx -fold 1 -P 2 > "$DIR"/"$POP1"-"$POP2".folded.sfs
 
 echo "now making Fst"
-realSFS fst index "$DIR"/"$POP1".saf.idx "$DIR"/"$POP2".saf.idx \
+realSFS fst index "$DIR1"/"$POP1".saf.idx "$DIR2"/"$POP2".saf.idx \
 -sfs "$DIR"/"$POP1"-"$POP2".folded.sfs \
 -whichFst 1 \
 -fold 1 \
@@ -34,7 +48,7 @@ realSFS fst index "$DIR"/"$POP1".saf.idx "$DIR"/"$POP2".saf.idx \
 
 # print outputs for fst:
 realSFS fst stats "$DIR"/"$POP1"-"$POP2".fst.idx > "$DIR"/"$POP1"-"$POP2".fst.stats
-realSFS fst stats2 "$DIR"/"$POP1"-"$POP2".fst.idx > t"$DIR"/"$POP1"-"$POP2".fst.all
+realSFS fst stats2 "$DIR"/"$POP1"-"$POP2".fst.idx > "$DIR"/"$POP1"-"$POP2".fst.all
 realSFS fst stats2 "$DIR"/"$POP1"-"$POP2".fst.idx -win 5000 -step 1000 > "$DIR"/"$POP1"-"$POP2".fst.windows
 
 echo "all done!"
