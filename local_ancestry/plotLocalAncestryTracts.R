@@ -8,6 +8,8 @@ library(viridis)
 library(LaplacesDemon)
 library(emdbook)
 library(betareg)
+library(gridExtra)
+library(MASS) # for mvrnorm
 
 source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
 source("../../covAncestry/forqs_sim/k_matrix.R") # import useful functions
@@ -431,36 +433,10 @@ admix_times <- do.call(rbind, lapply(c("A", "C", "M"), function(anc) read.table(
     mutate(ancestry = anc) %>% 
     cbind(time_pops, .)))
 
-# the ancestry proportion values in the log (and admix_proportions) are just the priors from NGSAdmix:
-ancestry_NGSadmix <- d_A %>% # d_A is loaded from plot_clines.R script
-  group_by(population) %>%
-  summarise(NGSAdmix = mean(alpha))
-left_join(ancestry_NGSadmix, filter(admix_times, ancestry == "A"), by = "population") %>%
-  with(., plot(NGSAdmix, proportion, xlim = 0:1, ylim = 0:1, col = "blue"))
-
-# compare the priors with the mean inferred ancestry from ancestry_hmm
-colors_3 <- scales::hue_pal()(3)
-# save plot locally and in bee_manuscript figures folder
-for (path in c("plots/mean_ancestry_prior_posterior_ancestry_hmm.png", 
-               "../../bee_manuscript/figures/mean_ancestry_prior_posterior_ancestry_hmm.png")){
-  png(path,
-      height = 5, width = 6, units = "in", res= 300)
-  left_join(admix_proportions, filter(admix_times, ancestry == "A"), by = "population") %>%
-    with(., plot(proportion, A, xlim = 0:1, ylim = 0:1, col = colors_3[1], 
-                 xlab = "mean ancestry prior (NGSAdmix)",
-                 ylab = "mean ancestry posterior (ancestry_hmm)", 
-                 main = "Effect of HMM on inferred mean population ancestry"))
-  left_join(admix_proportions, filter(admix_times, ancestry == "M"), by = "population") %>%
-    with(., points(proportion, M, xlim = 0:1, ylim = 0:1, col = colors_3[3]))
-  left_join(admix_proportions, filter(admix_times, ancestry == "C"), by = "population") %>%
-    with(., points(proportion, C, xlim = 0:1, ylim = 0:1, col = colors_3[2]))
-  abline(0, 1)
-  legend("bottomright", legend = c("A", "C", "M"),
-         col = colors_3,
-         pch = 1,
-         title = "Ancestry")
-  dev.off()
-}
+# the ancestry proportion values in the log rom ancestry_hmm are just the priors from NGSAdmix:
+# d_ACM and d_pop_ACM are loaded from plot_NGSadmix.R script
+left_join(d_pop_ACM, filter(admix_times, ancestry == "A"), by = "population") %>%
+  with(., plot(A, proportion, xlim = 0:1, ylim = 0:1, col = "blue"))
 
 
 # plot ancestry times vs. mean ancestry proportion:
@@ -881,51 +857,54 @@ make_qqplot_lines <- function(x, legend = T){
 }
 
 # make QQ plots for paper:
-png("plots/QQ_plots_MVN_vs_data.png",
-    height = 8, width = 8, res = 300, units = "in")
-# plot poisson binomial
-par(mfrow=c(2,2))
-# plot effect of truncation
-par(oma = c(4, 1, 1, 1))
-qqplot(meanA_MVNsim_zero, meanA_MVNsim_zero_bounded,
-       main = "QQ plot - A Ancestry effect of truncation",
-       xlab = "MVN before truncation [0, 1]",
-       ylab = "MVN after truncation [0, 1]",
-       col = "grey")
-make_qqplot_lines(meanA_MVNsim_zero_bounded, legend = F)
-qqplot(meanA_MVNsim_zero_bounded, meanA,
-       main = "QQ plot fit - A Ancestry Combined Sample",
-       xlab = "MVN simulation",
-       ylab = "Observed",
-       col = "grey")
-make_qqplot_lines(meanA_MVNsim_zero_bounded, legend = F)
-qqplot(meanA_MVNsim_CA_zero_bounded, meanA_CA,
-       main = "QQ plot fit - A Ancestry N. America",
-       xlab = "MVN simulation",
-       ylab = "Observed",
-       col = "grey")
-make_qqplot_lines(meanA_MVNsim_CA_zero_bounded, legend = F)
-qqplot(meanA_MVNsim_AR_zero_bounded, meanA_AR,
-       main = "QQ plot fit - A Ancestry S. America",
-       xlab = "MVN simulation",
-       ylab = "Observed",
-       col = "grey")
-make_qqplot_lines(meanA_MVNsim_AR_zero_bounded, legend = F)
-par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
-plot(0, 0, type = "n", bty = "n", xaxt = "n", yaxt = "n")
-legend("bottom",
-       legend = c(0.99, 0.95, 0.75, 0.5), 
-       title = "Quantile",
-       lty = 1,
-       lwd = 2,
-       xpd = TRUE, horiz = TRUE, 
-       inset = c(0, 0),
-       bty = "n",
-       col = c("lightgreen", "salmon", "lightblue", "yellow"))
-dev.off()
-
-
-
+for (path in c("plots/", 
+               "../../bee_manuscript/figures/")){
+  png(paste0(path, "QQ_plots_MVN_vs_data.png"),
+      height = 8, width = 8, res = 300, units = "in")
+  png("plots/QQ_plots_MVN_vs_data.png",
+      height = 8, width = 8, res = 300, units = "in")
+  # plot poisson binomial
+  par(mfrow=c(2,2))
+  # plot effect of truncation
+  par(oma = c(4, 1, 1, 1))
+  qqplot(meanA_MVNsim_zero, meanA_MVNsim_zero_bounded,
+         main = "QQ plot - A Ancestry effect of truncation",
+         xlab = "MVN before truncation [0, 1]",
+         ylab = "MVN after truncation [0, 1]",
+         col = "grey")
+  make_qqplot_lines(meanA_MVNsim_zero_bounded, legend = F)
+  qqplot(meanA_MVNsim_zero_bounded, meanA,
+         main = "QQ plot fit - A Ancestry Combined Sample",
+         xlab = "MVN simulation",
+         ylab = "Observed",
+         col = "grey")
+  make_qqplot_lines(meanA_MVNsim_zero_bounded, legend = F)
+  qqplot(meanA_MVNsim_CA_zero_bounded, meanA_CA,
+         main = "QQ plot fit - A Ancestry N. America",
+         xlab = "MVN simulation",
+         ylab = "Observed",
+         col = "grey")
+  make_qqplot_lines(meanA_MVNsim_CA_zero_bounded, legend = F)
+  qqplot(meanA_MVNsim_AR_zero_bounded, meanA_AR,
+         main = "QQ plot fit - A Ancestry S. America",
+         xlab = "MVN simulation",
+         ylab = "Observed",
+         col = "grey")
+  make_qqplot_lines(meanA_MVNsim_AR_zero_bounded, legend = F)
+  par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
+  plot(0, 0, type = "n", bty = "n", xaxt = "n", yaxt = "n")
+  legend("bottom",
+         legend = c(0.99, 0.95, 0.75, 0.5), 
+         title = "Quantile",
+         lty = 1,
+         lwd = 2,
+         xpd = TRUE, horiz = TRUE, 
+         inset = c(0, 0),
+         bty = "n",
+         col = c("lightgreen", "salmon", "lightblue", "yellow"))
+  dev.off()
+  
+}
 png("plots/mean_A_ancestry_CA_vs_AR_grey.png", 
     height = 8, width = 12, res = 300, units = "in")
 plot(meanA_CA, meanA_AR, pch = 20, col = alpha("grey", .1),
@@ -1093,18 +1072,63 @@ PoiBinsim_AR <- apply(do.call(rbind,
                                           rbinom(n = sim_n, size = 2, prob = alpha)))/2, 2, mean)
 PoiBinsim_combined <- (PoiBinsim_CA*sum(CA_pops_included$n_bees) + PoiBinsim_AR*sum(AR_pops_included$n_bees))/sum(c(CA_pops_included$n_bees, AR_pops_included$n_bees))
                                                                                                                     
+# MVN simulation bounded with no covariances
+set.seed(101)
+MVNsim_no_cov <- mvrnorm(n = sim_n, 
+                       mu = AR_CA_K$alpha, 
+                       Sigma = diag(diag(AR_CA_K$K), length(AR_CA_K$alpha), length(AR_CA_K$alpha)), 
+                       tol = 1e-6, 
+                       empirical = FALSE, 
+                       EISPACK = FALSE)
+MVNsim_no_cov_bounded <- MVNsim_no_cov
+MVNsim_no_cov_bounded[MVNsim_no_cov < 0] <- 0
+MVNsim_no_cov_bounded[MVNsim_no_cov > 1] <- 1
+MVNsim_AR_no_cov_bounded <- MVNsim_no_cov_bounded[ , AR_pops_included$population]
+MVNsim_CA_no_cov_bounded <- MVNsim_no_cov_bounded[ , CA_pops_included$population]
+# mean across individuals
+meanA_MVNsim_AR_no_cov_bounded <- apply(MVNsim_no_cov_bounded[ , AR_pops_included$population], 1, 
+                                      function(x) sum(x*AR_pops_included$n_bees)/sum(AR_pops_included$n_bees))
+meanA_MVNsim_CA_no_cov_bounded <- apply(MVNsim_no_cov_bounded[ , CA_pops_included$population], 1, 
+                                      function(x) sum(x*CA_pops_included$n_bees)/sum(CA_pops_included$n_bees))
+# combined mean across individuals
+meanA_MVNsim_no_cov_bounded <- apply(MVNsim_no_cov_bounded[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
+                                   function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(AR_pops_included$n_bees, CA_pops_included$n_bees)))
+
 
 # plot comparison
-png("plots/distribution_data_vs_poibin_vs_MVN_sim.png", height = 6, width = 8, units = "in", res = 300)
-hist(meanA, col = alpha("purple", .5), main = "Simulated combined A ancestry frequency distribution", freq = F,
-     ylim = c(0, 25), xlab = "Combined A Ancestry Freq.")
-hist(meanA_MVNsim_bounded, col = alpha("blue", .5), add = T, freq = F)
-hist(PoiBinsim_combined, col = alpha("yellow", .5), add = T, freq = F)
-legend("topright", 
-       legend = c("Poisson-Binomial", "Multivariate Normal (Bounded)", "Observed data"),
-       pch = 2,
-       col = c("yellow", "blue", "purple"))
+sim_compare <- 
+  data.frame(poisson_binomial = PoiBinsim_combined,
+           MVN_no_covariance = meanA_MVNsim_no_cov_bounded,
+           #MVN_no_bounds = meanA_MVNsim,
+           MVN_with_covariance = meanA_MVNsim_zero_bounded,
+           observed_data = sample(meanA, sim_n, replace = F)) %>% # downsample data to match length of simulations
+  tidyr::gather(., "distribution", "A")
+# plot
+p_sim_compare <- sim_compare %>%
+  ggplot(., aes(x = A, color = distribution)) +
+  geom_density(lwd = 1) +
+  theme_bw() +
+  xlab("Combined sample mean African ancestry") +
+  scale_color_discrete(name = "Distribution", labels = c("observed_data"="Observed data", "poisson_binomial"="Poisson Binomial", "MVN_no_covariance"="MVN variance only", "MVN_with_covariance"="MVN"))
+p_sim_compare
+ggsave("plots/distribution_data_vs_poibin_vs_MVN_sim.png",
+       plot = p_sim_compare,
+       device = "png",
+       width = 8, height = 4, units = "in")
+
+for (path in c("plots/", 
+               "../../bee_manuscript/figures/")){
+png(paste0(path, "QQ_plot_data_against_PoiBin.png"),
+    height = 8, width = 8, res = 300, units = "in")
+qqplot(PoiBinsim_combined, meanA,
+       main = "QQ plot fit - A Ancestry Combined Sample",
+       xlab = "Poisson Binomial Simulation",
+       ylab = "Observed",
+       col = "grey")
+abline(0, 1, col = "black")
 dev.off()
+}
+#make_qqplot_lines(meanA_MVNsim_zero_bounded, legend = T)
 
 # plot QQ-plots:
 #QQ-plots:
@@ -1124,11 +1148,6 @@ qqplot(PoiBinsim_AR, meanA_AR,
        main = "QQ-plot: Poisson Binomial dist. vs. data, AR mean")
 abline(0, 1, col = "blue")
 dev.off()
-
-
-
-# make sure I still have outliers if I set the negative covariances to zero in my MVN (!)
-
 
 
 # What are my false discovery rates?
@@ -1698,23 +1717,16 @@ AbyPopr5 %>%
 # to get global ancestry estimates
 
 # plot ancestry across all populations by mean latitude in that pop, separate by hybrid zone
-# first make data frame with all pops
-meta.pop.lat.long <- meta.ind %>%
-  group_by(., population) %>%
-  summarise(lat = mean(lat), long = mean(long)) %>%
-  left_join(., meta.pop, by = "population") %>%
-  mutate(zone = ifelse(group == "AR_2018", "S. America", "N. America"))
-# use Riverside 2014 coordinates for Riverside 1999. 
+# I used Riverside 2014 coordinates for Riverside 1999. 
 # Note there are two Riverside collection sites, close in latitude, but different in temp etc. due to elevation
-meta.pop.lat.long[meta.pop.lat.long$population == "Riverside_1999", c("lat", "long")] <- meta.pop.lat.long[meta.pop.lat.long$population == "Riverside_2014", c("lat", "long")]
 a <- cbind(A_AR_CA, A) %>%
   left_join(., dplyr::select(sites, c("chr", "pos", "chr_n", "snp_id")), by = "snp_id") %>%
   tidyr::gather(., "population", "A_ancestry", colnames(A)) %>%
-  left_join(., meta.pop.lat.long, by = "population")
+  left_join(., meta.pop, by = "population")
 a_mean <- a %>%
   group_by(population) %>%
   summarise(A_ancestry = mean(A_ancestry)) %>%
-  left_join(meta.pop.lat.long, by = "population") %>%
+  left_join(meta.pop, by = "population") %>%
   mutate(abs_lat = abs(lat)) %>%
   mutate(abs_lat_c = abs_lat - mean(abs_lat))
 
@@ -1808,6 +1820,12 @@ ggsave(paste0("plots/outlier_clines_", some_snp_outliers[i, "name"], ".png"),
        units = "in", 
        device = "png")
 }
+
+# new approach: get 1 SNP per outlier. So find top SNP in each outlier region:
+
+
+
+
 
 # Is this consistent with no spatial pattern to selection? Either selected only in Brazil.
 # or selected at low selection coefficient across the whole S. American hybrid zone
@@ -1906,23 +1924,6 @@ a %>%
   with(., points(x = abs(lat), y = A_ancestry, pch = 17,
                  col = ifelse(a_mean$zone == "S. America", rangi2, "skyblue")))
 
-# make a plot comparing NGSadmix and ancestry_hmm output
-d_hmm_NGSadmix <- d_A %>% # d_A is loaded from plot_clines.R script
-  group_by(population) %>%
-  summarise(NGSAdmix = mean(alpha)) %>%
-  left_join(., rename(a_mean, ancestry_hmm = A_ancestry), by = "population")
-#%>%
-#  tidyr::gather(., "model", "A_ancestry", c("NGSAdmix", "ancestry_hmm"))
-ggplot(d_hmm_NGSadmix, aes(x = NGSAdmix, y = ancestry_hmm, color = zone)) +
-  geom_point() +
-  geom_abline(intercept = 0, slope = 1) +
-  xlim(c(0,1)) +
-  ylim(c(0,1)) +
-  ggtitle("Comparison of population mean genomewide A ancestry from ancestry_hmm and NGSAdmix")
-ggsave("plots/comparison_pop_mean_ancestry_hmm_vs_NGSAdmix.png",
-       height = 5, width = 7, units = "in", device= "png")
-# TO DO: I should remake this plot with the individuals, not their population means
-
 # it's hard to fit a logistic because I'm only observing a small portion of the cline for this SNP
 # basically it's not bounded high or low, just consistently high A across the zone
 
@@ -1953,3 +1954,71 @@ lapply(1:9, function(x) table(some_tracts[[x]]$length <= 10000))
 lapply(1:9, function(x) table(some_tracts[[x]]$length <= 5000))
 lapply(1:9, function(x) table(some_tracts[[x]]$length <= 1000))
 lapply(1:9, function(x) table(some_tracts[[x]]$length <= 2000))
+
+
+
+
+
+# compare the priors with the mean inferred ancestry from ancestry_hmm
+# make individual ancestry plots too:
+compare_anc_ind <- rbind(CA_indAlpha, AR_indAlpha) %>% # ancestry_hmm genomewide estimates for individuals
+  tidyr::gather(., "ancestry", "ancestry_hmm", c("A", "C", "M")) %>%
+  left_join(., tidyr::gather(d_ACM[ , c("Bee_ID", "A", "C", "M")], "ancestry", "NGSAdmix", c("A", "C", "M")), # NGSAdmix genomewide estimates for individuals
+            by = c("ancestry"="ancestry", "ID"="Bee_ID"))
+compare_anc_pop <- admix_proportions %>% # ancestry_hmm genomewide estimates for individuals
+  tidyr::gather(., "ancestry", "ancestry_hmm", c("A", "C", "M")) %>%
+  left_join(., tidyr::gather(d_pop_ACM[ , c("population", "A", "C", "M")], "ancestry", "NGSAdmix", c("A", "C", "M")), # NGSAdmix genomewide estimates for individuals
+            by = c("ancestry"="ancestry", "population"="population"))
+p_ind <- compare_anc_ind %>%
+  ggplot(., aes(NGSAdmix, ancestry_hmm, color = ancestry)) +
+  geom_point(alpha = .5) +
+  theme_bw() +
+  geom_abline(slope = 1, intercept = 0, color = "darkgrey") +
+  xlab("NGSAdmix") +
+  ylab("ancestry_hmm") +
+  ggtitle("Individual ancestry estimates")
+p_pop <- compare_anc_pop %>%
+  ggplot(., aes(NGSAdmix, ancestry_hmm, color = ancestry)) +
+  geom_point(pch = 1) +
+  theme_bw() +
+  geom_abline(slope = 1, intercept = 0, color = "darkgrey") +
+  xlab("NGSAdmix") +
+  ylab("ancestry_hmm") +
+  ggtitle("Population ancestry estimates")
+p_pop_ind <- grid.arrange(p_pop + theme(legend.position = "none"), p_ind, nrow = 1, ncol = 2, right = 2)
+p_pop_ind
+# save plot locally and in bee_manuscript figures folder.
+ggsave("plots/mean_ancestry_prior_posterior_ancestry_hmm.png",
+       plot = p_pop_ind,
+       device = "png",
+       width = 8, height = 5, units = "in")
+ggsave("../../bee_manuscript/figures/mean_ancestry_prior_posterior_ancestry_hmm.png",
+       plot = p_pop_ind,
+       device = "png",
+       width = 8, height = 5, units = "in")
+
+# I can use the older version (below) if I just want a population-level plot
+
+colors_3 <- scales::hue_pal()(3)
+
+for (path in c("plots/mean_pop_ancestry_prior_posterior_ancestry_hmm.png", 
+               "../../bee_manuscript/figures/mean_pop_ancestry_prior_posterior_ancestry_hmm.png")){
+  png(path,
+      height = 5, width = 6, units = "in", res= 300)
+  left_join(admix_proportions, filter(admix_times, ancestry == "A"), by = "population") %>%
+    with(., plot(proportion, A, xlim = 0:1, ylim = 0:1, col = colors_3[1], 
+                 xlab = "mean ancestry prior (NGSAdmix)",
+                 ylab = "mean ancestry posterior (ancestry_hmm)", 
+                 main = "Effect of HMM on inferred mean population ancestry"))
+  left_join(admix_proportions, filter(admix_times, ancestry == "M"), by = "population") %>%
+    with(., points(proportion, M, xlim = 0:1, ylim = 0:1, col = colors_3[3]))
+  left_join(admix_proportions, filter(admix_times, ancestry == "C"), by = "population") %>%
+    with(., points(proportion, C, xlim = 0:1, ylim = 0:1, col = colors_3[2]))
+  abline(0, 1)
+  legend("bottomright", legend = c("A", "C", "M"),
+         col = colors_3,
+         pch = 1,
+         title = "Ancestry")
+  dev.off()
+}
+

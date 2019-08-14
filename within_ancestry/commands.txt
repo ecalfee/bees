@@ -94,26 +94,32 @@ within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_fst_outlier
 # starting with pi for just combined NA and SA groups:
 
 
-within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_outliers_NA_SA_3_within_ancestry.log --header : --colsep '\t' 'echo group={pop} region={region}, n={region_n}; ./calc_theta_regions_within_ancestry.sh {pop} ../bee_samples_listed/byPop/{pop}.list {region} {region_n} {ancestry} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{ancestry}/bams' :::: AA_MM_CC.list :::: NA_SA_3.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_pi_outliers_NA_SA_3_within_anestry.out &
-[3] 12118 - RUNNING 8.10.19. check results log looks ok but .out has some 'failed' terms
+within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_outliers_NA_SA_3_within_ancestry.log --header : --colsep '\t' 'echo group={pop} region={region}, n={region_n}; ./calc_theta_regions_within_ancestry.sh {pop} ../bee_samples_listed/byPop/{pop}.list {region} {region_n} {ancestry} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{ancestry}/bams' :::: AA_MM_CC.list :::: NA_SA_3.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_pi_outliers_NA_SA_3_within_ancestry.out &
+ :( FOLDED SFS [3] 12118 - RUNNING 8.10.19. check results log looks ok but .out has some 'failed' terms
 plus these files have empty sfs files:
 AA - 5 Group1.21:180923-220357, 16 Group1.23:563676-564830
 CC - 37 Group6.30:3617-5122
+# REPEATING ALL WITH UNFOLDED SFS (to get accurate Fst later):
+within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_pi_outliers_NA_SA_3_within_ancestry_unfolded.log --header : --colsep '\t' 'echo group={pop} region={region}, n={region_n}; ./calc_theta_regions_within_ancestry.sh {pop} ../bee_samples_listed/byPop/{pop}.list {region} {region_n} {ancestry} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{ancestry}/bams' :::: AA_MM_CC.list :::: NA_SA_3.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_pi_outliers_NA_SA_3_within_ancestry_unfolded.out &
+[3] 30307 - RUNNING 8.14.19
+
+
+# just the fails:
 within_ancestry$ nohup parallel --noswap --jobs 2 --header : --colsep '\t' --joblog logs/calc_pi_outliers_NA_SA_3_within_ancestry_repeat_failed.log \
 'echo group={pop} region={region}, n={region_n}; ./calc_theta_regions_within_ancestry.sh {pop} \
 ../bee_samples_listed/byPop/{pop}.list {region} {region_n} {ancestry} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{ancestry}/bams' \
 ::: ancestry AA AA CC :::+ region_n 5 16 37 \
 :::+ region Group1.21:180923-220357 Group1.23:563676-564830 Group6.30:3617-5122 \
 :::: NA_SA_3.list &> logs/calc_pi_outliers_NA_SA_3_within_ancestry_repeat_failed.out &
-[1] 31772 - RUNNING 8.12.19. THERE WERE SOME SEG FAULTS AND CORE DUMPS -- POSSIBLY THIS IS RESOLVED IN THE NEWEST VERSION OF ANGSD AND I CAN JUST RERUN FROM THETA_STAT AND NOT THE WHOLE THING OTHERWISE :/
+ :( FOLDED SFS [1] 31772 - RUNNING 8.12.19. THERE WERE SOME SEG FAULTS AND CORE DUMPS -- POSSIBLY THIS IS RESOLVED IN THE NEWEST VERSION OF ANGSD AND I CAN JUST RERUN FROM THETA_STAT AND NOT THE WHOLE THING OTHERWISE :/
 
 # calculate Fst within ancestry for all outlier regions:
 within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_fst_outliers_NA_SA_3_within_ancestry.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2} region={region}, n={region_n}; ./calc_pairwise_fst.sh {pop1} {pop2} results/outlier_regions/region_{region_n}/{ancestry}' :::: AA_MM_CC.list :::: NA_SA_3.list :::: pairs_fst.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_fst_outliers_NA_SA_3_within_ancestry.out &
-[1] 22093 - RUNNING 8.13.19. oops needs to find correct directory for A/C/M files. redone:
-[1] 454 - RUNNING 8.13.19. KILLED because repeating more often due to NA_SA_3.list unnecessarily in there:
+ :( FOLDED SFS [1] 22093 - RUNNING 8.13.19. oops needs to find correct directory for A/C/M files. redone:
+ :( FOLDED SFS [1] 454 - RUNNING 8.13.19. KILLED because repeating more often due to NA_SA_3.list unnecessarily in there:
 within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_fst_outliers_NA_SA_3_within_ancestry.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2} region={region}, n={region_n}; ./calc_pairwise_fst.sh {pop1} {pop2} results/outlier_regions/region_{region_n}/{ancestry}' :::: AA_MM_CC.list :::: pairs_fst_NA_SA_only.list  :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_fst_outliers_NA_SA_3_within_ancestry.out &
-[3] 27124 # COMPLETED 8.13.19 - 924 calls, but each only a few seconds, should take a few hours.
-# BUT A FEW HAVE VERY SHORT RUN TIMES I THINK BECAUSE SEG FAULTS FROM ABOVE, NO SFS FILE
+ :( FOLDED SFS [3] 27124 # COMPLETED 8.13.19 - 924 calls, but each only a few seconds, should take a few hours.
+ :( FOLDED SFS # ALSO, A FEW HAVE VERY SHORT RUN TIMES I THINK BECAUSE SEG FAULTS FROM ABOVE, NO SFS FILE
 
 # NOTE: OOPS! The 20kb file didn't actually have any 20kb buffer added (mistake) .. I'll have to remake
 # I will keep the files above, knowing they have no buffer, and remake the non-outlier regions:
@@ -131,17 +137,19 @@ within_ancestry$ awk '{print $1":"$2+1"-"$3}' results/1Mb_of_non-outlier_100bp.b
 ./calc_theta_random_background.sh A ../bee_samples_listed/byPop/A.list 1Mb_of_non-outlier_100bp combined ../filtered_bams/results_Amel4.5
 # running all:
 within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_random_background.log --header : --colsep '\t' 'echo group={pop}; ./calc_theta_random_background.sh {pop} ../bee_samples_listed/byPop/{pop}.list 1Mb_of_non-outlier_100bp combined ../filtered_bams/results_Amel4.5' :::: groups_theta.list &> logs/calc_pi_random_background.out &
-[2] 8957 - RUNNING 8.10.19. No progress in 2 days. Maybe too large
-# KILLED. CREATING HUGE FILES. I NEED TO LOOK AT THEM (!). Regions need to be specified chr:start-end (!). If fixed the regions file and am re-running (should be WAY faster!):
-[2] 7007 - COMPLETED 8.13.19
+ :( FOLDED SFS [2] 8957 - RUNNING 8.10.19. No progress in 2 days. Maybe too large
+ :( FOLDED SFS # KILLED. CREATING HUGE FILES. I NEED TO LOOK AT THEM (!). Regions need to be specified chr:start-end (!). If fixed the regions file and am re-running (should be WAY faster!):
+ :( FOLDED SFS [2] 7007 - COMPLETED 8.13.19. NOW RUNNING UNFOLDED SFS:
+[1] 16353 - RUNNING 8.14.19
 
 # and calculate background fst:
 within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_fst_1Mb_random_background.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2}; ./calc_pairwise_fst.sh {pop1} {pop2} results/non-outlier_regions/1Mb_of_non-outlier_100bp/combined/' :::: pairs_fst.list &> logs/calc_fst_1Mb_random_background.out &
-[1] 10255 - ERRORS - NO FILES 8.14.19
+ :( FOLDED SFS [1] 10255 - ERRORS - NO FILES 8.14.19
 
 # Calculate background pi within ancestry for just NA_3 and SA_3:
 within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_pi_NA_SA_1Mb_random_background.log --header : --colsep '\t' 'echo group={pop} ancestry={ancestry}; ./calc_theta_random_background.sh {pop} ../bee_samples_listed/byPop/{pop}.list 1Mb_of_non-outlier_100bp {ancestry} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{ancestry}/bams' :::: AA_MM_CC.list :::: NA_SA_3.list &> logs/calc_pi_NA_SA_1Mb_random_background.out &
-[4] 16698 - COMPLETED 8.13.19
+ :( FOLDED SFS [4] 16698 - COMPLETED 8.13.19. NOW RUNNING UNFOLDED SFS:
+[2] 654 - RUNNING 8.14.19
 
 # Calculate background fst within ancestry for NA_3 and SA_3:
 within_ancestry$ nohup parallel --noswap --jobs 2 --joblog calc_fst_within_ancestry_NA_SA_1Mb_random_background.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2}; ./calc_pairwise_fst.sh {pop1} {pop2} results/non-outlier_regions/1Mb_of_non-outlier_100bp/combined/' :::: pairs_fst_NA_SA_only.list &> logs/calc_fst_within_ancestry_NA_SA_1Mb_random_background.out &
@@ -153,16 +161,30 @@ NOT RUN YET. WAITING 4 pi CALCS TO FINISH FIRST.
 # then after you can look at MM and CC ancestries
 1Mb_of_non-outlier_100bp
 within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_all_pops_within_ancestry_1Mb_random_background.log './calc_theta_random_background.sh {2} ../bee_samples_listed/byPop/{2}.list 1Mb_of_non-outlier_100bp {1} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{1}/bams' ::: AA MM CC :::: ../bee_samples_listed/byPop/pops_included.list &> logs/calc_pi_all_pops_within_ancestry_1Mb_random_background.out &
-[5] 22628 - COMPLETED 8.13.19
+ :( FOLDED SFS [5] 22628 - COMPLETED 8.13.19
 
 # get across all ancestries estimate:
 within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_pi_all_pops_1Mb_random_background.log './calc_theta_random_background.sh {2} ../bee_samples_listed/byPop/{2}.list 1Mb_of_non-outlier_100bp {1} ../filtered_bams/results_Amel4.5' ::: combined :::: ../bee_samples_listed/byPop/pops_included.list &> logs/calc_pi_all_pops_1Mb_random_background.out &
-[5] 11628 - RUNNING 8.13.19
+ :( FOLDED SFS [5] 11628 - RAN 8.13.19
 
 
-I CAN USE THETAS, BUT NOT FST FROM THE FOLDED SFS. I AM REMAKING THESE SCRIPTS & RERUNNING FOR THE UNFOLDED SFS. I am also downloading ANGSD v9.28 (latest) 8.14.19. 10:50am.
-SO I MOVED THE ORIGINAL FOLDED OUTPUTS TO HERE: 
-results/folded_SFS_incorrect
+I CAN USE THETAS (within pop pi), BUT NOT FST FROM THE FOLDED SFS. I AM REMAKING THESE SCRIPTS & RERUNNING FOR THE UNFOLDED SFS. I am also downloading ANGSD v9.28 (latest) 8.14.19. 10:50am. The version update is hopefully to deal with segfaults.
+SO I MOVED THE ORIGINAL FOLDED OUTPUTS TO HERE: results/folded_SFS_incorrect . 
+And I am re-running all sfs and 2D sfs, pi, and fst estimates:
+Also, I should be able to calc dxy myself from the unfolded 2d sfs (arbitrarily polarized by ref genome).
+# BACKGROUND FOR OUTLIERS:
+# Pi:
+# within-ancestry pi:
+# Fst:
+# within-ancestry fst:
+
+# OUTLIERS:
+# Pi:
+# Fst:
+# INDIVIDUAL POPS:
+
+
+
 
 
 

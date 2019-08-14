@@ -93,7 +93,7 @@ allele_freq_est <- read.table(paste0("results/NGSAdmix/", name, ".fopt.gz"))
 colnames(allele_freq_est) <- paste0("anc", 1:K) #c("anc1", "anc2", "anc3)
 
 # join bams and admix by position (CAUTION - bam list order and admix results MUST MATCH!)
-d <- bind_cols(bees, admix)  %>%
+d_admix <- bind_cols(bees, admix)  %>%
   arrange(., lat) %>%
   arrange(., source) %>%
   arrange(., group) %>%
@@ -102,7 +102,7 @@ d <- bind_cols(bees, admix)  %>%
 # plot 'STRUCTURE-like' ancestry plots
 png(paste0("plots/", name, ".png"), # saves plot as ping in ../plots/
       height = 5, width = 8, units = "in", res = 150)
-d %>%
+d_admix %>%
   dplyr::select(., colnames(admix)) %>%
   t(.) %>%
   barplot(height = .,
@@ -116,12 +116,12 @@ dev.off()
 
 # what should the different ancestries be called? use the group with the highest frequency
 anc <- data.frame(ancestry = colnames(admix),
-                       ancestry_label = sapply(colnames(admix), function(x) names(which.max(tapply(d[ , x], d$population, sum)))),
+                       ancestry_label = sapply(colnames(admix), function(x) names(which.max(tapply(d_admix[ , x], d_admix$population, sum)))),
                        stringsAsFactors = F)
 
 
 # ggplot2 need 'tidy' formatted data
-p1 <- d %>% 
+p1 <- d_admix %>% 
   tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   left_join(., anc, by = "ancestry") %>%
   ggplot(., aes(fill=ancestry_label, y=p, x=Bee_ID)) +
@@ -133,7 +133,7 @@ ggsave(paste0("plots/NGS_admix_all_", name, ".png"),
        width = 15, height = 8, units = "in",
        dpi = 200)
 
-p2 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+p2 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "CA_2018") %>%
   left_join(., anc, by = "ancestry") %>%
   ggplot(., aes(fill=ancestry_label, y=p, x=reorder(Bee_ID, lat))) +
@@ -150,7 +150,7 @@ ggsave(paste0("plots/NGS_admix_CA_2018_", name, ".png"),
        width = 15, height = 8, units = "in",
        dpi = 200)
 # mexico
-p2m <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+p2m <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "MX_2019") %>%
   left_join(., anc, by = "ancestry") %>%
   ggplot(., aes(fill=ancestry_label, y=p, x=reorder(Bee_ID, lat))) +
@@ -164,7 +164,7 @@ ggsave(paste0("plots/NGS_admix_MX_2019_", name, ".png"),
        width = 15, height = 8, units = "in",
        dpi = 200)
 # CA 2014 and 2018
-p2_2014 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+p2_2014 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "CA_2018" | population %in% pop2014_incl) %>%
   left_join(., anc, by = "ancestry") %>%
   ggplot(., aes(fill=ancestry_label, alpha = as.factor(year), y=p, x=reorder(label, lat))) +
@@ -185,7 +185,7 @@ ggsave(paste0("plots/NGS_admix_CA_2014_and_2018_", name, ".png"),
 
 
 
-p3 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+p3 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "AR_2018") %>%
   left_join(., anc, by = "ancestry") %>%
   ggplot(., aes(fill = ancestry_label, alpha = as.factor(year), y = p, x = reorder(Bee_ID, lat))) +
@@ -203,7 +203,7 @@ ggsave(paste0("plots/NGS_admix_AR_2018_", name, ".png"),
        width = 17, height = 8, units = "in",
        dpi = 200)
 
-p4 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+p4 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "S_CA" | group == "Kohn") %>%
   left_join(., anc, by = "ancestry") %>%
   ggplot(., aes(fill=ancestry_label, y=p, x=Bee_ID)) +
@@ -218,7 +218,7 @@ ggsave(paste0("plots/NGS_admix_S_CA_Mex_1994-2015_", name, ".png"),
        width = 15, height = 8, units = "in",
        dpi = 200)
 
-p5 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+p5 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "N_CA") %>%
   left_join(., anc, by = "ancestry") %>%
   ggplot(., aes(fill=ancestry_label, y=p, x=Bee_ID)) +
@@ -233,7 +233,7 @@ ggsave(paste0("plots/NGS_admix_N_CA_1994-2015_", name, ".png"),
        width = 15, height = 8, units = "in",
        dpi = 200)
 
-p6 <- d %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+p6 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group %in% c("A", "C", "M", "O")) %>%
   left_join(., anc, by = "ancestry") %>%
   ggplot(., aes(fill=ancestry_label, y=p, x=Bee_ID)) +
@@ -255,7 +255,7 @@ ggsave(paste0("plots/NGS_admix_Ref_bySource", name, ".png"),
 
 # print file with population frequencies of each admixed population 
 # to use as priors in local ancestry inference
-d_ACM <- d %>%
+d_ACM <- d_admix %>%
   filter(source %in% c("Calfee", "Ramirez")) %>%
   tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   left_join(., anc, by = "ancestry") %>%
@@ -299,7 +299,7 @@ ggplot(d, aes(anc3, anc2, color = group)) + geom_point() + facet_wrap(~source)
 # look at ancestry estimates for a few bees
 # to send to Dani for comparison with her results
 # note: ancestry translations only work for 251, k=4, w/ Kohn & Wallberg:
-d %>%
+d_admix %>%
   mutate(A = round(anc1, 2), C = round(anc2, 2),
          O = round(anc3, 2), M = round(anc4, 2)) %>%
   filter(Bee_ID %in% bees_overlap_Dani) %>%
@@ -308,7 +308,7 @@ d %>%
   write.table(., paste0("plots/NGS_admix_results_subset_", name, ".txt"),
               quote = F, row.names = F, sep = "\t")
 # note: ancestry translations only work for 251, k=3, w/ Kohn & Wallberg:
-d %>%
+d_admix %>%
   mutate(A = round(anc3, 2), C = round(anc2, 2),
          M = round(anc1, 2)) %>%
   filter(Bee_ID %in% bees_overlap_Dani) %>%

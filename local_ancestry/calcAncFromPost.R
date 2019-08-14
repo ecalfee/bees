@@ -77,7 +77,7 @@ lapply(1:length(pop_ids), function(i) write_anc(anc = anc[[i]], label = pop_ids[
 a <- data.frame(ID = pop_ids, 
                       do.call(rbind,
              lapply(anc, function(x) apply(x, 2, mean))))
-write.table(a, paste0(dir_output, "/", POP, ".alpha.anc"))
+write.table(a, paste0(dir_output, "/", POP, ".alpha.anc"), quote = F, col.names = T, row.names = F)
 
 # calculate mean population ancestry across individuals w/in a pop
 pop_anc <- anc[[1]]
