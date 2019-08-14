@@ -41,7 +41,7 @@ echo "finding site allele frequencies"
 # get saf approximate
 angsd -out "$DIR_OUT/$POP" \
 -anc "$REF" \
--fold 1 \
+-fold 0 \
 -underFlowProtect 1 \
 -rf "$REGIONS_FILE" \
 -bam "$BAM_LIST" \
@@ -50,16 +50,16 @@ angsd -out "$DIR_OUT/$POP" \
 -doSaf 1 \
 -P 2
 
-# make folded SFS file
-realSFS "$DIR_OUT/$POP".saf.idx -fold 1 -P 2 > "$DIR_OUT/$POP".folded.sfs
+# make SFS file
+realSFS "$DIR_OUT/$POP".saf.idx -fold 0 -P 2 > "$DIR_OUT/$POP".sfs
 
 # make thetas
 angsd -out "$DIR_OUT/$POP" \
 -anc "$REF" \
 -doThetas 1 \
--fold 1 \
+-fold 0 \
 -doSaf 1 \
--pest "$DIR_OUT/$POP".folded.sfs \
+-pest "$DIR_OUT/$POP".sfs \
 -underFlowProtect 1 \
 -rf "$REGIONS_FILE" \
 -bam "$BAM_LIST" \
@@ -78,5 +78,7 @@ echo "all done!"
 # options
 # basic quality filtering for reads
 # -rf to specify a set of regions from a file
-# anc polarizes SFS by reference genome .. but that's not a true ancestral polarization, so we use the folded sfs instead (-fold 1)
+# anc polarizes SFS by reference genome .. but that's not a true ancestral polarization, 
+# we need the unfolded SFS to get a 2D SFS estimate (-fold 0)
+# but just know some stats more complicated than pi/Taj D require correct polarization
 # underFlowProtect is necessary for large #s of bams

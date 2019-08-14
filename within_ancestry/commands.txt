@@ -112,8 +112,8 @@ within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_fst_outlier
 [1] 22093 - RUNNING 8.13.19. oops needs to find correct directory for A/C/M files. redone:
 [1] 454 - RUNNING 8.13.19. KILLED because repeating more often due to NA_SA_3.list unnecessarily in there:
 within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_fst_outliers_NA_SA_3_within_ancestry.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2} region={region}, n={region_n}; ./calc_pairwise_fst.sh {pop1} {pop2} results/outlier_regions/region_{region_n}/{ancestry}' :::: AA_MM_CC.list :::: pairs_fst_NA_SA_only.list  :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_fst_outliers_NA_SA_3_within_ancestry.out &
-[3] 27124 # RUNNING 8.13.19 - 924 calls, but each only a few seconds, should take a few hours.
-
+[3] 27124 # COMPLETED 8.13.19 - 924 calls, but each only a few seconds, should take a few hours.
+# BUT A FEW HAVE VERY SHORT RUN TIMES I THINK BECAUSE SEG FAULTS FROM ABOVE, NO SFS FILE
 
 # NOTE: OOPS! The 20kb file didn't actually have any 20kb buffer added (mistake) .. I'll have to remake
 # I will keep the files above, knowing they have no buffer, and remake the non-outlier regions:
@@ -133,21 +133,19 @@ within_ancestry$ awk '{print $1":"$2+1"-"$3}' results/1Mb_of_non-outlier_100bp.b
 within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_random_background.log --header : --colsep '\t' 'echo group={pop}; ./calc_theta_random_background.sh {pop} ../bee_samples_listed/byPop/{pop}.list 1Mb_of_non-outlier_100bp combined ../filtered_bams/results_Amel4.5' :::: groups_theta.list &> logs/calc_pi_random_background.out &
 [2] 8957 - RUNNING 8.10.19. No progress in 2 days. Maybe too large
 # KILLED. CREATING HUGE FILES. I NEED TO LOOK AT THEM (!). Regions need to be specified chr:start-end (!). If fixed the regions file and am re-running (should be WAY faster!):
-[2] 7007 - RUNNING 8.13.19
+[2] 7007 - COMPLETED 8.13.19
 
 # and calculate background fst:
 within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_fst_1Mb_random_background.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2}; ./calc_pairwise_fst.sh {pop1} {pop2} results/non-outlier_regions/1Mb_of_non-outlier_100bp/combined/' :::: pairs_fst.list &> logs/calc_fst_1Mb_random_background.out &
-NOT RUN YET
-WAITING 4 pi/single SFS to finish!
+[1] 10255 - ERRORS - NO FILES 8.14.19
 
 # Calculate background pi within ancestry for just NA_3 and SA_3:
 within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_pi_NA_SA_1Mb_random_background.log --header : --colsep '\t' 'echo group={pop} ancestry={ancestry}; ./calc_theta_random_background.sh {pop} ../bee_samples_listed/byPop/{pop}.list 1Mb_of_non-outlier_100bp {ancestry} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{ancestry}/bams' :::: AA_MM_CC.list :::: NA_SA_3.list &> logs/calc_pi_NA_SA_1Mb_random_background.out &
-[4] 16698 - RUNNING 8.13.19
+[4] 16698 - COMPLETED 8.13.19
 
 # Calculate background fst within ancestry for NA_3 and SA_3:
 within_ancestry$ nohup parallel --noswap --jobs 2 --joblog calc_fst_within_ancestry_NA_SA_1Mb_random_background.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2}; ./calc_pairwise_fst.sh {pop1} {pop2} results/non-outlier_regions/1Mb_of_non-outlier_100bp/combined/' :::: pairs_fst_NA_SA_only.list &> logs/calc_fst_within_ancestry_NA_SA_1Mb_random_background.out &
 NOT RUN YET. WAITING 4 pi CALCS TO FINISH FIRST.
-
 
 # Demographic inference of loss of heterozygosity overall and within ancestry:
 # calculate pi within ancestry for background non-outliers:
@@ -162,7 +160,10 @@ within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_pi_all_pops
 [5] 11628 - RUNNING 8.13.19
 
 
-NOT RUN YET! - WAITING FOR CPU OPEN
+I CAN USE THETAS, BUT NOT FST FROM THE FOLDED SFS. I AM REMAKING THESE SCRIPTS & RERUNNING FOR THE UNFOLDED SFS. I am also downloading ANGSD v9.28 (latest) 8.14.19. 10:50am.
+SO I MOVED THE ORIGINAL FOLDED OUTPUTS TO HERE: 
+results/folded_SFS_incorrect
+
 
 
 

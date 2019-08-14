@@ -37,13 +37,13 @@ fi
 
 echo "getting 2D SFS"
 
-realSFS "$DIR1"/"$POP1".saf.idx "$DIR2"/"$POP2".saf.idx -fold 1 -P 2 > "$DIR"/"$POP1"-"$POP2".folded.sfs
+realSFS "$DIR1"/"$POP1".saf.idx "$DIR2"/"$POP2".saf.idx -fold 0 -P 2 > "$DIR"/"$POP1"-"$POP2".sfs
 
 echo "now making Fst"
 realSFS fst index "$DIR1"/"$POP1".saf.idx "$DIR2"/"$POP2".saf.idx \
--sfs "$DIR"/"$POP1"-"$POP2".folded.sfs \
+-sfs "$DIR"/"$POP1"-"$POP2".sfs \
 -whichFst 1 \
--fold 1 \
+-fold 0 \
 -fstout "$DIR"/"$POP1"-"$POP2"
 
 # print outputs for fst:
@@ -55,4 +55,5 @@ echo "all done!"
 
 # options
 # all setting are in the making of the sfs and saf.idx files
-# this script uses the folded site frequency spectrum to calculate pairwise population Fst
+# this script uses the unfolded site frequency spectrum to calculate pairwise population Fst
+# the SFS is arbitrarily polarized by the reference genome, which makes not diff. for pi and fst but some stats can't be used
