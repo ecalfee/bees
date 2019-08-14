@@ -486,17 +486,18 @@ admix_times %>%
   left_join(., meta.pop, by = "population") %>%
   #filter(., ancestry == "A") %>%
   filter(., ancestry != "C") %>%
+  mutate(ancestry_labels = paste(ancestry, "ancestry admixture pulse")) %>%
   ggplot(., aes(x = proportion, y = time, color = zone, shape = factor(year))) +
   geom_point() +
-  ggtitle("African ancestry blocks in CA are slightly shorter") +
-  facet_grid(. ~ ancestry) +
-  ylab("Time of admixture (generations in the past)") +
+  ggtitle("Time since admixture estimated from ancestry block lengths") +
+  facet_grid(. ~ ancestry_labels) +
+  ylab("Time (generations in the past)") +
   xlab("Admixture proportion (ancestry_hmm)") +
   labs(color = "Hybrid Zone", shape = "Collection")
 ggsave("plots/California_has_shorter_ancestry_blocks.png",
-       height = 5, width = 14, units = "in")
+       height = 3, width = 8, units = "in")
 ggsave("../../bee_manuscript/figures/California_has_shorter_ancestry_blocks.png",
-       height = 5, width = 14, units = "in")
+       height = 3, width = 8, units = "in")
 
 
 sites0 <- read.table("results/SNPs/thin1kb_common3/included_scaffolds.pos", stringsAsFactors = F,
@@ -721,9 +722,13 @@ MVNsim <- mvrnorm(n = sim_n,
                   empirical = FALSE, 
                   EISPACK = FALSE)
 
-MVNsim_bounded <- MVNsim # sets bounds at 0 and 1
+
+
+# sets bounds at 0 and 1
+MVNsim_bounded <- MVNsim 
 MVNsim_bounded[MVNsim < 0] <- 0
 MVNsim_bounded[MVNsim > 1] <- 1
+
 MVNsim_AR <- MVNsim[ , AR_pops_included$population]
 MVNsim_AR_bounded <- MVNsim_bounded[ , AR_pops_included$population]
 MVNsim_CA <- MVNsim[ , CA_pops_included$population]
@@ -746,6 +751,10 @@ meanA_MVNsim <- apply(cbind(MVNsim_AR, MVNsim_CA)[ , c(AR_pops_included$populati
 # (effectively I zero out negative covariances):
 # simulate from MVN distribution:
 AR_CA_K_zero <- AR_CA_K$K
+summary(AR_CA_K_zero[AR_CA_K$K < 0])
+sum(AR_CA_K$K < 0)/prod(dim(AR_CA_K$K)) # 11% of covariances < 0
+summary(AR_CA_K$K[AR_CA_K$K > 0])
+summary(AR_CA_K$K[T])
 AR_CA_K_zero[AR_CA_K$K < 0] <- 0
 set.seed(101)
 MVNsim_zero <- mvrnorm(n = sim_n, 
@@ -754,6 +763,29 @@ MVNsim_zero <- mvrnorm(n = sim_n,
                   tol = 1e-6, 
                   empirical = FALSE, 
                   EISPACK = FALSE)
+
+# how many simulations exceed the bounds?
+# overall few, but more than 15% for some populations
+sum(MVNsim_zero < 0)/sum(table(MVNsim_zero<0))
+sum(MVNsim_zero > 1)/sum(table(MVNsim_zero>1))
+hist(MVNsim[MVNsim_zero<0])
+table(MVNsim_bounded[MVNsim_zero < 1])
+apply(MVNsim, 2, function(x) sum(x > 1))/(nrow(MVNsim_zero))
+summary(apply(MVNsim, 2, function(x) sum(x <0))/(nrow(MVNsim_zero)))
+data.frame(population = colnames(MVNsim_zero),
+           percent_0 = apply(MVNsim_zero, 2, function(x) sum(x < 0))/nrow(MVNsim_zero),
+           stringsAsFactors = F) %>%
+  left_join(., admix_proportions, by = "population") %>%
+  left_join(., meta.pop, by = "population") %>%
+  ggplot(., aes(x = A, y = percent_0, color = zone)) +
+  geom_point() +
+  xlab("Mean A ancestry proportion (ancestry_hmm)") +
+  ylab("Percent sims < 0 (MVN)") +
+  ggtitle("Percent simulated population ancestry frequencies < 0 (MVN)")
+ggsave("plots/percents_MVN_sims_need_truncation_low.png",
+       height = 3, width = 8, units = "in")
+
+
 
 MVNsim_zero_bounded <- MVNsim_zero # sets bounds at 0 and 1
 MVNsim_zero_bounded[MVNsim_zero < 0] <- 0
@@ -795,6 +827,8 @@ abline(a = 0, b = 1)
 var(meanA_MVNsim_bounded)
 var(meanA_MVNsim_zero_bounded) # very slightly higher variance -- could just be simulation noise
 # this makes sense because the covariances I zero-d out were very slight
+summary(diag(AR_CA_K$K))
+summary(AR_CA_K$K[lower.tri(AR_CA_K$K, diag = F)])
 
 #QQ-plots:
 png("plots/QQ_plots_against_MVN.png",
@@ -830,6 +864,67 @@ qqplot(meanA_MVNsim_AR_zero_bounded, meanA_MVNsim_AR_bounded,
        main = "QQ-plot: Effect of non-neg K on MVN AR mean")
 abline(0, 1, col = "blue")
 dev.off()
+
+
+make_qqplot_lines <- function(x, legend = T){
+  abline(0, 1, col = "black")
+  abline(v = quantile(x, 
+                      c(0.99, 0.95, 0.75, 0.5, 0.01, 0.05, 0.25)), 
+         col = c("lightgreen", "salmon", "lightblue", "yellow", "lightgreen", "salmon", "lightblue"))
+  if (legend) {legend("bottomright", 
+         legend = c(0.99, 0.95, 0.75, 0.5), 
+         title = "Quantile",
+         lty = 1,
+         lwd = 2,
+         col = c("lightgreen", "salmon", "lightblue", "yellow"))
+  }
+}
+
+# make QQ plots for paper:
+png("plots/QQ_plots_MVN_vs_data.png",
+    height = 8, width = 8, res = 300, units = "in")
+# plot poisson binomial
+par(mfrow=c(2,2))
+# plot effect of truncation
+par(oma = c(4, 1, 1, 1))
+qqplot(meanA_MVNsim_zero, meanA_MVNsim_zero_bounded,
+       main = "QQ plot - A Ancestry effect of truncation",
+       xlab = "MVN before truncation [0, 1]",
+       ylab = "MVN after truncation [0, 1]",
+       col = "grey")
+make_qqplot_lines(meanA_MVNsim_zero_bounded, legend = F)
+qqplot(meanA_MVNsim_zero_bounded, meanA,
+       main = "QQ plot fit - A Ancestry Combined Sample",
+       xlab = "MVN simulation",
+       ylab = "Observed",
+       col = "grey")
+make_qqplot_lines(meanA_MVNsim_zero_bounded, legend = F)
+qqplot(meanA_MVNsim_CA_zero_bounded, meanA_CA,
+       main = "QQ plot fit - A Ancestry N. America",
+       xlab = "MVN simulation",
+       ylab = "Observed",
+       col = "grey")
+make_qqplot_lines(meanA_MVNsim_CA_zero_bounded, legend = F)
+qqplot(meanA_MVNsim_AR_zero_bounded, meanA_AR,
+       main = "QQ plot fit - A Ancestry S. America",
+       xlab = "MVN simulation",
+       ylab = "Observed",
+       col = "grey")
+make_qqplot_lines(meanA_MVNsim_AR_zero_bounded, legend = F)
+par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
+plot(0, 0, type = "n", bty = "n", xaxt = "n", yaxt = "n")
+legend("bottom",
+       legend = c(0.99, 0.95, 0.75, 0.5), 
+       title = "Quantile",
+       lty = 1,
+       lwd = 2,
+       xpd = TRUE, horiz = TRUE, 
+       inset = c(0, 0),
+       bty = "n",
+       col = c("lightgreen", "salmon", "lightblue", "yellow"))
+dev.off()
+
+
 
 png("plots/mean_A_ancestry_CA_vs_AR_grey.png", 
     height = 8, width = 12, res = 300, units = "in")

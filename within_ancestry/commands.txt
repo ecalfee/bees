@@ -105,7 +105,7 @@ within_ancestry$ nohup parallel --noswap --jobs 2 --header : --colsep '\t' --job
 ::: ancestry AA AA CC :::+ region_n 5 16 37 \
 :::+ region Group1.21:180923-220357 Group1.23:563676-564830 Group6.30:3617-5122 \
 :::: NA_SA_3.list &> logs/calc_pi_outliers_NA_SA_3_within_ancestry_repeat_failed.out &
-[1] 31772 - RUNNING 8.12.19. 
+[1] 31772 - RUNNING 8.12.19. THERE WERE SOME SEG FAULTS AND CORE DUMPS -- POSSIBLY THIS IS RESOLVED IN THE NEWEST VERSION OF ANGSD AND I CAN JUST RERUN FROM THETA_STAT AND NOT THE WHOLE THING OTHERWISE :/
 
 # calculate Fst within ancestry for all outlier regions:
 within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_fst_outliers_NA_SA_3_within_ancestry.log --header : --colsep '\t' 'echo pop1={pop1} pop2={pop2} region={region}, n={region_n}; ./calc_pairwise_fst.sh {pop1} {pop2} results/outlier_regions/region_{region_n}/{ancestry}' :::: AA_MM_CC.list :::: NA_SA_3.list :::: pairs_fst.list :::: ../functional_analysis/results/outlier_regions/all.plus20kb.bed &> logs/calc_fst_outliers_NA_SA_3_within_ancestry.out &
@@ -154,11 +154,13 @@ NOT RUN YET. WAITING 4 pi CALCS TO FINISH FIRST.
 # here start with AA ancestry and calculate pi for each individual population
 # then after you can look at MM and CC ancestries
 1Mb_of_non-outlier_100bp
-within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_all_pops_within_ancestry_1Mb_random_background.log './calc_theta_random_background.sh {2} ../bee_samples_listed/byPop/{2}.list 1Mb_of_non-outlier_100bp {1} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{1}/bams' ::: AA MM CC :::: ../bee_samples_listed/byPop/pops_included.list &> calc_pi_all_pops_within_ancestry_1Mb_random_background.out &
-[5] 22628 - RUNNING 8.13.19
+within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_all_pops_within_ancestry_1Mb_random_background.log './calc_theta_random_background.sh {2} ../bee_samples_listed/byPop/{2}.list 1Mb_of_non-outlier_100bp {1} results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/{1}/bams' ::: AA MM CC :::: ../bee_samples_listed/byPop/pops_included.list &> logs/calc_pi_all_pops_within_ancestry_1Mb_random_background.out &
+[5] 22628 - COMPLETED 8.13.19
 
 # get across all ancestries estimate:
-within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_pi_all_pops_1Mb_random_background.log './calc_theta_random_background.sh {2} ../bee_samples_listed/byPop/{2}.list 1Mb_of_non-outlier_100bp {1} ../filtered_bams/results_Amel4.5' ::: combined :::: ../bee_samples_listed/byPop/pops_included.list &> calc_pi_all_pops_1Mb_random_background.out &
+within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_pi_all_pops_1Mb_random_background.log './calc_theta_random_background.sh {2} ../bee_samples_listed/byPop/{2}.list 1Mb_of_non-outlier_100bp {1} ../filtered_bams/results_Amel4.5' ::: combined :::: ../bee_samples_listed/byPop/pops_included.list &> logs/calc_pi_all_pops_1Mb_random_background.out &
+[5] 11628 - RUNNING 8.13.19
+
 
 NOT RUN YET! - WAITING FOR CPU OPEN
 
@@ -170,3 +172,7 @@ NOT RUN YET! - WAITING FOR CPU OPEN
 
 
 # for an outlier region: calculate SFS, then pi, then Fst:
+
+
+
+
