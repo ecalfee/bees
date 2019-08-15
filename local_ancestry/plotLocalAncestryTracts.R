@@ -541,6 +541,7 @@ plot(apply(CA_A_2014, 1, mean), apply(CA_A_2018, 1, mean))
 plot(apply(CA_A_earlier, 1, mean), apply(CA_A_2018, 1, mean))
 AR_pops_included <- meta.pop[meta.pop$group == "AR_2018", ]
 AR_A <- A[, AR_pops_included$population]
+
 # take mean across individuals, not across populations:
 meanA_CA0 <- apply(CA_A, 1, mean)
 meanA_CA <- apply(CA_A, 1, function(x) sum(x*CA_pops_included$n_bees)/sum(CA_pops_included$n_bees))
@@ -1795,6 +1796,12 @@ some_snp_outliers <- data.frame(
             "the top outlier Argentina-only high A ancestry",
             "the top outlier Argentina-only low A ancestry",
             "the top outlier California-only high A ancestry"),
+  label_short = c("High A: shared (5% FDR outlier)",
+                  "High A: shared",
+                  "Low A: shared",
+                  "High A: S. America",
+                  "Low A: S. America",
+                  "High A: N. America"),
   name = c("a_shared_high_outlier_.05sig",
            "shared_high_top_snp",
            "shared_low_top_snp",
@@ -1820,11 +1827,88 @@ ggsave(paste0("plots/outlier_clines_", some_snp_outliers[i, "name"], ".png"),
        units = "in", 
        device = "png")
 }
+# plot all outliers in a grid
+a %>%
+  filter(snp_id %in% some_snp_outliers$snp_id) %>%
+  left_join(., some_snp_outliers, by = "snp_id") %>%
+  ggplot(aes(x = abs(lat), y = A_ancestry, color = population)) +
+  geom_point() +
+  geom_point(data = a_mean, shape = 2, color = "grey") +
+  #ggtitle(paste0("cline across latitude for ", some_snp_outliers[i, "label"], ": ", some_snp_outliers[i, "snp_id"])) +
+  xlab("absolute latitude") +
+  ylab("population mean African ancestry") +
+  facet_grid(zone ~ label_short) +
+  theme_bw() +
+  theme(legend.position = "none")
+ggsave("plots/ancestry_clines_at_top_outlier_snps_all_pops_incl_mx.png",
+       width = 8, height = 5, units = "in",
+       device = "png")
+# only plot the populations that are included (CA/AR 2014+2018),
+# at the top outliers of each type:
+a %>%
+  filter(., population %in% c(AR_pops_included$population, CA_pops_included$population)) %>%
+  filter(snp_id %in% some_snp_outliers$snp_id) %>%
+  left_join(., some_snp_outliers, by = "snp_id") %>%
+  filter(name != "a_shared_high_outlier_.05sig") %>%
+  ggplot(aes(x = abs(lat), y = A_ancestry, color = population)) +
+  geom_point() +
+  geom_point(data = filter(a_mean, population %in% c(AR_pops_included$population, CA_pops_included$population)),
+             color = "grey", 
+             shape = 2) +
+  #ggtitle(paste0("cline across latitude for ", some_snp_outliers[i, "label"], ": ", some_snp_outliers[i, "snp_id"])) +
+  xlab("absolute latitude") +
+  ylab("population mean African ancestry") +
+  facet_grid(zone ~ label_short) +
+  theme_bw() +
+  theme(legend.position = "none")
+ggsave("plots/ancestry_clines_at_top_outlier_snps.png",
+       width = 8, height = 5, units = "in",
+       device = "png")
+ggsave("../../bee_manuscript/figures/ancestry_clines_at_top_outlier_snps.png",
+       width = 8, height = 5, units = "in",
+       device = "png")
 
 # new approach: get 1 SNP per outlier. So find top SNP in each outlier region:
-
-
-
+# outlier_sets load outlier sets from rank_genes.R
+# and outlier_setnames too
+# here I have all the outliers of each type:
+top_SNP_outliers_all
+top_SNP_outliers
+outlier_set_names
+top_SNP_outlier_labels = c("High A: shared",
+                "Low A: shared",
+                "High A: S. America",
+                "Low A: S. America",
+                "High A: N. America")
+for (i in 1:length(top_SNP_outlier_labels)){
+a %>%
+  filter(., population %in% c(AR_pops_included$population, CA_pops_included$population)) %>%
+  filter(snp_id %in% top_SNP_outliers[[i]]$top_snp) %>%
+  left_join(., top_SNP_outliers[[i]], by=c("snp_id"="top_snp", "scaffold")) %>%
+    mutate(snp = paste(substr(scaffold, start = 6, stop = 100), start+1, sep = ":")) %>%
+  ggplot(aes(x = abs(lat), y = A_ancestry, color = factor(FDR_region))) + #color = population, shape = factor(FDR_region))) +
+  geom_point() +
+  geom_point(data = filter(a_mean, population %in% c(AR_pops_included$population, CA_pops_included$population)),
+             color = "grey", 
+             shape = 2) +
+  xlab("absolute latitude") +
+  ylab("population mean African ancestry") +
+  ggtitle(top_SNP_outlier_labels[i]) +
+  facet_grid(zone ~ snp) +
+  theme_bw() +
+  #scale_shape_manual(values = c(20, 1))+
+  scale_color_manual(values = c("red", "orange")) +
+  theme(legend.position = "bottom") +
+  #guides(color = F) +
+  #labs(shape = "FDR") +
+  labs(color = "FDR")
+  ggsave(paste0("plots/ancestry_clines_at_all_outliers_top_snp_", outlier_set_names[i],".png"),
+         width = 16, height = 5, units = "in",
+         device = "png")
+  ggsave(paste0("../../bee_manuscript/figures/ancestry_clines_at_all_outliers_top_snp_", outlier_set_names[i],".png"),
+         width = 16, height = 5, units = "in",
+         device = "png")
+  }
 
 
 # Is this consistent with no spatial pattern to selection? Either selected only in Brazil.

@@ -895,3 +895,59 @@ nrow(low.AR.outliers)
 high.shared.outliers$length = high.shared.outliers$end - high.shared.outliers$start
 high.shared.outliers
 summary(high.shared.outliers$length)
+
+
+# get 1 top outlier SNP per outlier region (to draw ancestry clines):
+get_SNPs_in_outlier_regions <- lapply(outlier_sets, function(x)
+  bedr(
+    engine = "bedtools", 
+    input = list(a = A_AR_CA,
+                 b = x), 
+    method = "map", 
+    params = "-g ../data/honeybee_genome/ordered_scaffolds.lengths -c 4,5 -o collapse",
+    check.chr = F
+  ) %>%
+    data.table::setnames(c(colnames(A_AR_CA), "FDR_region", "region")) %>%
+    filter(region != ".") %>%
+    mutate(FDR_region = as.numeric(FDR_region)) %>%
+    dplyr::select("snp_id", "FDR_region", "region") %>% # otherwise converts everything to strings
+    left_join(., A_AR_CA, by = "snp_id") %>%
+    mutate(combined = (AR*nrow(AR_pops_included) + CA*nrow(CA_pops_included))/(nrow(AR_pops_included) + nrow(CA_pops_included)))
+  )
+top_SNP_outliers <- vector("list", 5)
+top_SNP_outliers[[1]] <- get_SNPs_in_outlier_regions[[1]] %>%
+  group_by(region, scaffold, chr) %>%
+  summarize(max_combined = max(combined),
+            FDR_region = min(FDR_region),
+            top_snp = snp_id[which(combined == max(combined))]) %>%
+  arrange(chr, scaffold) %>%
+  mutate(outlier_type = outlier_set_names[1])
+top_SNP_outliers[[2]] <- get_SNPs_in_outlier_regions[[2]] %>%
+  group_by(region, scaffold, chr) %>%
+  summarize(min_combined = min(combined),
+            FDR_region = min(FDR_region),
+            top_snp = snp_id[which(combined == min(combined))]) %>%
+  arrange(chr, scaffold) %>%
+  mutate(outlier_type = outlier_set_names[2])
+top_SNP_outliers[[3]] <- get_SNPs_in_outlier_regions[[3]] %>%
+  group_by(region, scaffold, chr) %>%
+  summarize(max_AR = max(AR),
+            FDR_region = min(FDR_region),
+            top_snp = snp_id[which(AR == max(AR))]) %>%
+  arrange(chr, scaffold) %>%
+  mutate(outlier_type = outlier_set_names[3])
+top_SNP_outliers[[4]] <- get_SNPs_in_outlier_regions[[4]] %>%
+  group_by(region, scaffold, chr) %>%
+  summarize(min_AR = min(AR),
+            FDR_region = min(FDR_region),
+            top_snp = snp_id[which(AR == min(AR))]) %>%
+  arrange(chr, scaffold) %>%
+  mutate(outlier_type = outlier_set_names[4])
+top_SNP_outliers[[5]] <- get_SNPs_in_outlier_regions[[5]] %>%
+  group_by(region, scaffold, chr) %>%
+  summarize(max_CA = max(CA),
+            FDR_region = min(FDR_region),
+            top_snp = snp_id[which(CA == max(CA))]) %>%
+  arrange(chr, scaffold) %>%
+  mutate(outlier_type = outlier_set_names[5])
+top_SNP_outliers_all <- do.call(rbind, top_SNP_outliers)
