@@ -22,11 +22,8 @@ set -o nounset
 # command line arguments:
 ID=$1 # bee ID
 SEQ_RUN=$2 # identifier for sequenced group
-FASTQ_PREFIX=${SEQ_RUN}"/fastq_files/"${1}
-DIR_OUT=${SEQ_RUN}"/bam_files"
-
-# move from scripts to data directory
-cd ../data
+FASTQ_PREFIX="../data/"${SEQ_RUN}"/fastq_files/"${1}
+DIR_OUT="results/intermediate_bams"
 
 mkdir -p ${DIR_OUT}
 
@@ -36,10 +33,10 @@ echo "output directory:"${DIR_OUT}
 echo "mapping reads with bowtie2"
 
 bowtie2 --seed 2014 --very-sensitive-local --local \
--x honeybee_genome/honeybee_Amel_4.5 \
+-x ../data/honeybee_genome/Amel_HAv3.1 \
 -U ${FASTQ_PREFIX}_1.fastq.gz \
 --rg-id ${SEQ_RUN} --rg SM:${ID} | \
-samtools view -b - > ${DIR_OUT}/${ID}.bam
+samtools view -q 1 -b - > ${DIR_OUT}/${ID}.bam
 
 echo "alignment done!"
 
