@@ -9,3 +9,30 @@ Temperate honey bees use behavioral clustering inside the hive and honey bee sto
 
 
 Rio Claro, Sao Paulo Brazil: 22.4149° S, 47.5651° W (Google maps)
+
+plot_clines.R:
+# For climate variables, I download spatial data from worldclim.org
+using the Raster package in R, which retrieves bioclim1.4 
+with climatic variable averages 1960-1990 for 19 bioclim variables
+
+I also downloaded 1961-1990 (by decade) from another databease CRU TS 4.03 to get model-estimated days of frost, based on monthly mean temps and diurnal range.
+https://crudata.uea.ac.uk/cru/data/hrg/cru_ts_4.03/cruts.1905011326.v4.03/frs/
+frosty <- read.table("~/Downloads/cru_ts4.03.1961.1970.frs.dat.gz")
+BUT I DON'T UNDERSTAND THE UNITS HERE!
+
+
+So I also downloaded 10minute resolution for an average 1961-1990 frost
+https://crudata.uea.ac.uk/cru/data/hrg/tmc/
+~/Downloads/grid_10min_frs.dat.gz
+BUT this isn't in an easy-to-use format, so I'll leave it for now.
+
+Descriptions of the 19 pre-computed bioclim variables can be found here:
+http://worldclim.org/bioclim
+I could alternatively compute these myself from monthly data using the R package dismo
+
+I could likewise compute the per-month frost estimate using the approximations from CRU, but they have an unlabelled variable x.
+Alternatively, I could use this 0.5min spatial resolution of global frost days, with caveats that it's 
+most accurate in the arctic and uses different temporal range 1920-1980
+https://nsidc.org/data/NSIDC-0063
+
+TO DO: ignoring frost, just using 0.5 resolution bioclim variables, first do a pca and use the first 5 PCs as covariates in a linear model of ancestry. Then re-run all the models with individual variables and print a table for the manuscript supplement. Decide what you want your final plot to be for the paper and update that section of the manuscript results.

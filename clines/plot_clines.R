@@ -7,23 +7,55 @@ library(dplyr)
 library(ggplot2)
 library(betareg) # alternative ML fitting
 
+#retrieve_data_new <- T
 retrieve_data_new <- F
+#res_bioclim <- 2.5
+res_bioclim <- 0.5 # res 2.5 is about 4.5 km^2 at the equator; 0.5 is < 1 km^2
 
+# get admixture data
+prefix <- "CA_AR_MX_harpur_sheppard_kohn_wallberg"
+# get ID's for PCA data (CAUTION - bam list order and admix results MUST MATCH!)
+IDs <- read.table(paste0("../bee_samples_listed/", prefix, ".list"), stringsAsFactors = F,
+                  header = F)
+colnames(IDs) <- c("Bee_ID")
+K = 3 # 3 admixing populations
+n = 250 # snps thinned to 1 every nth
+prefix1 = paste0("ordered_scaffolds_", prefix, "_prunedBy", n)
+name = paste0("K", K, "_", prefix1)
+file = paste0("../global_ancestry/results/NGSAdmix/", name, ".qopt")
+admix <- read.table(file)
+colnames(admix) <- paste0("anc", 1:K) #c("anc1", "anc2", "anc3)
+# get meta data for all individuals included in NGSadmix analysis (plus extras)
+ids.pops <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F, 
+                       header = T, sep = "\t") %>%
+  dplyr::select(Bee_ID, population)
+admix2 <- bind_cols(IDs, admix) %>%
+  left_join(ids.pops, by = "Bee_ID")
+# label ancestries
+anc_labels <- data.frame(ancestry = colnames(admix),
+                         ancestry_label = sapply(colnames(admix), 
+                                                 function(x) names(which.max(tapply(admix2[ , x], admix2$population, sum)))),
+                         stringsAsFactors = F)
+
+
+# get climate data - bioclim1.4 with climatic variable averages 1960-1990
+# Bioclimatic variables: https://www.worldclim.org/bioclim . 
+# monthly data also available here: http://worldclim.org/version2
 if (retrieve_data_new){
-  # Bioclimatic variables: https://www.worldclim.org/bioclim . 
-  # monthly data also available here: http://worldclim.org/version2
-  # get climate data - bioclim2
-  climate <- getData("worldclim", var = "bio", res = 2.5) # res 2.5 is about 4.5 km^2 at the equator
-  
-  # get bee lat/long
+  # first get bee lat/long
   meta.ind <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
-    left_join(bees, ., by = c("Bee_ID", "population"))
+    left_join(ids.pops, ., by = c("Bee_ID", "population"))
   meta.ind.included <- meta.ind[meta.ind$population %in% c("Avalon_2014", "Placerita_2014", "Riverside_2014",
                                                            "Stanislaus_2014", "Stebbins_2014", "MX10") |
                                   meta.ind$group %in% c("CA_2018", "AR_2018"), ]
   
-  bees.clim <- data.frame(extract(climate, SpatialPoints(data.frame(meta.ind.included[ , c("long", "lat")], stringsAsFactors = F)))/10, 
-                          stringsAsFactors = F) %>%
+  bees.clim <- do.call(rbind,
+          lapply(1:nrow(meta.ind.included), function(i) raster::extract(getData('worldclim', var = "bio", res = res_bioclim, 
+                                                                                lon = meta.ind.included$long[i], 
+                                                                                lat = meta.ind.included$lat[i]),
+                                                         SpatialPoints(meta.ind.included[i, c("long", "lat")]))/10)) %>%
+    data.frame(., stringsAsFactors = F) %>%
+    #data.table::setnames(., paste0("bio", 1:19)) %>%
     data.table::setnames(., c("AnnualMeanTemp", "MeanDiurnal", "Isothermality", "TempSeasonality",
                               "MaxTempWarmestMonth", "MinTempColdestMonth", "TempAnnualRange",
                               "MeanTempWettestQuarter", "MeanTempDriestQuarter",
@@ -39,43 +71,17 @@ if (retrieve_data_new){
   bees.clim$km_from_sao_paulo <- apply(bees.clim[ , c("long", "lat")], 1,
                                        function(x) distm(x, sao_paulo, 
                                                          fun = distGeo))/1000
-  distm(c(lon1, lat1), c(lon2, lat2), fun = distHaversine)
-  ggplot(bees.clim, aes(x = km_from_sao_paulo, y = lat)) +
-    geom_point()
   
   # write data
-  write.table(bees.clim, "results/BioclimVar_bees_2.5min.txt", sep = "\t",
+  write.table(bees.clim, 
+              paste0("results/BioclimVar_bees_", res_bioclim, "min.txt"), sep = "\t",
               quote = F, col.names = T, row.names = F)
 } else{ # read in data already processed
   # read in data
-  bees.clim <- read.table("results/BioclimVar_bees_2.5min.txt", sep = "\t",
+  bees.clim <- read.table(paste0("results/BioclimVar_bees_", res_bioclim, "min.txt"), 
+                          sep = "\t",
                           header = T, stringsAsFactors = F)
 }
-
-# add admixture data
-prefix <- "CA_AR_MX_harpur_sheppard_kohn_wallberg"
-# get ID's for PCA data (CAUTION - bam list order and admix results MUST MATCH!)
-IDs <- read.table(paste0("../bee_samples_listed/", prefix, ".list"), stringsAsFactors = F,
-                  header = F)
-colnames(IDs) <- c("Bee_ID")
-K = 3 # 3 admixing populations
-n = 250 # snps thinned to 1 every nth
-prefix1 = paste0("ordered_scaffolds_", prefix, "_prunedBy", n)
-name = paste0("K", K, "_", prefix1)
-file = paste0("../global_ancestry/results/NGSAdmix/", name, ".qopt")
-admix <- read.table(file)
-colnames(admix) <- paste0("anc", 1:K) #c("anc1", "anc2", "anc3)
-# get meta data for all individuals included in NGSadmix analysis (plus extras)
-ids.pops <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F, 
-                   header = T, sep = "\t") %>%
-  dplyr::select(Bee_ID, population)
-admix2 <- bind_cols(IDs, admix) %>%
-  left_join(ids.pops, by = "Bee_ID")
-# label ancestries
-anc_labels <- data.frame(ancestry = colnames(admix),
-                  ancestry_label = sapply(colnames(admix), 
-                                          function(x) names(which.max(tapply(admix2[ , x], admix2$population, sum)))),
-                  stringsAsFactors = F)
 
 # 'tidy' formatted data
 d <- bees.clim %>%
