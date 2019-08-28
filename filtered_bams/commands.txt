@@ -473,10 +473,21 @@ data/Cridland_2018$ nohup parallel --joblog ../../logs/download_Cridland_2018_NC
 --gzip --skip-technical -O fastq_files/ "{1}"' :::: SRR_to_download.list &> ../../logs/download_Cridland_2018_NCBI.out &
 [1] 6077 - BLOCKED BY FIREWALL
 [1] 14939 - RUNNING 6.10.19. SEVERAL ERRORS. I THINK IT RAN OUT OF DISK SPACE. I NEED TO RESTART/RETRY AND POSSIBLY CHECK ALL FILES FOR CHECKSUMS MD5
+filtered_bams$ cp ../logs/download_Cridland_2018_NCBI.log ../logs/download_Cridland_2018_NCBI_retry2.log
+filtered_bams$ cp ../logs/download_Cridland_2018_NCBI.out ../logs/download_Cridland_2018_NCBI_retry2.out
+data/Cridland_2018$ nohup parallel --resume-failed --joblog ../../logs/download_Cridland_2018_NCBI_retry2.log --delay 2.5 --noswap --jobs 8 'fastq-dump --split-files -clip --gzip --skip-technical -O fastq_files/ "{1}"' :::: SRR_to_download.list &> ../../logs/download_Cridland_2018_NCBI_retry2.out &
+[2] 5553 - RUNNING 8.27.19
+
 # map these samples:
-filtered_bams$ nohup parallel --noswap --joblog ../logs/map_reads_Cridland_2018_HAv3.1.log --jobs 6 ./map_reads_single.sh {1} Cridland_2018 :::: ../data/Cridland_2018/SRR_to_download.list &> logs/map_reads_Cridland_2018_HAv3.1.out &
 NOT RUN YET. I SHOULD MAKE SYMLINKS FIRST TO ID NOT SRR FOR FILE NAMING.
 ALSO NEED TO TEST WITH SMALL FILE UPDATES TO MAP_READS_SINGLE.sh
+# TEST:
+data/Cridland_2018$ head fastq_files/SRR5580778_1.fastq.gz > fastq_files/TEST_SRR_1.fastq.gz
+filtered_bams$ parallel 'ln -s ~/Documents/gitErin/bees/data/{3}/fastq_files/{1}_1.fastq.gz ../data/{3}/fastq_files/{2}_1.fastq.gz; ./map_reads_single.sh {2} {3}; ./sort_bams.sh {2} results/intermediate_bams; rm results/intermediate_bams/{2}.bam; ./dedup_baq_bams_mac.sh {2} results/intermediate_bams; rm results/intermediate_bams/{2}.sort.bam' ::: TEST_SRR ::: TEST_ID ::: Cridland_2018
+# note: needed full absolute path for symbolic link to work (!)
+# RUN ALL:
+filtered_bams$ parallel --noswap --joblog logs/map_reads_Cridland_2018_HAv3.1.log --jobs 8 'ln -s ~/Documents/gitErin/bees/data/{3}/fastq_files/{1}_1.fastq.gz ../data/{3}/fastq_files/{2}_1.fastq.gz; ./map_reads_single.sh {2} {3}; ./sort_bams.sh {2} results/intermediate_bams; rm results/intermediate_bams/{2}.bam; ./dedup_baq_bams_mac.sh {2} results/intermediate_bams; rm results/intermediate_bams/{2}.sort.bam' :::: ../data/Cridland_2018/SRR_to_download.list ::::+ ../data/Cridland_2018/IDs_to_download.list ::: Cridland_2018 &> logs/map_reads_Cridland_2018_HAv3.1.out &
+WAITING 2 RUN (TRANSFER LANE 1 FILES FIRST & CHECK MD5 SUMS FOR CRIDLAND FASTQ FILES)
 
 # when lanes2_5 finish, also map lane 1. map reference A/C/M bees. be sure to check other mapping scripts to use new genome HAv3.1! Download Julie's bee sequences from NCBI and map.
 
@@ -492,7 +503,11 @@ TEST:
 filtered_bams$ parallel './map_reads.sh {1} {2} ../data/novo_seq/C202SC18101772/raw_data/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams_mac.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' ::: TEST_AR0302 ::: lane_blah
 RUN ALL:
 filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_lane_1_HAv3.1_take2_8.26.19.log --jobs 8 './map_reads.sh {1} {2} ../data/novo_seq/C202SC18101772/raw_data/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams_mac.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../data/novo_seq/C202SC18101772/samples.list ::: L1 &> logs/map_reads_lane_1_HAv3.1_take2_8.26.19.out &
-[1] 84522 - RUNNING 8.26.19
+[1] 84522 - COMPLETED 8.26.19 - 8.27.19
+
+# putting on iplant (first login with iinit):
+filtered_bams$ mv results bams_lane_1_HAv3.1
+filtered_bams$ iput -K -P -b -r -T -X logs/checkpoint-file_iput_bams_lane_1_HAv3.1.txt bams_lane1_HAv3.1/
 
 # transferring files over to Nancy's Mac for much faster alignment:
 bees/data/novo_seq$ irsync -r --retries 3 -v -N 8 i:/iplant/home/ecalfee/lanes2_5 . 
