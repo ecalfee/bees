@@ -462,7 +462,9 @@ In addition, redo AR0813 and AR0506 (no logged error, but zero file size)
 # running batch1:
 filtered_bams$ nohup parallel --resume --noswap --delay 1 --joblog logs/map_reads_lanes2_5_HAv3.1.batch1.log --jobs 8 './map_reads.sh {1} {2} ../data/novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams_mac.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.batch1.list ::::+ ../bee_samples_listed/lanes2_5_libraries.batch1.list &> logs/map_reads_lanes2_5_HAv3.1.batch1.out &
 [1] 73467 - RUNNING 8.5.19 on Nancy's Mac. OOPS NOT SAVING ANYTHING BECAUSE OF UNBOUND $PICARD VARIABLE. CANCELLED, COMMENTED OUT $PICARD, AND RERUNNING:
-[1] 81949 - RUNNING 8.6.19 5:30pm
+[1] 81949 - RUNNING 8.6.19 5:30pm. STILL PROBLEMS? NO OUTPUT. I WILL RESTART WITH BATCH 1 ON BARBARA:
+filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_lanes2_5_HAv3.1_barbara.batch1.log --jobs 2 './map_reads.sh {1} {2} ../data/novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.batch1.list ::::+ ../bee_samples_listed/lanes2_5_libraries.batch1.list &> logs/map_reads_lanes2_5_HAv3.1_barbara.batch1.out &
+[1] 7199 - RUNNING 8.26.19
 
 # TO DO:
 # Download Julie's bees from NCBI:
