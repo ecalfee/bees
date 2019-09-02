@@ -503,7 +503,18 @@ filtered_bams$ parallel 'ln -s ~/Documents/gitErin/bees/data/{3}/fastq_files/{1}
 # Note: this is modified from the test to download the fastq first, then map.
 To save space, it deletes the fastq after mapping (BUT saves an md5 sum first! to verify data integrity against expected md5sum):
 filtered_bams$ parallel --noswap --joblog logs/download_and_map_reads_Cridland_2018_HAv3.1.log --delay 3 --jobs 8 './download_fastq_ena.sh {1} ../data/{3}/fastq_files; md5 ../data/{3}/fastq_files/{1}.fastq.gz > ../data/{3}/fastq_files/{1}.observed.md5; ln -s ~/Documents/gitErin/bees/data/{3}/fastq_files/{1}.fastq.gz ../data/{3}/fastq_files/{2}_1.fastq.gz; ./map_reads_single.sh {2} {3}; rm ../data/{3}/fastq_files/{1}.fastq.gz; ./sort_bams.sh {2} results/intermediate_bams; rm results/intermediate_bams/{2}.bam; ./dedup_baq_bams_mac.sh {2} results/intermediate_bams; rm results/intermediate_bams/{2}.sort.bam' :::: ../data/Cridland_2018/SRR_to_download.list ::::+ ../data/Cridland_2018/IDs_to_download.list ::: Cridland_2018 &> logs/download_and_map_reads_Cridland_2018_HAv3.1.out &
-[1] 15946 - RUNNING 9.1.19 
+[1] 15946 - RUNNING 9.1.19. OOPS many download errors probably because 8 is too many files at once. I'll download on two threads and then once it's 8 files in, I will start mapping.
+# I delete all partial files for now.
+# DOWNLOAD ONLY:
+filtered_bams$ parallel --noswap --joblog logs/download_Cridland_2018_HAv3.1_1thread.log --jobs 1 './download_fastq_ena.sh {1} ../data/{3}/fastq_files' :::: ../data/Cridland_2018/SRR_to_download.list ::::+ ../data/Cridland_2018/IDs_to_download.list ::: Cridland_2018 &> logs/download_Cridland_2018_HAv3.1_1thread.out &
+[1] 18907 - RUNNING 9.1.19 5:35pm. KILL. DELETE & RERUN FROM BEGINNING BECAUSE I LOST SOME
+[1] 21812 - RUNNINg 9.1.19 7:30pm
+
+# MAP AND DELETE FASTQ:
+filtered_bams$ nohup parallel --noswap --joblog logs/map_reads_Cridland_2018_HAv3.1_fromENA.log --delay 3 --jobs 6 'md5 ../data/{3}/fastq_files/{1}.fastq.gz > ../data/{3}/fastq_files/{1}.observed.md5; ln -s ~/Documents/gitErin/bees/data/{3}/fastq_files/{1}.fastq.gz ../data/{3}/fastq_files/{2}_1.fastq.gz; ./map_reads_single.sh {2} {3}; rm ../data/{3}/fastq_files/{1}.fastq.gz; ./sort_bams.sh {2} results/intermediate_bams; rm results/intermediate_bams/{2}.bam; ./dedup_baq_bams_mac.sh {2} results/intermediate_bams; rm results/intermediate_bams/{2}.sort.bam' :::: ../data/Cridland_2018/SRR_to_download.list ::::+ ../data/Cridland_2018/IDs_to_download.list ::: Cridland_2018 &> logs/map_reads_Cridland_2018_HAv3.1_fromENA.out &
+[2] 20994 - RUNNING 9.1.19 7pm. NO CANCELLED. AND IT DELETED 6 FILES (grr). Restart w/ sleep 3600;
+WAITING FOR PROCESS ID AFTER 'SLEEP'
+
 
 # when lanes2_5 finish, also map lane 1. map reference A/C/M bees. be sure to check other mapping scripts to use new genome HAv3.1! Download Julie's bee sequences from NCBI and map.
 

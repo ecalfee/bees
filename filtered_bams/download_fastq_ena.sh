@@ -4,7 +4,7 @@
 # right now only works with single-end reads (1 fastq)
 
 # to run:
-#filtered_bams$ ./download_fastq_ena.sh SRR5580833 ../data/Cridland_2018/fastq_files
+#filtered_bams$ ./download_fastq_ena.sh SRR5580833 ../data/Cridland_2018/fastq_files
 
 # general bash script settings to make sure if any errors in the pipeline fail
 # the it's a 'fail' and it passes all errors to exit and allows no unset variables
