@@ -509,14 +509,28 @@ filtered_bams$ parallel --noswap --joblog logs/download_and_map_reads_Cridland_2
 filtered_bams$ parallel --noswap --joblog logs/download_Cridland_2018_HAv3.1_1thread.log --jobs 1 './download_fastq_ena.sh {1} ../data/{3}/fastq_files' :::: ../data/Cridland_2018/SRR_to_download.list ::::+ ../data/Cridland_2018/IDs_to_download.list ::: Cridland_2018 &> logs/download_Cridland_2018_HAv3.1_1thread.out &
 [1] 18907 - RUNNING 9.1.19 5:35pm. KILL. DELETE & RERUN FROM BEGINNING BECAUSE I LOST SOME
 [1] 21812 - RUNNINg 9.1.19 7:30pm
+# ALL FILES WERE DOWNLOADED COMPLETELY - successful check:
+# first I extract the md5 column from each type, then I compare:
+Cridland_2018/fastq_files$ for i in $(cat ../SRR_to_download.list); do cut -f4 -d" " $i.observed.md5 > $i.observed2.md5; done
+Cridland_2018/fastq_files$ for i in $(cat ../SRR_to_download.list); do cut -f1 -d" " $i.true.md5 > $i.true2.md5; done
+Cridland_2018/fastq_files$ for i in $(cat ../SRR_to_download.list); do diff $i.true2.md5 $i.observed2.md5; done
+# no output to diff means no differences -- great!
 
 # MAP AND DELETE FASTQ:
 filtered_bams$ nohup parallel --noswap --joblog logs/map_reads_Cridland_2018_HAv3.1_fromENA.log --delay 3 --jobs 6 'md5 ../data/{3}/fastq_files/{1}.fastq.gz > ../data/{3}/fastq_files/{1}.observed.md5; ln -s ~/Documents/gitErin/bees/data/{3}/fastq_files/{1}.fastq.gz ../data/{3}/fastq_files/{2}_1.fastq.gz; ./map_reads_single.sh {2} {3}; rm ../data/{3}/fastq_files/{1}.fastq.gz; ./sort_bams.sh {2} results/intermediate_bams; rm results/intermediate_bams/{2}.bam; ./dedup_baq_bams_mac.sh {2} results/intermediate_bams; rm results/intermediate_bams/{2}.sort.bam' :::: ../data/Cridland_2018/SRR_to_download.list ::::+ ../data/Cridland_2018/IDs_to_download.list ::: Cridland_2018 &> logs/map_reads_Cridland_2018_HAv3.1_fromENA.out &
 [2] 20994 - RUNNING 9.1.19 7pm. NO CANCELLED. AND IT DELETED 6 FILES (grr). Restart w/ sleep 3600;
-WAITING FOR PROCESS ID AFTER 'SLEEP'
+WAITING FOR PROCESS ID AFTER 'SLEEP'. COMPLETED by 9.4.19
+# all bams look fine! 
+bams_Cridland_2018_HAv3.1$ for i in $(ls *.sort.dedup.baq.bam); do samtools view $i | head -n 1; done
 
+# moving over completed Cridland 2018 bams 9.4.19 to iplant:
+mv results_Cridland_2018_bams_HAv3.1/ bams_Cridland_2018_HAv3.1
+iput -K -P -b -r -T -X logs/checkpoint-file_iput_bams_Cridland_2018_HAv3.1.txt bams_Cridland_2018_HAv3.1/
+RUNNING interactively 9.4.19
+# checking with checksums file is complete:
+filtered_bams$ nohup irsync -r -v -K bams_Cridland_2018_HAv3.1 i:bams_Cridland_2018_HAv3.1 &> logs/confirm_irsync_bams_Cridland_2018_HAv3.1_withKoption.txt &
+[1] 24992 - RUNNING 9.5.19
 
-# when lanes2_5 finish, also map lane 1. map reference A/C/M bees. be sure to check other mapping scripts to use new genome HAv3.1! Download Julie's bee sequences from NCBI and map.
 
 # Mapping lane 1
 filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_lane_1_HAv3.1.log --jobs 6 './map_reads.sh {1} {2} ../data/novo_seq/C202SC18101772/raw_data/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../data/novo_seq/C202SC18101772/samples.list ::: L1 &> logs/map_reads_lane_1_HAv3.1.out &
@@ -540,6 +554,27 @@ filtered_bams$ nohup irsync -r -v bams_lane1_HAv3.1 i:bams_lane1_HAv3.1 &> logs/
 [1] 31017 - DONE 8.28.19. Double check with explicit checksums option:
 filtered_bams ecalfee$ nohup irsync -r -v -K bams_lane1_HAv3.1 i:bams_lane1_HAv3.1 &> logs/confirm_irsync_bams_lane_1_HAv3.1_withKoption.txt &
 [1] 31290 - COMPLETED 8.28.19. Then I deleted the local copy of these files off of Nancy's Mac.
+
+
+# REMAPPING REF A/C/M bees to HAv3.1 genome:
+# first download Kenya bees and Harpur to Nancy's mac:
+filtered_bams$ parallel --noswap --joblog logs/download_harpur_w_Cerana_kenya_for_HAv3.1.log --jobs 1 './download_fastq_ena.sh {1} ../data/{3}/fastq_files' :::: ../bee_samples_listed/harpur_with_Cerana_kenya_IDs.list ::::+ ../bee_samples_listed/harpur_with_Cerana_kenya_IDs.list ::::+ ../bee_samples_listed/harpur_with_Cerana_kenya_libraries.list &> logs/download_harpur_w_Cerana_kenya_for_HAv3.1.out &
+[1] 2595 - RUNNING 9.4.19. SOME POTENTIAL ERRORS. I'LL CONFIRM WHICH NEED NEW DOWNLOAD WITH md5:
+
+# get md5 sums of downloaded files
+filtered_bams$ nohup parallel --noswap --joblog logs/calc_md5_Harpur_Kenya_HAv3.1_fromENA.log --delay 3 --jobs 8 'md5 ../data/{3}/fastq_files/{1}.fastq.gz > ../data/{3}/fastq_files/{1}.observed.md5; cut -f4 -d" " ../data/{3}/fastq_files/{1}.observed.md5 > ../data/{3}/fastq_files/{1}.observed2.md5; cut -f1 -d" " ../data/{3}/fastq_files/{1}.true.md5 > ../data/{3}/fastq_files/{1}.true2.md5' :::: ../bee_samples_listed/harpur_with_Cerana_kenya_IDs.list ::::+ ../bee_samples_listed/harpur_with_Cerana_kenya_IDs.list ::::+ ../bee_samples_listed/harpur_with_Cerana_kenya_libraries.list &> logs/calc_md5_Harpur_Kenya_HAv3.1_fromENA.out &
+[1] 25694 - RUNNING 9.5.19
+
+# restart 4 jobs that failed:
+cp logs/download_harpur_w_Cerana_kenya_for_HAv3.1.log logs/download_harpur_w_Cerana_kenya_for_HAv3.1_retry.log 
+filtered_bams$ parallel --noswap --resume-failed --joblog logs/download_harpur_w_Cerana_kenya_for_HAv3.1_retry.log --jobs 1 './download_fastq_ena.sh {1} ../data/{3}/fastq_files' :::: ../bee_samples_listed/harpur_with_Cerana_kenya_IDs.list ::::+ ../bee_samples_listed/harpur_with_Cerana_kenya_IDs.list ::::+ ../bee_samples_listed/harpur_with_Cerana_kenya_libraries.list &> logs/download_harpur_w_Cerana_kenya_for_HAv3.1_retry.out &
+[1] 62250 - RUNNING 9.6.19
+
+# mapping reads to HAv3.1
+filtered_bams$ nohup parallel --noswap --joblog logs/map_reads_Harpur_Kenya_HAv3.1_fromENA.log --delay 3 --jobs 6 'md5 ../data/{3}/fastq_files/{1}.fastq.gz > ../data/{3}/fastq_files/{1}.observed.md5; cut -f4 -d" " ../data/{3}/fastq_files/{1}.observed.md5 > ../data/{3}/fastq_files/{1}.observed2.md5; cut -f1 -d" " ../data/{3}/fastq_files/{1}.true.md5 > ../data/{3}/fastq_files/{1}.true2.md5; ln -s ~/Documents/gitErin/bees/data/{3}/fastq_files/{1}.fastq.gz ../data/{3}/fastq_files/{2}_1.fastq.gz; ./map_reads_single.sh {2} {3}; rm ../data/{3}/fastq_files/{1}.fastq.gz; ./sort_bams.sh {2} results/intermediate_bams; rm results/intermediate_bams/{2}.bam; ./dedup_baq_bams_mac.sh {2} results/intermediate_bams; rm results/intermediate_bams/{2}.sort.bam' :::: ../bee_samples_listed/harpur_with_Cerana_kenya_IDs.list ::::+ ../bee_samples_listed/harpur_with_Cerana_kenya_IDs.list ::::+ ../bee_samples_listed/harpur_with_Cerana_kenya_libraries.list &> logs/map_reads_Harpur_Kenya_HAv3.1_fromENA.out &
+[2] 62321 - RUNNINg 6.9.19 (started at the same time as the retry for downloading above because only 4 files in the middle hadn't finished downloading.
+
+
 
 # transferring files over to Nancy's Mac for much faster alignment:
 bees/data/novo_seq$ irsync -r --retries 3 -v -N 8 i:/iplant/home/ecalfee/lanes2_5 . 
