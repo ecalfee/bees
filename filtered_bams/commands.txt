@@ -464,9 +464,12 @@ filtered_bams$ nohup parallel --resume --noswap --delay 1 --joblog logs/map_read
 [1] 73467 - RUNNING 8.5.19 on Nancy's Mac. OOPS NOT SAVING ANYTHING BECAUSE OF UNBOUND $PICARD VARIABLE. CANCELLED, COMMENTED OUT $PICARD, AND RERUNNING:
 [1] 81949 - RUNNING 8.6.19 5:30pm. STILL PROBLEMS? NO OUTPUT. I WILL RESTART WITH BATCH 1 ON BARBARA:
 filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_lanes2_5_HAv3.1_barbara.batch1.log --jobs 2 './map_reads.sh {1} {2} ../data/novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.batch1.list ::::+ ../bee_samples_listed/lanes2_5_libraries.batch1.list &> logs/map_reads_lanes2_5_HAv3.1_barbara.batch1.out &
-[1] 7199 - RUNNING 8.26.19
+[1] 7199 - RUNNING 8.26.19. COMPLETED.
+filtered_bams$ nohup parallel --noswap --delay 1 --joblog logs/map_reads_lanes2_5_HAv3.1_barbara.batch2.log --jobs 3 './map_reads.sh {1} {2} ../data/novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.batch2.list ::::+ ../bee_samples_listed/lanes2_5_libraries.batch2.list &> logs/map_reads_lanes2_5_HAv3.1_barbara.batch2.out &
+[1] 9348 - RUNNING 8.31.19
 
 # TO DO:
+# map batch 3 too for lanes 2-5 (last batch). Save all bam files for backup to cloud.
 # Download Julie's bees from NCBI:
 # First get SSR ID's for NCBI download from all bees in Study. year >1994 & not Humboldt. Actually I should just get Humboldt too maybe if I have space/time.
 Done
