@@ -464,6 +464,12 @@ filtered_bams$ nohup parallel --resume --noswap --delay 1 --joblog logs/map_read
 [1] 73467 - RUNNING 8.5.19 on Nancy's Mac. OOPS NOT SAVING ANYTHING BECAUSE OF UNBOUND $PICARD VARIABLE. CANCELLED, COMMENTED OUT $PICARD, AND RERUNNING:
 [1] 81949 - RUNNING 8.6.19 5:30pm
 
+# mapping batch 3 of reads on barbara for lanes2_5:
+filtered_bams$ nohup parallel --resume --noswap --delay 1 --joblog logs/map_reads_lanes2_5_HAv3.1.batch3.log --jobs 3 './map_reads.sh {1} {2} ../data/novo_seq/lanes2_5/{1}/{1}_; ./sort_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.bam; ./dedup_baq_bams.sh {1} results/intermediate_bams; rm results/intermediate_bams/{1}.sort.bam' :::: ../bee_samples_listed/lanes2_5_IDs.batch3.list ::::+ ../bee_samples_listed/lanes2_5_libraries.batch3.list &> logs/map_reads_lanes2_5_HAv3.1.batch3.out &
+[1] 14727 - RUNNING 9.4.19
+NOTE: need to check on batches 0-3. Batch 0 are the files that ran no problem the first time through, batch 1 I recorded above, I think batch 2 is done but I forgot to log here so I have to check.
+
+
 # TO DO:
 # Download Julie's bees from NCBI:
 # First get SSR ID's for NCBI download from all bees in Study. year >1994 & not Humboldt. Actually I should just get Humboldt too maybe if I have space/time.
