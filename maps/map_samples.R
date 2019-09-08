@@ -708,7 +708,7 @@ ggmap(get_map(location = 'El Cajon, California',
 # load population ancestry frequencies:
 pops.seq <- read.table("../bee_samples_listed/byPop/pops_included.list", stringsAsFactors = F)$V1
 bees.seq <- do.call(rbind, 
-                lapply(pops, function(p) data.frame(Bee_ID = read.table(paste0("../bee_samples_listed/byPop/", p, ".list"),
+                lapply(pops.seq, function(p) data.frame(Bee_ID = read.table(paste0("../bee_samples_listed/byPop/", p, ".list"),
                                                                         stringsAsFactors = F)$V1, population = p, stringsAsFactors = F)))
 meta.seq <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
   left_join(bees.seq, ., by = c("Bee_ID", "population"))
