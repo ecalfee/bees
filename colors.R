@@ -19,3 +19,10 @@ dark_brew <- brewer.pal(n = 8, "Dark2")
 #col_ACM <- dark_brew[c(2,1,3)]
 #col_ACM <- dark_brew[c(4,1,3)]
 #col_NA_SA_both <- dark_brew[c(5,1)]
+
+#https://venngage.com/blog/color-blind-friendly-palette/
+# retro color palette:
+retro <- c("#EE442F", "601A4A", "#63ACBE")
+#col_ACM <- retro
+
+# I can use viridis and magma (or plasma) for density plots and outliers, respectively.
