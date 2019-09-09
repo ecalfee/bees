@@ -95,7 +95,7 @@ freqs <- 1 - read.table(paste0("results/allele_freq_all/pops_included_plus_ACM_e
 # these are the SNPs from Julie's set; I'll get a fresh set of SNP calls on HAv3.1 and redo this plot
 table(apply(freqs, 1, max, na.rm = T) >= .05)
 table(apply(freqs, 1, max, na.rm = T) >= .03)
-
+hets <- 2*freqs*(1-freqs)
 het_mean <- apply(hets, 2, function(x) mean(x, na.rm = T))
 table(complete.cases(hets)) # mostly no NAs
 # how many alleles sampled at a site?
@@ -148,6 +148,7 @@ d_het %>%
 table(is.na(freqs_AA[, "AR01"]))
 
 # heterozygosity corrected for small sample size:
+# by default also drop any snps with fewer than 2 individuals with data (<= 2 alleles observed, i.e. 1 ind.)
 het_small_sample_correction <- function(p, n, filter_under_2 = T){
   ifelse(filter_under_2 & n <= 2, NA, 2*(p - p^2*(n/(n-1)) + p*(1/(n-1))))}
 hets_small_sample <- do.call(cbind, lapply(1:ncol(freqs), 
@@ -199,22 +200,39 @@ colnames(admix) <- paste0("anc", 1:K) #c("anc1", "anc2", "anc3)
 ids.pops <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F, 
                        header = T, sep = "\t") %>%
   dplyr::select(Bee_ID, population)
+admix1 <- bind_cols(IDs, admix) %>%
+  left_join(ids.pops, by = "Bee_ID")
 # label ancestries
 anc_labels <- data.frame(ancestry = colnames(admix),
                          ancestry_label = sapply(colnames(admix), 
-                                                 function(x) names(which.max(tapply(admix2[ , x], admix2$population, sum)))),
+                                                 function(x) names(which.max(tapply(admix1[ , x], admix1$population, sum)))),
                          stringsAsFactors = F)
-admix2 <- bind_cols(IDs, admix) %>%
-  left_join(ids.pops, by = "Bee_ID") %>%
-  data.table::setnames(c("Bee_ID", anc_labels$ancestry_label, "population"))
+admix2 <- admix1 %>%
+  data.table::setnames(c("Bee_ID", anc_labels$ancestry_label, "population")) %>%
+  filter(population %in% pops) # only included populations
 admix.pops <- group_by(admix2, population) %>%
   summarise(A = mean(A), M = mean(M), C = mean(C), n = n())
-# what should the allele freqs be based on the reference pop allele freqs?
-# I need to fix code below:
-freqs_predicted <- lapply(pops, function(p) t(sapply(1:nrow(freqs[1:10,]), function(i)
-  freqs[i, "A"]*admix.pops[admix.pops$population==p, "A"] +
-    freqs[i, "M"]*admix.pops[admix.pops$population==p, "M"] +
-    freqs[i, "C"]*admix.pops[admix.pops$population==p, "C"])))
+# why should the allele freqs be based on the reference pop allele freqs?
+# I need to fix code below, and use AA, MM, CC freqs:
+as.matrix(freqs[1:3, c("A", "M", "C")]) %*% t(as.matrix(admix.pops[admix.pops$population == "AR01", 
+                                                                 c("A", "M", "C")]))
+freqs_predicted <- do.call(cbind, 
+                           lapply(pops, function(p) 
+                             as.matrix(freqs[ , c("A", "M", "C")]) %*% 
+                               t(as.matrix(admix.pops[admix.pops$population == p, 
+                                                      c("A", "M", "C")])))) 
+colnames(freqs_predicted) <- pops
+# what are expected pi?
+hets_predicted <- 2*freqs_predicted*(1-freqs_predicted)
+het_mean_predicted <- apply(hets_predicted, 2, 
+                            function(x) mean(x, na.rm = T))
+hets_small_sample_predicted <- do.call(cbind, lapply(1:ncol(freqs_predicted), 
+                                           function(i) het_small_sample_correction(p = freqs_predicted[, i],
+                                                                                   n = ns[, i])))
+colnames(hets_small_sample_predicted) <- pops
+
+het_small_sample_mean_predicted <- apply(hets_small_sample_predicted, 2, function(x) mean(x, na.rm = T))
+
 
 # then I need an allele freq. estimate for each ancestry .. may not match reference panels freqs.
 
@@ -222,7 +240,9 @@ freqs_predicted <- lapply(pops, function(p) t(sapply(1:nrow(freqs[1:10,]), funct
 
 d_het_small_sample %>%
   filter(!ref_pop) %>%
-  tidyr::gather(., "ancestry", "pi", c(ancestries, "combined")) %>%
+  left_join(., data.frame(population = pops, 
+                       predicted = het_small_sample_mean_predicted), by = "population") %>%
+  tidyr::gather(., "ancestry", "pi", c(ancestries, "combined", "predicted")) %>%
   ggplot(., aes(x = abs(lat), y = pi, color = ancestry, shape = factor(year))) +
   geom_point() +
   xlab("Degrees latitude from the equator") +
