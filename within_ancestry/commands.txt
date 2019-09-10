@@ -173,6 +173,7 @@ SO I MOVED THE ORIGINAL FOLDED OUTPUTS TO HERE: results/folded_SFS_incorrect .
 And I am re-running all sfs and 2D sfs, pi, and fst estimates:
 Also, I should be able to calc dxy myself from the unfolded 2d sfs (arbitrarily polarized by ref genome).
 # BACKGROUND FOR OUTLIERS:
+
 # Pi:
 # within-ancestry pi:
 # Fst:
