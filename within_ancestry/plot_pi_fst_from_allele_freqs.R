@@ -89,6 +89,9 @@ ggsave("../../bee_manuscript/figures/pi_by_latitude_from_folded_SFS.png", device
 
 # read in 1/10th of the allele freq data:
 n_snp = 10
+genome_size <- 236*10^6 # genome size
+# I sampled fraction n_snp of all SNPs, so the total fraction of the genome that are SNPs is:
+frac_snps <- n_snp*nrow(freqs)/genome_size 
 freqs <- 1 - read.table(paste0("results/allele_freq_all/pops_included_plus_ACM_every", n_snp, "th_SNP.freqs.txt"),
                     stringsAsFactors = F, header = T)
 # Q for later -- if these are all sites with SNPs (MAF > .05), why do about one third not have MAF > .05 in any of the included pops?
@@ -96,7 +99,7 @@ freqs <- 1 - read.table(paste0("results/allele_freq_all/pops_included_plus_ACM_e
 table(apply(freqs, 1, max, na.rm = T) >= .05)
 table(apply(freqs, 1, max, na.rm = T) >= .03)
 hets <- 2*freqs*(1-freqs)
-het_mean <- apply(hets, 2, function(x) mean(x, na.rm = T))
+het_mean <- apply(hets, 2, function(x) mean(x, na.rm = T))*frac_snps
 table(complete.cases(hets)) # mostly no NAs
 # how many alleles sampled at a site?
 ns <- read.table(paste0("results/allele_freq_all/pops_included_plus_ACM_every", n_snp, "th_SNP.nInd"),
@@ -123,7 +126,7 @@ abline(v = het_mean["A"], col = "blue")
 ns_by_ancestry <- lapply(ancestries, function(a) 
   cbind(ns[ , ACM], read.table(paste0("results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/", 
                                       a, "/allele_freq/pops_included_every", n_snp, "th_SNP.nInd"),
-                                      stringsAsFactors = F, header = T)*2))
+                                      stringsAsFactors = F, header = T)*2)) # x 2 because diploid
 
 
 d_het <- data.frame(population = ACM_pops,
@@ -156,7 +159,7 @@ hets_small_sample <- do.call(cbind, lapply(1:ncol(freqs),
                                                                                            n = ns[, i])))
 colnames(hets_small_sample) <- ACM_pops
 
-het_small_sample_mean <- apply(hets_small_sample, 2, function(x) mean(x, na.rm = T))
+het_small_sample_mean <- apply(hets_small_sample, 2, function(x) mean(x, na.rm = T))*frac_snps
 
 hets_small_sample_by_ancestry <- lapply(1:3, function(a) do.call(cbind, 
                                                                  lapply(1:ncol(freqs_by_ancestry[[a]]), 
@@ -169,7 +172,7 @@ hets_small_sample_by_ancestry2 <- lapply(1:3, function(a) do.call(cbind,
                                                                                                                 filter_under_2 = F)))) 
 
 het_small_sample_mean_by_ancestry <- lapply(hets_small_sample_by_ancestry, function(h) 
-  apply(h, 2, function(x) mean(x, na.rm = T)))
+  apply(h, 2, function(x) mean(x, na.rm = T)*frac_snps))
 d_het_small_sample <- data.frame(population = ACM_pops,
                                  AA = het_small_sample_mean_by_ancestry[[1]],
                                  CC = het_small_sample_mean_by_ancestry[[2]],
@@ -214,52 +217,131 @@ admix.pops <- group_by(admix2, population) %>%
   summarise(A = mean(A), M = mean(M), C = mean(C), n = n())
 # why should the allele freqs be based on the reference pop allele freqs?
 # I need to fix code below, and use AA, MM, CC freqs:
-as.matrix(freqs[1:3, c("A", "M", "C")]) %*% t(as.matrix(admix.pops[admix.pops$population == "AR01", 
-                                                                 c("A", "M", "C")]))
-freqs_predicted <- do.call(cbind, 
-                           lapply(pops, function(p) 
-                             as.matrix(freqs[ , c("A", "M", "C")]) %*% 
+# I need an allele freq. estimate for each ancestry within admixture tracts .. may not match reference panels freqs:
+freqs_anc <- do.call(cbind, lapply(1:3, function(i) # combine across N and S America -- I may want to separate that out
+                     apply(freqs_by_ancestry[[i]]*ns_by_ancestry[[i]], 
+                           1, 
+                           function(r) sum(r, na.rm = T))/apply(ns_by_ancestry[[i]], 1, 
+                                                                function(r) sum(r, na.rm = T))))
+freqs_anc <- data.frame(freqs_anc) %>%
+  data.table::setnames(ACM)
+# just Argentina
+freqs_anc_SA <- data.frame(do.call(cbind, lapply(1:3, function(i) # just SA
+  apply((freqs_by_ancestry[[i]]*ns_by_ancestry[[i]])[ , meta.pop$population[meta.pop$zone == "S. America"]], 
+        1, 
+        function(r) sum(r, na.rm = T))/apply(ns_by_ancestry[[i]][ , meta.pop$population[meta.pop$zone == "S. America"]], 1, 
+                                             function(r) sum(r, na.rm = T))))) %>%
+  data.table::setnames(ACM)
+# just CA
+freqs_anc_NA <- data.frame(do.call(cbind, lapply(1:3, function(i) # just SA
+  apply((freqs_by_ancestry[[i]]*ns_by_ancestry[[i]])[ , meta.pop$population[meta.pop$zone == "N. America"]], 
+        1, 
+        function(r) sum(r, na.rm = T))/apply(ns_by_ancestry[[i]][ , meta.pop$population[meta.pop$zone == "N. America"]], 1, 
+                                             function(r) sum(r, na.rm = T))))) %>%
+  data.table::setnames(ACM)
+
+# what is mean Fst A in admixed zone vs. ref. panel A?
+freqs_tot = (freqs_anc + freqs[ , ACM])/2 # 'total' allele freq (avg.)
+fst_A <- 1 - (mean(2*freqs$A*(1 - freqs$A)) + mean(2*freqs_anc$A*(1 - freqs_anc$A)))/2 / mean(2*freqs_tot$A*(1 - freqs_tot$A))
+# hmm.. the frequency of A within Africanized honeybees has higher heterozygosity than A from the reference panel
+het_anc_mean <- apply(freqs_anc, 2, function(p) mean(2*p*(1-p))) # too high
+het_anc_mean_SA <- apply(freqs_anc_SA[complete.cases(freqs_anc_SA), ], 2, function(p) mean(2*p*(1-p))) # too high
+het_anc_mean_NA <- apply(freqs_anc_NA[complete.cases(freqs_anc_NA), ], 2, function(p) mean(2*p*(1-p))) # too high
+het_ACM_mean <- apply(freqs[ , ACM], 2, function(p) mean(2*p*(1-p)))
+
+# predict frequencies from within-ancestry allele frequencies for N and S America separately
+freqs_predicted_SA <- do.call(cbind, 
+                           lapply(meta.pop$population[meta.pop$zone == "S. America"], function(p) 
+                             as.matrix(freqs_anc_SA[ , c("A", "M", "C")]) %*% 
                                t(as.matrix(admix.pops[admix.pops$population == p, 
                                                       c("A", "M", "C")])))) 
-colnames(freqs_predicted) <- pops
+colnames(freqs_predicted_SA) <- meta.pop$population[meta.pop$zone == "S. America"]
+freqs_predicted_NA <- do.call(cbind, 
+                              lapply(meta.pop$population[meta.pop$zone == "N. America"], function(p) 
+                                as.matrix(freqs_anc_NA[ , c("A", "M", "C")]) %*% 
+                                  t(as.matrix(admix.pops[admix.pops$population == p, 
+                                                         c("A", "M", "C")])))) 
+colnames(freqs_predicted_NA) <- meta.pop$population[meta.pop$zone == "N. America"]
+freqs_predicted <- cbind(freqs_predicted_SA, freqs_predicted_NA) %>%
+  data.frame() %>%
+  dplyr::select(., pops) # put back in order of pops
+
 # what are expected pi?
 hets_predicted <- 2*freqs_predicted*(1-freqs_predicted)
 het_mean_predicted <- apply(hets_predicted, 2, 
-                            function(x) mean(x, na.rm = T))
+                            function(x) mean(x, na.rm = T))*frac_snps
 hets_small_sample_predicted <- do.call(cbind, lapply(1:ncol(freqs_predicted), 
                                            function(i) het_small_sample_correction(p = freqs_predicted[, i],
                                                                                    n = ns[, i])))
 colnames(hets_small_sample_predicted) <- pops
 
-het_small_sample_mean_predicted <- apply(hets_small_sample_predicted, 2, function(x) mean(x, na.rm = T))
+het_small_sample_mean_predicted <- apply(hets_small_sample_predicted, 2, function(x) mean(x, na.rm = T))*frac_snps
 
+# predictions based on reference panel allele frequencies
+freqs_predicted_ACM <- do.call(cbind, 
+                              lapply(pops, function(p) 
+                                as.matrix(freqs[ , ACM]) %*% 
+                                  t(as.matrix(admix.pops[admix.pops$population == p, 
+                                                         ACM])))) 
+colnames(freqs_predicted_ACM) <- pops
 
-# then I need an allele freq. estimate for each ancestry .. may not match reference panels freqs.
+# what are expected pi?
+hets_predicted_ACM <- 2*freqs_predicted_ACM*(1-freqs_predicted_ACM)
+het_mean_predicted_ACM <- apply(hets_predicted_ACM, 2, 
+                            function(x) mean(x, na.rm = T))*frac_snps
+hets_small_sample_predicted_ACM <- do.call(cbind, lapply(1:ncol(freqs_predicted_ACM), 
+                                                     function(i) het_small_sample_correction(p = freqs_predicted_ACM[, i],
+                                                                                             n = ns[, i])))
+colnames(hets_small_sample_predicted_ACM) <- pops
 
-
+het_small_sample_mean_predicted_ACM <- apply(hets_small_sample_predicted_ACM, 2, function(x) mean(x, na.rm = T))*frac_snps
 
 d_het_small_sample %>%
   filter(!ref_pop) %>%
-  left_join(., data.frame(population = pops, 
-                       predicted = het_small_sample_mean_predicted), by = "population") %>%
-  tidyr::gather(., "ancestry", "pi", c(ancestries, "combined", "predicted")) %>%
+  tidyr::gather(., "ancestry", "pi", c(ancestries, "combined")) %>%
   ggplot(., aes(x = abs(lat), y = pi, color = ancestry, shape = factor(year))) +
   geom_point() +
   xlab("Degrees latitude from the equator") +
   facet_grid(zone ~ ., scales = "free_x") +
+  theme_classic() +
   geom_abline(data = ACM_het_small_sample, aes(intercept = combined, slope = 0, color = ancestry))
 ggsave("plots/pi_by_latitude_including_mexico.png", device = "png",
        width = 10, height = 5)
 d_het_small_sample %>%
   filter(!ref_pop) %>%
-  filter(population != "MX10") %>%
-  tidyr::gather(., "ancestry", "pi", c(ancestries, "combined")) %>%
-  ggplot(., aes(x = abs(lat), y = pi, color = ancestry, shape = factor(year))) +
+  left_join(., data.frame(population = pops, 
+                       predicted_admix = het_small_sample_mean_predicted,
+                       predicted_ref = het_small_sample_mean_predicted_ACM), 
+                       by = "population") %>%
+  rename(observed = combined) %>%
+  tidyr::gather(., "diversity", "pi", c("observed", "predicted_admix", "predicted_ref")) %>%
+  mutate(year = factor(year)) %>%
+  ggplot(., aes(x = abs(lat), y = pi, color = diversity, shape = year)) +
   geom_point() +
-  ggtitle("Allelic diversity at known SNPs within ancestries and combined across all ancestries") +
   xlab("Degrees latitude from the equator") +
-  facet_grid(. ~ zone, scales = "free_x") +
-  geom_abline(data = ACM_het_small_sample, aes(intercept = combined, slope = 0, color = ancestry))
+  facet_grid(zone ~ ., scales = "free_x") + 
+  theme_classic()
+ggsave("plots/pi_observed_and_predicted_from_admixture.png", device = "png",
+       width = 10, height = 5)
+
+
+
+d_het_small_sample %>%
+  filter(population != "MX10") %>%
+  filter(!ref_pop) %>%
+  filter(year >= 2014) %>%
+  mutate(year = factor(year)) %>%
+  left_join(., data.frame(population = pops, 
+                          predicted = het_small_sample_mean_predicted), 
+            by = "population") %>%
+  tidyr::gather(., "ancestry", "pi", c(ancestries, "combined", "predicted")) %>%
+  ggplot(., aes(x = abs(lat), y = pi, color = ancestry, shape = year)) +
+  geom_point() +
+  xlab("Degrees latitude from the equator") +
+  facet_grid(zone ~ ., scales = "free_x") +
+  theme_classic() +
+  geom_abline(data = ACM_het_small_sample, aes(intercept = combined, slope = 0, color = ancestry)) +
+  theme(legend.title = element_blank())
 ggsave("plots/pi_by_latitude.png", device = "png",
        width = 10, height = 5)
 ggsave("../../bee_manuscript/figures/pi_by_latitude.png", device = "png",
