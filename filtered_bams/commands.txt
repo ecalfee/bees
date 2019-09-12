@@ -582,10 +582,18 @@ filtered_bams$ nohup parallel --noswap --joblog logs/map_reads_Harpur_Kenya_HAv3
 [1] 61862 - RUNNING 9.10.19 -- oops it's only running the first file. I'll start the other two separately (shouldn't have had the + on the :::+ Harpur_2014.
 
 filtered_bams$ nohup parallel --noswap --joblog logs/map_reads_Harpur_Kenya_HAv3.1_fromENA_retry2.log --delay 3 --jobs 2 'md5 ../data/{3}/fastq_files/{1}.fastq.gz > ../data/{3}/fastq_files/{1}.observed.md5; cut -f4 -d" " ../data/{3}/fastq_files/{1}.observed.md5 > ../data/{3}/fastq_files/{1}.observed2.md5; cut -f1 -d" " ../data/{3}/fastq_files/{1}.true.md5 > ../data/{3}/fastq_files/{1}.true2.md5; ln -s ~/Documents/gitErin/bees/data/{3}/fastq_files/{1}.fastq.gz ../data/{3}/fastq_files/{2}_1.fastq.gz; ./map_reads_single.sh {2} {3}; rm ../data/{3}/fastq_files/{1}.fastq.gz; ./sort_bams.sh {2} results/intermediate_bams; rm results/intermediate_bams/{2}.bam; ./dedup_baq_bams_mac.sh {2} results/intermediate_bams; rm results/intermediate_bams/{2}.sort.bam' ::: SRR957078 SRR957091 :::+ SRR957078 SRR957091 ::: Harpur_2014 &> logs/map_reads_Harpur_Kenya_HAv3.1_fromENA_retry2.out &
-[2] 64224 - RUNNING 9.10.19
+[2] 64224 - RUNNING 9.10.19. COMPLETED.
+
+# move completed bams to plant:
+filtered_bams$ mv results bams_harpur_kenya_HAv3.1
+filtered_bams$ iput -K -P -b -r -T -X logs/checkpoint-file_iput_bams_harpur_kenya_HAv3.1.txt bams_harpur_kenya_HAv3.1/
+RUNNING 9.11.19. COMPLETED.
+filtered_bams$ nohup irsync -r -v -K bams_harpur_kenya_HAv3.1 i:bams_harpur_kenya_HAv3.1 &> logs/confirm_irsync_bams_harpur_kenya_HAv3.1_withKoption.txt &
+[1] 88051 - RUNNING 9.11.19 COMPLETED. I deleted local copy
+
 
 # checked all downloads look good for Harpur and Kenya reference bees:
-parallel 'diff ../data/{2}/fastq_files/{1}.true2.md5 ../data/{2}/fastq_files/{1}.observed2.md5' :::: ../bee_samples_listed/harpur_with_Cerana_kenya_IDs.list ::::+ ../bee_samples_listed/harpur_with_Cerana_kenya_libraries.list
+filtered_bams$ parallel 'diff ../data/{2}/fastq_files/{1}.true2.md5 ../data/{2}/fastq_files/{1}.observed2.md5' :::: ../bee_samples_listed/harpur_with_Cerana_kenya_IDs.list ::::+ ../bee_samples_listed/harpur_with_Cerana_kenya_libraries.list
 All good! 9.10.19
 
 
