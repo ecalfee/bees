@@ -596,6 +596,8 @@ bees$ nohup irsync -r -v -K i:bams_Cridland_2018_HAv3.1 filtered_bams/bams_Cridl
 bees$ nohup irsync -r -v -K i:bams_lane1_HAv3.1 filtered_bams/bams_lane1_HAv3.1 &> filtered_bams/logs/irsync_from_iplant_to_barbara_lane1_HAv3.1.out &
 [1] 13136 - RUNNING 9.10.19
 # LEFT TO DO: TRANSFER kenya / sheppard reference bee bams
+bees$ nohup irsync -r -v -K i:bams_harpur_kenya_HAv3.1 filtered_bams/bams_harpur_kenya_HAv3.1 &> filtered_bams/logs/irsync_from_iplant_to_barbara_harpur_kenya_HAv3.1.out &
+[1] 6993 - RUNNING 9.11.19
 
 # I think this is an earlier (faulty?) copy of lane 1 re-mapped to HAv3.1. But before deleting from iplant I'm downloading to check it
 bees$ nohup irsync -r -v -K i:bams_HAv3.1 filtered_bams/bams_other_HAv3.1 &> filtered_bams/logs/irsync_from_iplant_to_barbara_other_bams_HAv3.1.out &
