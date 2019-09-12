@@ -3,7 +3,7 @@ library(dplyr)
 library(reshape2)
 library(viridis)
 library(gridExtra)
-
+source("../colors.R") # get color palette
 # this script takes the population allele frequencies
 # from combine_pop_allele_freqs.R
 # and calculates pi and Fst between all populations
@@ -84,7 +84,7 @@ ggsave("plots/pi_by_latitude_from_folded_SFS.png", device = "png",
        width = 10, height = 5)
 ggsave("../../bee_manuscript/figures/pi_by_latitude_from_folded_SFS.png", device = "png",
        width = 10, height = 5)
-
+  
 
 
 # read in 1/10th of the allele freq data:
@@ -174,13 +174,14 @@ hets_small_sample_by_ancestry2 <- lapply(1:3, function(a) do.call(cbind,
 het_small_sample_mean_by_ancestry <- lapply(hets_small_sample_by_ancestry, function(h) 
   apply(h, 2, function(x) mean(x, na.rm = T)*frac_snps))
 d_het_small_sample <- data.frame(population = ACM_pops,
-                                 AA = het_small_sample_mean_by_ancestry[[1]],
-                                 CC = het_small_sample_mean_by_ancestry[[2]],
-                                 MM = het_small_sample_mean_by_ancestry[[3]],
-                                 combined = het_small_sample_mean,
+                                 A = het_small_sample_mean_by_ancestry[[1]],
+                                 C = het_small_sample_mean_by_ancestry[[2]],
+                                 M = het_small_sample_mean_by_ancestry[[3]],
+                                 Combined = het_small_sample_mean,
                                  ref_pop = c(rep(T, 3), rep(F, length(pops)))) %>%
-  left_join(., meta.pop, by = "population")
-ACM_het_small_sample <- data.frame(ancestry = ancestries,
+  left_join(., meta.pop, by = "population") %>%
+  mutate(year = factor(year, levels = c("2018", "2014", "2002", "1999")))
+ACM_het_small_sample <- data.frame(ancestry = ACM,
                                    combined = het_small_sample_mean[ACM],
                                    ref_pop = T)
 
@@ -298,12 +299,14 @@ het_small_sample_mean_predicted_ACM <- apply(hets_small_sample_predicted_ACM, 2,
 
 d_het_small_sample %>%
   filter(!ref_pop) %>%
-  tidyr::gather(., "ancestry", "pi", c(ancestries, "combined")) %>%
-  ggplot(., aes(x = abs(lat), y = pi, color = ancestry, shape = factor(year))) +
+  tidyr::gather(., "ancestry", "pi", c(ACM, "Combined")) %>%
+  mutate(ancestry = factor(ancestry, levels = names(col_ACM_all))) %>%
+  ggplot(., aes(x = abs(lat), y = pi, color = ancestry, shape = year)) +
   geom_point() +
   xlab("Degrees latitude from the equator") +
   facet_grid(zone ~ ., scales = "free_x") +
   theme_classic() +
+  scale_color_manual(values = col_ACM_all) +
   geom_abline(data = ACM_het_small_sample, aes(intercept = combined, slope = 0, color = ancestry))
 ggsave("plots/pi_by_latitude_including_mexico.png", device = "png",
        width = 10, height = 5)
@@ -313,39 +316,41 @@ d_het_small_sample %>%
                        predicted_admix = het_small_sample_mean_predicted,
                        predicted_ref = het_small_sample_mean_predicted_ACM), 
                        by = "population") %>%
-  rename(observed = combined) %>%
+  rename(observed = Combined) %>%
   tidyr::gather(., "diversity", "pi", c("observed", "predicted_admix", "predicted_ref")) %>%
   mutate(year = factor(year)) %>%
   ggplot(., aes(x = abs(lat), y = pi, color = diversity, shape = year)) +
   geom_point() +
   xlab("Degrees latitude from the equator") +
   facet_grid(zone ~ ., scales = "free_x") + 
-  theme_classic()
+  theme_classic() +
+  scale_color_manual(values = dark2[c(2,8,7)], name = NULL)
 ggsave("plots/pi_observed_and_predicted_from_admixture.png", device = "png",
        width = 10, height = 5)
-
-
 
 d_het_small_sample %>%
   filter(population != "MX10") %>%
   filter(!ref_pop) %>%
-  filter(year >= 2014) %>%
-  mutate(year = factor(year)) %>%
+  filter(year %in% c(2014, 2018)) %>%
   left_join(., data.frame(population = pops, 
-                          predicted = het_small_sample_mean_predicted), 
+                          Predicted = het_small_sample_mean_predicted), 
             by = "population") %>%
-  tidyr::gather(., "ancestry", "pi", c(ancestries, "combined", "predicted")) %>%
+  tidyr::gather(., "ancestry", "pi", c(ACM, "Combined", "Predicted")) %>%
+  mutate(ancestry = factor(ancestry, levels = c(ACM, "Combined", "Predicted"))) %>%
   ggplot(., aes(x = abs(lat), y = pi, color = ancestry, shape = year)) +
-  geom_point() +
-  xlab("Degrees latitude from the equator") +
+  geom_point(alpha = 0) + # has to come before abline to get legend correct
+  # but want to draw points after so that they show up over the lines
+  geom_abline(data = ACM_het_small_sample, aes(intercept = combined, slope = 0, color = ancestry)) +
+  geom_point(alpha = .75, size = 2) +
+    xlab("Degrees latitude from the equator") +
   facet_grid(zone ~ ., scales = "free_x") +
   theme_classic() +
-  geom_abline(data = ACM_het_small_sample, aes(intercept = combined, slope = 0, color = ancestry)) +
+  scale_color_manual(values = c(col_ACM_all, "Predicted"=dark2[8])) +
   theme(legend.title = element_blank())
 ggsave("plots/pi_by_latitude.png", device = "png",
-       width = 10, height = 5)
-ggsave("../../bee_manuscript/figures/pi_by_latitude.png", device = "png",
-       width = 10, height = 5)
+       width = 8, height = 4)
+ggsave("../../bee_manuscript/figures/pi_by_latitude.pdf", device = "pdf",
+       width = 8, height = 4)
 
 # no real relationship with pop coverage = good sign
 plot(lapply(SFS, sum), het_small_sample_mean[4:length(het_small_sample_mean)], main = "neg. relationship ANGSD estimated pi and number of sites in SFS",

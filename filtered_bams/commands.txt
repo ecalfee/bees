@@ -596,6 +596,19 @@ filtered_bams$ nohup irsync -r -v -K bams_harpur_kenya_HAv3.1 i:bams_harpur_keny
 filtered_bams$ parallel 'diff ../data/{2}/fastq_files/{1}.true2.md5 ../data/{2}/fastq_files/{1}.observed2.md5' :::: ../bee_samples_listed/harpur_with_Cerana_kenya_IDs.list ::::+ ../bee_samples_listed/harpur_with_Cerana_kenya_libraries.list
 All good! 9.10.19
 
+# irsync bam backups to iplant and downloading to barbara for working copy:
+bees$ nohup irsync -r -v -K filtered_bams/results i:bams_lanes_2_5_HAv3.1 &> filtered_bams/logs/irsync_from_barbara_to_iplant_lanes2_5_HAv3.1.out &
+[3] 13220 - RUNNING 9.10.19
+bees$ nohup irsync -r -v -K i:bams_Cridland_2018_HAv3.1 filtered_bams/bams_Cridland_2018_HAv3.1 &> filtered_bams/logs/irsync_from_iplant_to_barbara_Cridland_2018_HAv3.1.out &
+[2] 13163 - RUNNING 9.10.19
+bees$ nohup irsync -r -v -K i:bams_lane1_HAv3.1 filtered_bams/bams_lane1_HAv3.1 &> filtered_bams/logs/irsync_from_iplant_to_barbara_lane1_HAv3.1.out &
+[1] 13136 - RUNNING 9.10.19
+# LEFT TO DO: TRANSFER kenya / sheppard reference bee bams
+
+# I think this is an earlier (faulty?) copy of lane 1 re-mapped to HAv3.1. But before deleting from iplant I'm downloading to check it
+bees$ nohup irsync -r -v -K i:bams_HAv3.1 filtered_bams/bams_other_HAv3.1 &> filtered_bams/logs/irsync_from_iplant_to_barbara_other_bams_HAv3.1.out &
+[1] 7041
+
 
 # transferring files over to Nancy's Mac for much faster alignment:
 bees/data/novo_seq$ irsync -r --retries 3 -v -N 8 i:/iplant/home/ecalfee/lanes2_5 . 
@@ -607,3 +620,7 @@ I DELETED THESE FILES TO MAKE MORE DISK SPACE. I WILL MAP THESE ON BARBARA INSTE
 # If adapter contamination seems likely, I can use something like SeqPurge to trim off adapter sequences. (Sturm et al. 2016, https://doi.org/10.1186/s12859-016-1069-7)
 # I can also check that sequences for the reference bees don't have adapter contamination.
 # download and align pooled-seq reads for Brazilian Africanized honey bees (vcf is downloading ~/Downloads/AFZ.vcf.gz but I can alternatively get bams for each of 30 hives (pooled w/in hives) - https://www.nature.com/articles/sdata201697#cite2
+
+
+
+
