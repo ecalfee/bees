@@ -4,21 +4,28 @@ library(gtools)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-library(RColorBrewer)# for color palette
+library(OpenStreetMap)
+library(RColorBrewer)
+source("../colors.R") # for color palette
+
+# for maps:
+my_api <- read.table("../maps/google_maps_api_EC2018.txt",
+                     header = F, stringsAsFactors = F)$V1
+ggmap::register_google(key = my_api)
 
 # get metadata for all individuals included in NGSadmix analysis (plus extras)
 meta <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F, 
                    header = T, sep = "\t")
 meta$label <- meta$Bee_ID
 pop2014_incl <- c("Stebbins_2014", "Stanislaus_2014", "Avalon_2014",
-                  "Placerita_2014", "Riverside_2014")
+                  "Placerita_2014", "Riverside_2014", "Davis_2014")
 for (i in pop2014_incl){ # make short labels for included bees from these ca_bee populations
   meta$label[meta$population == i & !is.na(meta$population)] <- 
     paste0(meta$geographic_location_short[meta$population == i & !is.na(meta$population)],
            "_",
            1:sum(meta$population == i, na.rm = T))
 }
-
+pop2014_2018_inc <- c(pop2014_incl, meta$population[meta$group %in% c("CA_2018", "AR_2018")])
 
 #IDs <- read.table("../bee_samples_listed/with_duplicated_ap50/pass1.list", stringsAsFactors = F,
 #                  header = F) # note ap50 is duplicated in the GL file output of ANGSD and NGSadmix results
@@ -68,7 +75,7 @@ K = 3 # 3 admixing populations
 #K = 4
 #K = 5
 #K = 6
-colorsK=c("red", "cornflowerblue", "navy")
+colorsK=cbPalette[K]
 
 # starting with pass1 analysis from 1st round of sequencing
 #prefix1 = "ordered_scaffolds_prunedBy250"
@@ -117,7 +124,10 @@ dev.off()
 # what should the different ancestries be called? use the group with the highest frequency
 anc <- data.frame(ancestry = colnames(admix),
                        ancestry_label = sapply(colnames(admix), function(x) names(which.max(tapply(d_admix[ , x], d_admix$population, sum)))),
-                       stringsAsFactors = F)
+                       stringsAsFactors = F) %>%
+  mutate(ancestry_label = factor(ancestry_label, levels = c("C", "M", "A")))
+# NOTE: now above code is specific to 3 ancestries because I wanted to order them A/M/C
+# for plotting
 
 
 # ggplot2 need 'tidy' formatted data
@@ -125,7 +135,9 @@ p1 <- d_admix %>%
   tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   left_join(., anc, by = "ancestry") %>%
   ggplot(., aes(fill=ancestry_label, y=p, x=Bee_ID)) +
-  geom_bar(stat = "identity", position = "fill") + facet_wrap(~group)
+  geom_bar(stat = "identity", position = "fill") + 
+  facet_wrap(~group) +
+  scale_fill_manual(values = col_ACM, name = "Ancestry")
 plot(p1)
 ggsave(paste0("plots/NGS_admix_all_", name, ".png"), 
        plot = p1, 
@@ -142,7 +154,7 @@ p2 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   xlab("Individual bee samples (ordered by latitude)") +
   ylab("Ancestry fraction") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(fill = "Ancestry")
+  scale_fill_manual(values = col_ACM, name = "Ancestry")
 plot(p2)
 ggsave(paste0("plots/NGS_admix_CA_2018_", name, ".png"), 
        plot = p2, 
@@ -156,32 +168,46 @@ p2m <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   ggplot(., aes(fill=ancestry_label, y=p, x=reorder(Bee_ID, lat))) +
   geom_bar(stat = "identity", position = "fill") + 
   ggtitle("Mexico 2019 bee samples") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_manual(values = col_ACM, name = "Ancestry")
 plot(p2m)
 ggsave(paste0("plots/NGS_admix_MX_2019_", name, ".png"), 
        plot = p2m, 
        device = "png", 
        width = 15, height = 8, units = "in",
        dpi = 200)
+
+#--------------------------------------------------------------------------------
+# plots for manuscript:
+
 # CA 2014 and 2018
 p2_2014 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "CA_2018" | population %in% pop2014_incl) %>%
   left_join(., anc, by = "ancestry") %>%
   ggplot(., aes(fill=ancestry_label, alpha = as.factor(year), y=p, x=reorder(label, lat))) +
-  geom_bar(stat = "identity", position = "fill") + 
+  geom_bar(stat = "identity", position = "fill", width = 0.99) + # width=1 gets rid of lines, but some are still visible in pdf. better to make them uniform
   ggtitle("California 2014 & 2018 bee samples") +
   xlab("Individual bee samples (ordered by latitude)") +
   ylab("Ancestry fraction") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   scale_alpha_discrete(range = c(0.6, 1)) +
-  labs(fill = "Ancestry", alpha = "Collection")
-plot(p2_2014)
+  labs(alpha = "Collection") +
+  scale_fill_manual(values = col_ACM, name = "Ancestry") + 
+  theme_classic()
+plot(p2_2014 )
 ggsave(paste0("plots/NGS_admix_CA_2014_and_2018_", name, ".png"), 
        plot = p2_2014, 
        device = "png", 
        width = 17, height = 8, units = "in",
        dpi = 200)
-
+ggsave(paste0("../../bee_manuscript/figures/NGS_admix_CA_2014_and_2018_", name, ".pdf"), 
+       plot = p2_2014 +
+         coord_flip() +
+         theme(axis.ticks.y = element_blank(), # I can figure out how to add ticks at pop divisions later
+               axis.text.y = element_blank()), 
+       device = "pdf", 
+       width = 4, height = 8, units = "in",
+       dpi = 200)
 
 
 
@@ -189,19 +215,104 @@ p3 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "AR_2018") %>%
   left_join(., anc, by = "ancestry") %>%
   ggplot(., aes(fill = ancestry_label, alpha = as.factor(year), y = p, x = reorder(Bee_ID, lat))) +
-  geom_bar(stat = "identity", position = "fill") + 
+  geom_bar(stat = "identity", position = "fill", width = 0.99) + 
   ggtitle("Argentina 2018 bee samples") + 
   xlab("Individual bee samples (ordered by latitude)") +
   ylab("Ancestry fraction") +
   scale_alpha_discrete(range = c(1, 1)) +
-  labs(fill = "Ancestry", alpha = "Collection") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  labs(alpha = "Collection") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_manual(values = col_ACM, name = "Ancestry") +
+  theme_classic()
 plot(p3)
 ggsave(paste0("plots/NGS_admix_AR_2018_", name, ".png"), 
        plot = p3, 
        device = "png", 
        width = 17, height = 8, units = "in",
        dpi = 200)
+ggsave(paste0("../../bee_manuscript/figures/NGS_admix_AR_2018_", name, ".pdf"), 
+       plot = p3 +
+         coord_flip() +
+         theme(axis.ticks.y = element_blank(), # I can figure out how to add ticks at pop divisions later
+               axis.text.y = element_blank()), 
+       device = "pdf", 
+       width = 4, height = 8, units = "in",
+       dpi = 200)
+
+# make map with pie charts
+#autoplot.osmtime()
+tile_america <- openmap(upperLeft = c(47.52, -126.75),
+                        lowerRight = c(-44.47, -33.05),
+                        type = "osm",
+                        mergeTiles = T)
+tile_america2 <- openmap(upperLeft = c(45.0, -127.0),
+                        lowerRight = c(-45.0, -33.0),
+                        type = "bing",
+                        mergeTiles = T)
+tile_america3 <- openmap(upperLeft = c(47, -126.75),
+                         lowerRight = c(-46, -33.05),
+                         type = "esri",
+                         mergeTiles = T)
+tile_america4 <- openmap(upperLeft = c(48, -145),
+                         lowerRight = c(-45, -32),
+                         type = "esri",
+                         mergeTiles = T)
+autoplot(tile_america3) +
+  geom_point(aes(x = long*10^5,
+                 y = lat*10^5), #,
+             #col = popN), 
+             data = filter(meta, population %in% pop2014_2018_inc),
+             cex = .25,
+             col = "black",
+             alpha = .5)
+p_world <- autoplot(openproj(tile_america3)) + # squishes map horizontally
+  geom_point(aes(x = long,
+                 y = lat), #,
+             #col = popN), 
+             data = filter(meta, population %in% pop2014_2018_inc),
+             cex = .25,
+             col = "black",
+             alpha = .5)
+ggsave("../../bee_manuscript/figures/world_map_samples.pdf", # ugh. blurry (!)
+       plot = p_world, 
+       device = "pdf", 
+       width = 8, height = 8, units = "in")
+autoplot.osmtile(tile_america)
+autoplot(tile_america)
+plot(tile_america)
+plot(tile_america3)
+plot(tile_america4)
+pop2014_2018_inc
+america <- ggmap(get_map(location = 'Costa Rica', 
+              maptype = "satellite", #nice!
+              #maptype = "watercolor",
+              zoom =  3)) 
+plot(america)
+america2 <- ggmap(get_map(location = 'Costa Rica', 
+                         source = "stamen", #nice!
+                         maptype = "toner-background",
+                         zoom =  3)) 
+plot(america2)
+america3 <- ggmap(get_map(location = 'Costa Rica', 
+                          source = "stamen", #nice!
+                          maptype = "toner-lite",
+                          zoom =  3)) 
+plot(america3)
+a <- get_openstreetmap(bbox = c(left = -95.80204, bottom = 29.38048, right =
+                             -94.92313, top = 30.14344), scale = 606250, format = c("pdf"))
+#+
+  geom_point(aes(x = long,
+                 y = lat), #,
+             #col = popN), 
+             data = bees,
+             cex = .25,
+             col = "black",
+             alpha = .5)
+
+  
+# as an alternative, start with a simple world map from maptools  
+  
+# --------------------------------------------------------------------------
 
 p4 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "S_CA" | group == "Kohn") %>%
@@ -210,7 +321,8 @@ p4 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   geom_bar(stat = "identity", position = "fill") + 
   facet_wrap(~population) +
   ggtitle("Southern CA (and Mexico) 1994-2015 samples") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))  +
+  scale_fill_manual(values = col_ACM, name = "Ancestry")
 plot(p4)
 ggsave(paste0("plots/NGS_admix_S_CA_Mex_1994-2015_", name, ".png"), 
        plot = p4, 
@@ -225,7 +337,8 @@ p5 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   geom_bar(stat = "identity", position = "fill") +
   facet_wrap(~population) +
   ggtitle("Northern CA 1994-2015 samples") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))  +
+  scale_fill_manual(values = col_ACM, name = "Ancestry")
 plot(p5)
 ggsave(paste0("plots/NGS_admix_N_CA_1994-2015_", name, ".png"), 
        plot = p5, 
@@ -238,7 +351,8 @@ p6 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   left_join(., anc, by = "ancestry") %>%
   ggplot(., aes(fill=ancestry_label, y=p, x=Bee_ID)) +
   geom_bar(stat = "identity", position = "fill") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_manual(values = col_ACM, name = "Ancestry")
 plot(p6 + facet_wrap(~group))
 ggsave(paste0("plots/NGS_admix_Ref_", name, ".png"), 
        plot = p6 + facet_wrap(~group), 
