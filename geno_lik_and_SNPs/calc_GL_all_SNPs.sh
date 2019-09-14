@@ -6,8 +6,8 @@
 # command line arguments:
 # note: all paths relative to bees/geno_lik_and_SNPs/
 BAMS_LIST=$1 # list of paths to bee bams
-SCAFFOLD_NAME=$3
-SCAFFOLD_REGION=$2 # region to run GL on = a scaffold
+SCAFFOLD_NAME=$2
+SCAFFOLD_REGION=$3 # region to run GL on = a scaffold
 MIN_IND=$4 # minimum number of individuals with data for total sample to keep a site
 MAX_DEPTH=$5 # maximum depth for total sample to keep a site
 DIR_OUT=$6 # output file goes in this directory, labelled by  scaffold.
