@@ -4,10 +4,19 @@ library(gtools)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(ggmap)
+library(scatterpie)
 library(OpenStreetMap)
+library(maps)
+library(mapproj)
+library(geosphere)
+library(mapdata)
+library(viridis)
+library(viridisLite)
 library(RColorBrewer)
 source("../colors.R") # for color palette
-
+#Rio Claro, Sao Paulo Brazil: 22.4149° S, 47.5651° W (Google maps)
+sao_paulo <- data.frame(long = -47.5651, lat = -22.4149)
 # for maps:
 my_api <- read.table("../maps/google_maps_api_EC2018.txt",
                      header = F, stringsAsFactors = F)$V1
@@ -15,7 +24,12 @@ ggmap::register_google(key = my_api)
 
 # get metadata for all individuals included in NGSadmix analysis (plus extras)
 meta <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F, 
-                   header = T, sep = "\t")
+                   header = T, sep = "\t") %>%
+  mutate(continent = ifelse(group == "AR_2018", "S. America",
+                            ifelse( group %in% c("CA_2018", "MX_2018",
+                                                 "N_CA", "S_CA"),
+                                    "N. America",
+                            NA)))
 meta$label <- meta$Bee_ID
 pop2014_incl <- c("Stebbins_2014", "Stanislaus_2014", "Avalon_2014",
                   "Placerita_2014", "Riverside_2014", "Davis_2014")
@@ -240,6 +254,26 @@ ggsave(paste0("../../bee_manuscript/figures/NGS_admix_AR_2018_", name, ".pdf"),
        dpi = 200)
 
 # make map with pie charts
+admix.pops <- d_admix %>% 
+  tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+  filter(population %in% pop2014_2018_inc) %>%
+  left_join(., anc, by = "ancestry") %>%
+  dplyr::select(-ancestry) %>%
+  tidyr::spread(., ancestry_label, p) %>%
+  group_by(population) %>%
+  summarise(A = mean(A),
+            M = mean(M),
+            C = mean(C),
+            long = mean(long),
+            lat = mean(lat),
+            year = mean(year),
+            n = n()) %>%
+  mutate(continent = ifelse(lat < 0, "S. America", "N. America")) %>%
+  arrange(lat) %>%
+  mutate(population_factor = factor(population, ordered = T, levels = .$population)) %>% # get ordered by lat
+  mutate(shape = c(rep(1:6, 6), 1:3))
+  
+
 #autoplot.osmtime()
 tile_america <- openmap(upperLeft = c(47.52, -126.75),
                         lowerRight = c(-44.47, -33.05),
@@ -273,45 +307,217 @@ p_world <- autoplot(openproj(tile_america3)) + # squishes map horizontally
              cex = .25,
              col = "black",
              alpha = .5)
+#world2 <- map_data("world2Hires")
+world2 <- map_data("world2")
+world <- map_data("world")
+states <- map_data("state")
+dim(states)
+ggplot(data = states) + 
+  geom_polygon(aes(x = long, y = lat, fill = region, group = group), color = "white") + 
+  coord_fixed(1.3) +
+  guides(fill=FALSE)
+
+p_world <- world %>%
+  filter(., ! region %in% c("Greenland", "Antarctica", "Canada")) %>%
+  ggplot(data = .) +
+  geom_polygon(aes(x = long, y = lat, group = group), 
+               alpha = .3,
+               #alpha = .7,
+               fill = dark2[8]
+               ) +
+  xlim(c(-140, -20)) +
+  coord_fixed(1.1, 
+              xlim = c(-126, -23), 
+              ylim = c(-39, 39.5)) +
+  theme_classic() +
+  geom_point(data = sao_paulo, 
+             aes(x = long, y = lat),
+             color = col_ACM["A"],
+             shape = 8,
+             size = 2) +
+  geom_point(aes(x = long,
+                 y = lat,
+                  col = continent), #,
+             #col = popN), 
+             data = admix.pops,
+             cex = .25,
+             alpha = .5) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  scale_color_manual(values = col_NA_SA_both, name = NULL) +
+  theme(legend.position = "None")
+plot(p_world)
 ggsave("../../bee_manuscript/figures/world_map_samples.pdf", # ugh. blurry (!)
        plot = p_world, 
        device = "pdf", 
-       width = 8, height = 8, units = "in")
-autoplot.osmtile(tile_america)
-autoplot(tile_america)
-plot(tile_america)
-plot(tile_america3)
-plot(tile_america4)
-pop2014_2018_inc
-america <- ggmap(get_map(location = 'Costa Rica', 
-              maptype = "satellite", #nice!
-              #maptype = "watercolor",
-              zoom =  3)) 
-plot(america)
-america2 <- ggmap(get_map(location = 'Costa Rica', 
-                         source = "stamen", #nice!
-                         maptype = "toner-background",
-                         zoom =  3)) 
-plot(america2)
-america3 <- ggmap(get_map(location = 'Costa Rica', 
-                          source = "stamen", #nice!
-                          maptype = "toner-lite",
-                          zoom =  3)) 
-plot(america3)
-a <- get_openstreetmap(bbox = c(left = -95.80204, bottom = 29.38048, right =
-                             -94.92313, top = 30.14344), scale = 606250, format = c("pdf"))
-#+
-  geom_point(aes(x = long,
-                 y = lat), #,
-             #col = popN), 
-             data = bees,
-             cex = .25,
-             col = "black",
-             alpha = .5)
+       width = 6, height = 6, units = "in")
+# just SA samples:
+SA_pie <- world %>%
+  filter(., ! region %in% c("Greenland", "Antarctica", "Canada")) %>%
+  ggplot(data = .) +
+  geom_polygon(aes(x = long, y = lat, group = group), 
+               #alpha = .3,
+               alpha = .7,
+               fill = dark2[8]
+  ) +
+  xlim(c(-140, -20)) +
+  coord_fixed(1.1, 
+              xlim = c(-62, -57), 
+              ylim = c(-36.5, -28.5)) +
+  theme_classic() +
+  geom_point(data = sao_paulo, 
+             aes(x = long, y = lat),
+             color = col_ACM["A"],
+             shape = 8,
+             size = 2) +
 
-  
-# as an alternative, start with a simple world map from maptools  
-  
+  geom_scatterpie(data = admix.pops, 
+                  aes(long, lat, r = .15),
+                  cols = c("A", "C", "M"), 
+                  alpha = 1,
+                  lwd = 0) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  scale_fill_manual(values = col_ACM, name = NULL) +
+  theme(legend.position = "None") +
+  ggtitle("Argentina")
+plot(SA_pie)
+ggsave("../../bee_manuscript/figures/SA_pie_map_ancestry.pdf",
+       plot = SA_pie, 
+       device = "pdf", 
+       width = 3, height = 6, units = "in")
+# N. America only
+NA_pie <- world %>%
+  filter(., ! region %in% c("Greenland", "Antarctica", "Canada")) %>%
+  ggplot(data = .) +
+  geom_polygon(aes(x = long, y = lat, group = group), 
+               #alpha = .3,
+               alpha = .7,
+               fill = dark2[8]
+  ) +
+  xlim(c(-140, -20)) +
+  coord_fixed(1.3, 
+              xlim = c(-122, -116), 
+              ylim = c(32, 38.5)) +
+  theme_classic() +
+  geom_scatterpie(data = admix.pops, 
+                  aes(long, lat, r = .15),
+                  cols = c("A", "C", "M"), 
+                  alpha = 1,
+                  lwd = .1,
+                  color = "white") +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  scale_fill_manual(values = col_ACM, name = NULL) +
+  theme(legend.position = "None") +
+  ggtitle("California")
+plot(NA_pie)
+ggsave("../../bee_manuscript/figures/NA_pie_map_ancestry.pdf",
+       plot = NA_pie, 
+       device = "pdf", 
+       width = 3, height = 6, units = "in")
+
+# SA points, not pie chart
+SA_points <- world %>%
+  filter(., ! region %in% c("Greenland", "Antarctica", "Canada")) %>%
+  ggplot(data = .) +
+  geom_polygon(aes(x = long, y = lat, group = group), 
+               #alpha = .3,
+               #alpha = .7,
+               fill = dark2[8]
+  ) +
+  xlim(c(-140, -20)) +
+  theme_classic() +
+  geom_point(aes(x = long,
+                 y = lat,
+                 color = population,
+                 shape = factor(shape)), 
+             data = filter(admix.pops, continent == "S. America"),
+             cex = 2) +
+             #alpha = .5) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  scale_color_viridis_d(option = "magma", direction = -1) +
+  scale_shape_manual(values = c(15, 1, 17, 5, 19, 6)) +
+  theme(legend.position = "None") +
+  ggtitle("Argentina")
+plot(SA_points +
+       coord_fixed(1.1, 
+                   xlim = c(-62, -57),
+                   ylim = c(-36.5, -28.5)))
+plot(SA_points +
+       coord_fixed(1.1, 
+                   xlim = c(-62, -55),
+                   ylim = c(-36.5, -27)))
+ggsave("../../bee_manuscript/figures/SA_point_map_samples_zoom_in.pdf",
+       plot = SA_points + 
+         coord_fixed(1.1, 
+                     xlim = c(-62, -57),
+                     ylim = c(-36.5, -28.5)), 
+       device = "pdf", 
+       width = 3, height = 6, units = "in")
+ggsave("../../bee_manuscript/figures/SA_point_map_samples_zoom_out.pdf",
+       plot = SA_points +
+         coord_fixed(1.1, 
+                     xlim = c(-62, -55),
+                     ylim = c(-36.5, -27)), 
+       device = "pdf", 
+       width = 3, height = 6, units = "in")
+
+# NA just colored points, not pie charts:
+NA_points <- world %>%
+  filter(., ! region %in% c("Greenland", "Antarctica", "Canada")) %>%
+  ggplot(data = .) +
+  geom_polygon(aes(x = long, y = lat, group = group), 
+               #alpha = .3,
+               #alpha = .7,
+               fill = dark2[8]
+  ) +
+  xlim(c(-140, -20)) +
+  theme_classic() +
+  geom_point(aes(x = long,
+                 y = lat,
+                 color = population_factor,
+                 shape = factor(shape)), 
+             data = filter(admix.pops, continent == "N. America"),
+             cex = 2) +
+  #alpha = .5) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  scale_color_viridis_d(option = "viridis") +
+  scale_shape_manual(values = c(15, 1, 17, 5, 19, 6)) +
+  theme(legend.position = "None") +
+  ggtitle("California")
+plot(NA_points +
+       coord_fixed(1.3, 
+                   xlim = c(-122, -116), 
+                   ylim = c(32, 38.5)))
+plot(NA_points +
+       coord_fixed(1.3, 
+                   xlim = c(-124, -114.5), 
+                   ylim = c(32, 39.5)))
+ggsave("../../bee_manuscript/figures/NA_point_map_samples_zoom_in.pdf",
+       plot = NA_points +
+                     coord_fixed(1.3, 
+                                 xlim = c(-122, -116), 
+                                 ylim = c(32, 38.5)),
+       device = "pdf", 
+       width = 3, height = 6, units = "in")
+ggsave("../../bee_manuscript/figures/NA_point_map_samples_zoom_out.pdf",
+       NA_points +
+         coord_fixed(1.3, 
+                     xlim = c(-124, -114.5), 
+                     ylim = c(32, 39.5)), 
+       device = "pdf", 
+       width = 3, height = 6, units = "in")
+AR_end1 <- filter(admix.pops,
+                  continent == "S. America") %>%
+  filter(., lat == min(lat))
+AR_end2 <- filter(admix.pops,
+                  continent == "S. America") %>%
+  filter(., lat == max(lat))
+distm(AR_end1[ , c("long", "lat")], AR_end2[ , c("long", "lat")], fun = distGeo)
+
 # --------------------------------------------------------------------------
 
 p4 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%

@@ -155,16 +155,12 @@ RUNNING INTERACTIVELY 9.13.19 1:20pm
 geno_lik_and_SNPs$ bedtools multicov -q 30 -bams $(paste -s -d" " ../bee_samples_listed/combined_sept19.bams) -bed ../data/honeybee_genome/scaffolds.random_pos_1000.bed > results/combined_sept19/coverage/scaffolds.random_pos_1000.txt
 RUNNING INTERACTIVELY 9.13.19 1:22pm
 
-# use calc_coverage_from_bedtools_hist.R to find mean coverage and see what % genome is dropped 
+# use calc_coverage_from_bedtools_hist.R to find mean coverage and see what % genome is dropped
 # using 2x and 0.5x mean cutoffs (or alternatively maybe better to use # individuals w/ data as low cutoff)
+# I found that 2x is ~ 5500 depth and 174 is a good minimum number of individuals (=half)
 
 # calling SNPs (all scaffolds):
-geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/CA_AR_MX_harpur_sheppard_kohn_wallberg_GL_by_scaffold.log --jobs 4 \
-'./calc_GL_all_SNPs.sh ../bee_samples_listed/CA_AR_MX_harpur_sheppard_kohn_wallberg.bams {1} 1508 6032 results/CA_AR_MX_harpur_sheppard_kohn_wallberg/GL_by_scaffold' :::: \
-../data/honeybee_genome/ordered_scaffolds.list &> logs/call_snps_combined_sept19.out &
-
-
-
-
-
-
+geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/call_snps_combined_sept19.log --jobs 4 \
+'./calc_GL_all_SNPs.sh ../bee_samples_listed/combined_sept19.bams {1} {2} 174 5500 results/combined_sept19/GL_by_scaffold' \
+::: $(cut -f3 ../data/honeybee_genome/scaffolds.list) :::+
+$(cut -f1 ../data/honeybee_genome/scaffolds.list) &> logs/call_snps_combined_sept19.out &

@@ -62,11 +62,12 @@ genome %>%
               col.names = F, row.names = F, quote = F, sep = "\t")
 
 # coverage
-depth <- read.table("results/combined_sept19/coverage/chr.random_pos_100000.txt",
+depth <- read.table("results/combined_sept19/coverage/scaffolds.random_pos_1000.txt",
                     header = F, stringsAsFactors = F)
-ind_mean <- apply(depth[, 4:351], 2, mean)
-site_total <- apply(depth[ , 4:351], 1, sum)
-n_zeros <- apply(depth[ , 4:251], 1, function(x) sum(x == 0))
+colnames(depth) <- c("scaffold", "start", "end", ids$Bee_ID)
+ind_mean <- apply(depth[, ids$Bee_ID], 2, mean)
+site_total <- apply(depth[ , ids$Bee_ID], 1, sum)
+n_zeros <- apply(depth[ , ids$Bee_ID], 1, function(x) sum(x == 0))
 ids <- read.table("../bee_samples_listed/combined_sept19.list",
                       stringsAsFactors = F) %>%
   data.table::setnames("Bee_ID")
@@ -75,8 +76,12 @@ meta <- read.table("../bee_samples_listed/all.meta",
                    sep = "\t",
                    header = T)
 bees <- left_join(ids, meta, by = "Bee_ID")
-colnames(depth) <- c("scaffold", "start", "end", ids)
 summary(site_total)
 hist(site_total)
-table(site_total < mean(site_total)/2)/length(site_total)
+# outliers high coverage
 table(site_total > mean(site_total)*2)/length(site_total)
+# outliers low coverage
+table(site_total < mean(site_total)/2)/length(site_total)
+table(site_total < mean(site_total)/2)/length(site_total)
+# approximate mean depth is 2748 ~ 2750 * 2 = 5500
+# half the individuals is 348/2 = 174 which I'll use as a lower cutoff

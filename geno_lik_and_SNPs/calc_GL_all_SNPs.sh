@@ -6,10 +6,11 @@
 # command line arguments:
 # note: all paths relative to bees/geno_lik_and_SNPs/
 BAMS_LIST=$1 # list of paths to bee bams
-SCAFFOLD=$2 # region to run GL on = a scaffold
-MIN_DEPTH=$3 # minimum depth for total sample to keep a site
-MAX_DEPTH=$4 # maximum depth for total sample to keep a site
-DIR_OUT=$5 # output file goes in this directory, labelled by  scaffold.
+SCAFFOLD_NAME=$3
+SCAFFOLD_REGION=$2 # region to run GL on = a scaffold
+MIN_IND=$4 # minimum number of individuals with data for total sample to keep a site
+MAX_DEPTH=$5 # maximum depth for total sample to keep a site
+DIR_OUT=$6 # output file goes in this directory, labelled by  scaffold.
 
 # also requires honeybee reference genome (indexed by samtools faidx)
 
@@ -24,8 +25,8 @@ mkdir -p $DIR_OUT
 
 echo "calling variants and GL using ANGSD on BAMS for hilo genomic region: "${REGION}
 
-angsd -out ${DIR_OUT}"/scaffold_"${SCAFFOLD} \
--r ${SCAFFOLD}: \
+angsd -out ${DIR_OUT}"/"${SCAFFOLD_NAME} \
+-r ${SCAFFOLD_REGION}: \
 -ref "../data/honeybee_genome/Amel_HAv3.1.fasta" \
 -bam ${BAMS_LIST} \
 -remove_bads 1 \
@@ -35,7 +36,7 @@ angsd -out ${DIR_OUT}"/scaffold_"${SCAFFOLD} \
 -GL 1 -doGlf 2 \
 -P 1 \
 -setMaxDepth ${MAX_DEPTH} \
--setMinDepth ${MIN_DEPTH}
+-minInd ${MIN_IND}
 
 echo "all done!"
 
