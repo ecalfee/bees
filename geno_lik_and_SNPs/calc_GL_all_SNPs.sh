@@ -26,7 +26,7 @@ echo "calling variants and GL using ANGSD on BAMS for hilo genomic region: "${RE
 
 angsd -out ${DIR_OUT}"/scaffold_"${SCAFFOLD} \
 -r ${SCAFFOLD}: \
--ref "../data/honeybee_genome/Amel_4.5_scaffolds.fa" \
+-ref "../data/honeybee_genome/Amel_HAv3.1.fasta" \
 -bam ${BAMS_LIST} \
 -remove_bads 1 \
 -minMapQ 30 -minQ 20 \
@@ -43,7 +43,7 @@ echo "all done!"
 # -r specifies a genomic region to work on, e.g. scaffoldName: specifies the whole scaffold
 # -remove_bads removes reads with flags like duplicates
 # -doMajorMinor 2: infer major and minor from allele counts
-# -bam list of bams to include (all newly sequenced allopatric mex. and sympatric mexicana & maize pops)
+# -bam list of bams to include
 # -GL 1: use samtools genotype likelihood method
 # -doGlf 2: output beagle likelihood file
 # -minMapQ 30 -minQ 20: filter out sites with low mapping quality or base/BAQ quality

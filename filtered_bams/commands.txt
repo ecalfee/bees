@@ -609,7 +609,11 @@ bees$ nohup irsync -r -v -K i:bams_harpur_kenya_HAv3.1 filtered_bams/bams_harpur
 
 # I think this is an earlier (faulty?) copy of lane 1 re-mapped to HAv3.1. But before deleting from iplant I'm downloading to check it
 bees$ nohup irsync -r -v -K i:bams_HAv3.1 filtered_bams/bams_other_HAv3.1 &> filtered_bams/logs/irsync_from_iplant_to_barbara_other_bams_HAv3.1.out &
-[1] 7041
+[1] 7041 - CHECKED SAME WITH MD5, so I deleted second copy ('other') from barbara and iplant.
+
+# getting metrics for remapped bees for analysis:
+filtered_bams/metrics$ grep "UNPAIRED_READS_EXAMINED" CA0222.metrics.txt  > combined_sept19.metrics; (for i in $(cat ../../bee_samples_listed/combined_sept19.list); do grep 'Unknown Library' $i.metrics.txt; done) >> combined_sept19.metrics
+# now analysing with plot_bam_metrics.R
 
 
 # transferring files over to Nancy's Mac for much faster alignment:

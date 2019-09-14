@@ -21,3 +21,7 @@ data/Cridland_2018$ cut -f9 post1994_feral.txt > IDs_to_download.list
 # _3 is all included pops in the hybrid zone, and SA has 3 groups: 0, 1, 2 while NA has 2 groups: 1, 2 with ~ 60 bees each:
 # Note that Avalon is an outlier excluded from NA_1 and NA_2 but left in the combined group NA_3
 bee_samples_listed/byPop$ parallel '(for pop in $(cat {1}_{2}.pops); do cat $pop.list; done) > {1}_{2}.list' ::: NA SA ::: 0 1 2 3
+
+# bees for analysis: all ACM reference bees, 2014 Cridland populations, excluding Domesticated bees and Humboldt (too far North), all CA and AR bees from 2018 except very low seq. AR1212:
+bee_samples_listed$ awk -F$'\t' '($6 == "Calfee" && $14 == "TRUE" && $1 != "AR1212" && ($7 == "AR_2018" || $7 == "CA_2018")) || ($6 == "Harpur" && $7 != "Cerana") || ($6 == "Sheppard") || ($6 == "Ramirez" && $5 == "2014" && $2 != "Humboldt" && $2 != "Domestic") {print $1}' all.meta > combined_sept19.list
+bee_samples_listed$ (for i in $(cat combined_sept19.list); do echo ../filtered_bams/results/$i.sort.dedup.baq.bam; done) > combined_sept19.bams
