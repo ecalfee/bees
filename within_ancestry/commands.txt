@@ -167,7 +167,6 @@ within_ancestry$ nohup parallel --noswap --jobs 2 --joblog logs/calc_pi_all_pops
 within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_pi_all_pops_1Mb_random_background.log './calc_theta_random_background.sh {2} ../bee_samples_listed/byPop/{2}.list 1Mb_of_non-outlier_100bp {1} ../filtered_bams/results_Amel4.5' ::: combined :::: ../bee_samples_listed/byPop/pops_included.list &> logs/calc_pi_all_pops_1Mb_random_background.out &
  :( FOLDED SFS [5] 11628 - RAN 8.13.19
 
-
 I CAN USE THETAS (within pop pi), BUT NOT FST FROM THE FOLDED SFS. I AM REMAKING THESE SCRIPTS & RERUNNING FOR THE UNFOLDED SFS. I am also downloading ANGSD v9.28 (latest) 8.14.19. 10:50am. The version update is hopefully to deal with segfaults.
 SO I MOVED THE ORIGINAL FOLDED OUTPUTS TO HERE: results/folded_SFS_incorrect . 
 And I am re-running all sfs and 2D sfs, pi, and fst estimates:
@@ -178,24 +177,22 @@ Also, I should be able to calc dxy myself from the unfolded 2d sfs (arbitrarily 
 # within-ancestry pi:
 # Fst:
 # within-ancestry fst:
-
 # OUTLIERS:
 # Pi:
 # Fst:
 # INDIVIDUAL POPS:
-
-
-
-
-
-
-
 # first get slightly stricter ancestry segments:
-
-
-
-
 # for an outlier region: calculate SFS, then pi, then Fst:
+
+# -------------------------------------------------------------------------------------------------------#
+# HAv3.1 newly mapped bams:
+# Calculating allele freqs for A/C/M reference panels at all SNPs
+# get allele freqs at snps for all bees at all sites (ignoring ancestry)
+within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_allele_freq_all_HAv3.1.log './allele_freq.sh {1} {2} combined_sept19' :::: ../bee_samples_listed/byPop/pops_included_plus_ACM.list :::: ../data/honeybee_genome/chr.names &> logs/calc_allele_freq_all_HAv3.1.out &
+[1] 21063
+
+
+
 
 
 

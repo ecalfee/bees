@@ -1,16 +1,17 @@
 #!/bin/bash -l
 
-# this script calculates allele frequencies within ancestry for a population and list of bams
+# this script calculates allele frequencies for a population and list of bams
 
-
-# to run: ./allele_freq.sh AR01 ../bee_samples_listed/byPop/AR01.list ../data/bees_new_positions/ALL.var.sites
+# to run: ./allele_freq.sh AR01 Group1 combined_sept19
 
 POP="${1}"
-BEE_ID_FILE="${2}"
-SNP_FILE="${3}"
-DIR_BAMS="../filtered_bams/results_Amel4.5"
-DIR_OUT=results/allele_freq_all
-BAM_LIST="$DIR_OUT"/"$POP".bams
+SCAFFOLD="${2}"
+PREFIX="${3}"
+BEE_ID_FILE="../bee_samples_listed/byPop/${POP}.list"
+SNP_FILE="../geno_lik_and_SNPs/results/${PREFIX}/variant_sites/${SCAFFOLD}.var.sites"
+REGIONS_FILE="../geno_lik_and_SNPs/results/${PREFIX}/variant_sites/${SCAFFOLD}.regions"
+DIR_OUT="results/${PREFIX}/allele_freq/combined/${SCAFFOLD}"
+BAM_LIST="../bee_samples_listed/byPop/${POP}.bams"
 
 # general bash script settings to make sure if any errors in the pipeline fail
 # then it’s a ‘fail’ and it passes all errors to exit and allows no unset variables
@@ -18,7 +19,7 @@ set –o pipefail
 set –o errexit
 set –o nounset
 
-REF="../data/honeybee_genome/Amel_4.5_scaffolds.fa"
+REF="../data/honeybee_genome/Amel_HAv3.1.fasta"
 
 echo "Calculating allele frequencies for POP: "$POP" across all ancestries"
 
@@ -26,17 +27,13 @@ echo "Calculating allele frequencies for POP: "$POP" across all ancestries"
 
 mkdir -p "$DIR_OUT"
 
-# make list of bams to include
-for i in $(cat "$BEE_ID_FILE")
-	do echo $DIR_BAMS/$i.sort.dedup.baq.bam
-done > $BAM_LIST
-
 echo "bam list:" $BAM_LIST
 
 echo "finding site allele frequencies"
 angsd -out "${DIR_OUT}/${POP}" \
 -bam "$BAM_LIST" \
 -ref "$REF" \
+-rf "$REGIONS_FILE" \
 -underFlowProtect 1 \
 -remove_bads 1 \
 -minMapQ 30 -minQ 20 \
