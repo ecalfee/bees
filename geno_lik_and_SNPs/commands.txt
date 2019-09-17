@@ -130,6 +130,10 @@ TO RUN LATER
 
 # generated list of scaffolds and chromosomes in new genome HAv3.1 using subdivide_genome_HAv3.1.R
 # note: scaffold information and gap information was downloaded from ncbi: ftp://ftp.ncbi.nih.gov/genomes/Apis_mellifera/ (gaps 9.13.19: allcontig.agp.gz)
+# added GroupUn only (all scaffolds except mtDNA and the 16 scaffolded to chromosomes)
+data/honeybee_genome$ grep '^NW' scaffolds.list > GroupUN.list
+data/honeybee_genome$ cut -f1,2 GroupUN.list > GroupUN.lengths
+honeybee_genome$ cut -f3 GroupUN.list > GroupUN.names # also did same to make names files for chr and scaffolds and scaffolds_with_mtDNA
 
 # to calculate coverage, making random list of 100,000 positions on chromosomes in honey bee reference genome HAv3.1. I exclude known seq. gaps. and make sure no positions are repeated.
 
@@ -164,3 +168,4 @@ geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/call_snps_combined_sept
 './calc_GL_all_SNPs.sh ../bee_samples_listed/combined_sept19.bams {1} {2} 174 5500 results/combined_sept19/GL_by_scaffold' \
 ::: $(cut -f3 ../data/honeybee_genome/scaffolds.list) :::+
 $(cut -f1 ../data/honeybee_genome/scaffolds.list) &> logs/call_snps_combined_sept19.out &
+

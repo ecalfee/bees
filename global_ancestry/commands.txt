@@ -181,6 +181,39 @@ global_ancestry/results/input$ for i in {1..5}; do cp recomb_10kb_5bins_"$i"/ord
 global_ancestry$ nohup parallel --noswap --joblog logs/runNGSadmix_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy10_NoGroupUn_recomb10kb_bin5.log './runNGSadmix.sh 3 recomb_10kb_5bins_{1}_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_NoGroupUn_prunedBy10' ::: {1..5} &> logs/runNGSadmix_ordered_scaffolds_CA_AR_MX_harpur_sheppard_kohn_wallberg_prunedBy10_NoGroupUn_recomb10kb_bin5.out &
 [1] 29259 - RUNNING 6.16.19
 
+# ------------------------------------------------------------------------------------------------------- #
+# Combined Sept 19 analysis with Harpur reference A/C/M plus some previous CA 2014 bees and all new CA/AR 2018 bees:
+# (0) SNPs need to be in low LD for this analysis.
+# for input files in results/input/, I concatenate the GL for every 250th SNP for ordered scaffolds:
+# then thin to every 250th SNP:
+# (note I modified catBeagleGL_nth to take in a list of scaffold names
+bees/global_ancestry$ nohup ./catBeagleGL_nth.sh 250 combined_sept19 chr >& logs/combined_sept19_chr_prune_by250.out &
+[1] 25979 - COMPLETE (few minutes) # about 14k snps
+# repeat for all scaffolds (not just chr):
+bees/global_ancestry$ nohup ./catBeagleGL_nth.sh 250 combined_sept19 scaffolds >& logs/combined_sept19_scaffolds_prune_by250.out &
+[2] 26003- COMPLETE (very fast). Only adds 46 SNPs..must not map as well to these shorter GroupUn scaffolds. I won't run include these any further.
+GroupUN only contributes 0.3% of SNPs:
+global_ancestry$ zcat ../geno_lik_and_SNPs/results/combined_sept19/GL_by_scaffold/*.mafs.gz | wc -l
+3522504
+global_ancestry$ zcat ../geno_lik_and_SNPs/results/combined_sept19/GL_by_scaffold/GroupUN*.mafs.gz | wc -l
+11654
+
+
+# (1) run PCAngsd
+bees/global_ancestry$ nohup ./runPCAngsd.sh combined_sept19_chr_prunedBy250 >& logs/runPCA_combined_sept19_chr_prunedBy250.out &
+[1] 26484 - COMPLETE (seconds)
+
+# (2) run NGSAdmix
+bees/global_ancestry$ nohup parallel './runNGSadmix.sh {1} combined_sept19_chr_prunedBy250' ::: 3 4 &> logs/runNGSadmix_combined_sept19_chr_prunedBy250.out &
+[2] 26646 - COMPLETE (seconds)
+
+# (3) # R scripts for plotting results:
+plot_PCA.R
+plot_NGSadmix.R
+plot_admixture_by_PCA.R # shows congruence between these two global ancestry analyses
+
+
+
 # TO DO: Make NGSAdmix plots more interpretable by making anc1 always A etc. (using A group)
 # because Avalon bees are driving PC3 and are likely highly drifted from their island status, maybe exclude them and rerun PCA to see if 'O' group pops out along PC3 instead
 # haha make shorter file names

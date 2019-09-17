@@ -5,6 +5,7 @@ library(tidyr)
 library(ggplot2)
 library(RColorBrewer)# for color palette
 library(stringr)
+source("../colors.R") # for color palette
 
 # get metadata for individuals included in analysis
 meta <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F, 
@@ -15,7 +16,8 @@ meta <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F,
 #prefix <- "pass1_and_kohn"
 #prefix <- "pass1_plus_kohn_and_wallberg"
 #prefix <- "pass1_plus_kohn_and_wallberg_noJordanO"
-prefix <- "CA_AR_MX_harpur_sheppard_kohn_wallberg"
+#prefix <- "CA_AR_MX_harpur_sheppard_kohn_wallberg"
+prefix <- "combined_sept19"
 
 # get ID's for PCA data (CAUTION - bam list order and admix results MUST MATCH!)
 IDs <- read.table(paste0("../bee_samples_listed/", prefix, ".list"), stringsAsFactors = F,
@@ -23,7 +25,9 @@ IDs <- read.table(paste0("../bee_samples_listed/", prefix, ".list"), stringsAsFa
 colnames(IDs) <- c("Bee_ID")
 
 # get coverage estimates
-coverage <- read.table(paste0("../geno_lik_and_SNPs/results/", prefix, "/coverage/est_coverage_by_reads_Q30.txt"),
+coverage <- read.table(paste0("../geno_lik_and_SNPs/results/", prefix, 
+                              #"/coverage/est_coverage_by_reads_Q30.txt")
+                              "/coverage/mean_ind_coverage.chr.random_pos_1000.txt"),
                        header = T, stringsAsFactors = F, sep = "\t")
 
 # join all data together
@@ -37,7 +41,8 @@ n <- 250
 # get PCA data
 cov_dir <- "results/PCA"
 # cov_file <- "ordered_scaffolds_prunedBy", n, ".cov" # just pass1
-cov_file <- paste0("ordered_scaffolds_", prefix, "_prunedBy", n, ".cov")
+#cov_file <- paste0("ordered_scaffolds_", prefix, "_prunedBy", n, ".cov")
+cov_file <- paste0(prefix, "_chr_prunedBy", n, ".cov")
 cov_data <- read.table(file.path(cov_dir, cov_file),
                        header = F, stringsAsFactors = F)
 # PC's are each column of dataframe pca:
@@ -51,7 +56,10 @@ colnames(pca_small) = paste0("PC", 1:m)
 # join bams and firstPCs of covariance PCA data by position (CAUTION - bam list order and admix results MUST MATCH!)
 d <- bind_cols(bees, pca_small)  %>%
   arrange(., population) %>%
-  arrange(., strain)
+  arrange(., strain) %>%
+  mutate(., label = ifelse(group %in% c("A", "C", "M"), 
+                           group,
+                           ifelse(group == "AR_2018", "S. America", "N. America")))
 
 
 # rounded eigen values
@@ -64,20 +72,34 @@ p12 = d %>%
   ggplot(., aes(PC1, PC2)) + 
   xlab(paste0("PC1 (", PC_var_explained[1], "%)")) +
   ylab(paste0("PC2 (", PC_var_explained[2], "%)")) +
-  ggtitle(paste0("PCA ", prefix, " every ", n, "th snp"))
-plot(p12 + geom_point(aes(color = strain, size = est_coverage), alpha = .5))
+  theme_classic()
+plot(p12 + geom_point(aes(color = strain, size = est_coverage), alpha = .5) +
+       ggtitle(paste0("PCA ", prefix, " every ", n, "th snp")))
 ggsave(paste0("plots/PCA_12_", prefix, ".png"), 
        plot = p12 + geom_point(aes(color = strain), alpha = .5), 
        device = "png", 
        width = 12, height = 8, units = "in",
        dpi = 200)
 # by group, not strain
-plot(p12 + geom_point(aes(color = group), alpha = .5))
-ggsave(paste0("plots/PCA_12_", prefix, "_byGroup.png"), 
-       plot = p12 + geom_point(aes(color = group), alpha = .5), 
-       device = "png", 
-       width = 12, height = 8, units = "in",
+pca_for_manuscript <- p12 + 
+  geom_point(aes(color = label), alpha = .5, size = 2) +
+  scale_color_manual(values = c(col_ACM, col_NA_SA_both),
+                     name = NULL) # + ggtitle("PCA")
+
+plot(pca_for_manuscript)
+ggsave(paste0("../../bee_manuscript/figures/PCA_12_", prefix, "_byGroup.pdf"), 
+       plot = pca_for_manuscript, 
+       device = "pdf", 
+       width = 6, height = 5, 
+       units = "in",
        dpi = 200)
+ggsave(paste0("plots/PCA_12_", prefix, "_byGroup.png"), 
+       plot = pca_for_manuscript, 
+       device = "png", 
+       width = 6, height = 5, 
+       units = "in",
+       dpi = 200)
+
 
 # look at reference bees more carefully:
 p12_ref = d %>%

@@ -62,7 +62,7 @@ genome %>%
               col.names = F, row.names = F, quote = F, sep = "\t")
 
 # coverage
-depth <- read.table("results/combined_sept19/coverage/scaffolds.random_pos_1000.txt",
+depth <- read.table("results/combined_sept19/coverage/chr.random_pos_1000.txt",
                     header = F, stringsAsFactors = F)
 colnames(depth) <- c("scaffold", "start", "end", ids$Bee_ID)
 ind_mean <- apply(depth[, ids$Bee_ID], 2, mean)
@@ -85,3 +85,15 @@ table(site_total < mean(site_total)/2)/length(site_total)
 table(site_total < mean(site_total)/2)/length(site_total)
 # approximate mean depth is 2748 ~ 2750 * 2 = 5500
 # half the individuals is 348/2 = 174 which I'll use as a lower cutoff
+# write out estimated individual coverage per bee
+write.table(data.frame(Bee_ID = ids$Bee_ID,
+                       est_coverage = apply(depth[ , ids$Bee_ID], 2, mean)),
+            "results/combined_sept19/coverage/mean_ind_coverage.chr.random_pos_1000.txt",
+            col.names = T, row.names = F, quote = F, sep = "\t")
+
+# what is an ok coverage cutoff for the higher coverage bees?
+hist(depth[ , "SRR5270368"])
+table(depth[ , "SRR5270368"] < 6)
+colMeans(depth[ , ids$Bee_ID] < 10)
+colMeans(depth[ , ids$Bee_ID] < 7)
+
