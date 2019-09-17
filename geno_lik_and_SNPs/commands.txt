@@ -170,3 +170,24 @@ geno_lik_and_SNPs$ nohup parallel --noswap --joblog logs/call_snps_combined_sept
 $(cut -f1 ../data/honeybee_genome/scaffolds.list) &> logs/call_snps_combined_sept19.out &
 [1] 30627 - RUNNING 9.14.19 early am
 
+# I first make variant sites files for all SNPs in the dataset (takes just a couple minutes)
+geno_lik_and_SNPs$ mkdir -p results/combined_sept19/variant_sites
+geno_lik_and_SNPs$ for i in $(cat ../data/honeybee_genome/chr.names); do zcat results/combined_sept19/GL_by_scaffold/${i}.mafs.gz | \
+tail -n +2 | awk '{print $1 "\t" $2 "\t" $3 "\t" $4}' \
+> results/combined_sept19/variant_sites/${i}.var.sites; sleep 2s; \
+angsd sites index results/combined_sept19/variant_sites/${i}.var.sites; done
+# make regions file for each sites file (so angsd doesn't walk through the whole genome):
+geno_lik_and_SNPs$ for i in $(cat ../data/honeybee_genome/chr.names); do cut -f1 results/combined_sept19/variant_sites/${i}.var.sites | sort | uniq > results/combined_sept19/variant_sites/${i}.regions; done
+
+# then I use angsd to call genotypes for the high coverage reference panels
+# using known major/minor from sites file, no phred quality cutoff (error rates go into model),
+# and requiring minimum 6 reads to call a genotype. 
+# I run A, C and M separately because of the HW assumption.
+geno_lik_and_SNPs$ nohup parallel --jobs 4 --noswap --joblog logs/call_genotypes_ACM_combined_sept19.log './call_genotypes.sh {1} combined_sept19 {2}' ::: A C M :::: ../data/honeybee_genome/chr.names &> logs/call_genotypes_ACM_combined_sept19.out &
+[1] 6983 - RUNNING 9.16.19
+
+
+
+
+
+
