@@ -39,8 +39,9 @@ for (i in pop2014_incl){ # make short labels for included bees from these ca_bee
            "_",
            1:sum(meta$population == i, na.rm = T))
 }
-pop2014_2018_inc <- c(pop2014_incl, unique(meta$population[meta$group %in% c("CA_2018", "AR_2018")]))
-
+pop2014_2018_inc <- c(pop2014_incl, unique(meta$population[meta$group %in% c("CA_2018", "AR_2018") & meta$toSequence]))
+write.table(pop2014_2018_inc, "../bee_samples_listed/byPop/combined_sept19_pops.list",
+            col.names = F, row.names = F, quote = F, sep = "\t")
 #IDs <- read.table("../bee_samples_listed/with_duplicated_ap50/pass1.list", stringsAsFactors = F,
 #                  header = F) # note ap50 is duplicated in the GL file output of ANGSD and NGSadmix results
 #IDs <- read.table("../bee_samples_listed/pass1_plus_kohn.list", stringsAsFactors = F,

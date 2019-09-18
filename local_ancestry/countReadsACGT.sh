@@ -8,14 +8,15 @@ echo "argument 2 is: $2"
 
 # this script takes in a sites file and outputs an angsd counts file with
 # columns totA totC totG totT as well as a .pos.gz file with all positions with data
-# to run: ./countReadsACGT.sh CA0906 thin1kb_common3
+# to run: ./countReadsACGT.sh CA0906 TEST Group1_highLD_CMA
 
 BEE_ID="${1}"
 DIR_OUT="results/SNPs/${2}"
+SITES_FILE="results/SNPs/${2}/${3}.var.sites"
 DIR_IN="../filtered_bams/results/"
 BAM="${DIR_IN}/${BEE_ID}.sort.dedup.baq.bam"
 DIR_SINGLE_BAM_LIST="../bee_samples_listed/list_indiv_bams"
-REF="../data/honeybee_genome/Amel_4.5_scaffolds.fa"
+REF="../data/honeybee_genome/Amel_HAv3.1.fasta"
 
 # make output and scratch directories
 mkdir -p "${DIR_OUT}/countsACGT"
@@ -32,6 +33,6 @@ angsd -out "${DIR_OUT}/countsACGT/${BEE_ID}" \
 -minQ 20 -minMapQ 30 \
 -doCounts 1 -dumpCounts 3 \
 -remove_bads 1 \
--sites "${DIR_OUT}/included.var.sites"
+-sites "${SITES_FILE}"
 
 echo "all done!"

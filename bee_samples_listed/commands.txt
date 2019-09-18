@@ -31,3 +31,8 @@ bee_samples_listed/byPop$ for j in A C M; do (for i in $(cat $j.list); \
 do echo ../filtered_bams/results/$i.sort.dedup.baq.bam; done) > $j.bams; done
 bee_samples_listed/byPop$ for j in $(cat pops_included.list); \
 do (for i in $(cat $j.list); do echo ../filtered_bams/results/$i.sort.dedup.baq.bam; done) > $j.bams; done
+
+# OOPS need Davis_2014 on lists:
+bee_samples_listed/byPop$ awk '$4 == "Davis_2014" {print $1}' ../all.meta > Davis_2014.list
+bee_samples_listed/byPop$ for j in $(cat combined_sept19_pops.list); \
+do (for i in $(cat $j.list); do echo ../filtered_bams/results/$i.sort.dedup.baq.bam; done) > $j.bams; done

@@ -189,7 +189,7 @@ Also, I should be able to calc dxy myself from the unfolded 2d sfs (arbitrarily 
 # Calculating allele freqs for A/C/M reference panels at all SNPs
 # get allele freqs at snps for all bees at all sites (ignoring ancestry)
 within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_allele_freq_all_HAv3.1.log './allele_freq.sh {1} {2} combined_sept19' :::: ../bee_samples_listed/byPop/pops_included_plus_ACM.list :::: ../data/honeybee_genome/chr.names &> logs/calc_allele_freq_all_HAv3.1.out &
-[1] 21063
+[1] 21063 - RUNNING 9.17.19
 
 
 

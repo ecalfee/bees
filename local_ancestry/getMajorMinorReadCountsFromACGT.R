@@ -11,7 +11,7 @@
 
 library(dplyr)
 # to run:
-# Rscript count_reads_major_minor.R AR0302 thin1kb_common3
+# Rscript ./getMajorMinorreadCountsFromACGT.R AR0302 TEST Group1_highLD_CMA
 
 print(getwd()) # print current directory
 
@@ -21,12 +21,14 @@ args = commandArgs(trailingOnly=TRUE)
 ID = args[1]
 # DIR name for set of SNPs
 DIR = args[2]
+# SITES file prefix
+SITES_PREFIX = args[3]
 # full path to directory
 path = paste0("results/SNPs/", DIR)
 
 acgt_file = paste0(path, "/countsACGT/", ID, ".counts.gz")
 pos_file = paste0(path, "/countsACGT/", ID, ".pos.gz")
-sites_file = paste0(path, "/included.var.sites")
+sites_file = paste0(path, "/", SITES_PREFIX, ".var.sites")
 output_directory = paste0(path, "/countsMajMin")
 output_file = paste0(output_directory, "/", ID, ".counts.txt")
 

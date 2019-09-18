@@ -363,3 +363,38 @@ New recombination map available from Jones 2019 (need to ask for the map & possi
 
 
 
+#--------------------------------------------------------------------------------------------------------#
+# HAv3.1 analysis:
+# With my new SNP set, I applied basic filtering:
+# (i) MAF in one group (A/C/M) >= .3 and 
+# (ii) all groups having >=6 individuals with called genotypes.
+# Then for a test case without filtering for LD, I printed SNPs for Group1:
+# results/SNPs/TEST/Group1_highLD_CMA.var.sites results/SNPs/TEST/Group1_highLD_CMA.var.genos
+# For one test pop, I will call ancestry using these files and using files with an LD filter
+# and see if there is a big effect.
+# this may be quite slow (243k SNPs on chr 1 alone)
+local_ancestry$ angsd sites index results/SNPs/TEST/Group1_highLD_CMA.var.sites
+local_ancestry$ nohup parallel --joblog logs/ACGTcounts_MajMinCounts_AR11_TEST.log --noswap --jobs 4 './countReadsACGT.sh {1} TEST Group1_highLD_CMA; Rscript ./getMajorMinorReadCountsFromACGT.R {1} TEST Group1_highLD_CMA' :::: ../bee_samples_listed/byPop/AR11.list &> logs/ACGTcounts_MajMinCounts_AR11_TEST.out &
+[1] 2812 - COMPLETED 9.17.19
+
+# also thinning SNPs using inspect_genotypes.R so I can get SNPs at .005 cM spacing (~217bp on avg, so expected under 0.2 r^2 within all 3 ancestry groups at this spacing) = LOW LD.
+# and I thin a separate set of SNPs to medium LD (.002 cM spacing ~ 100bp average)
+local_ancestry$ angsd sites index results/SNPs/TEST/Group1_lowLD_CMA.var.sites
+local_ancestry$ angsd sites index results/SNPs/TEST/Group1_medLD_CMA.var.sites
+local_ancestry$ nohup parallel --joblog logs/ACGTcounts_MajMinCounts_AR11_TEST_lowMedLD.log --noswap --jobs 4 './countReadsACGT.sh {1} TEST Group1_{2}LD_CMA; Rscript ./getMajorMinorReadCountsFromACGT.R {1} TEST Group1_{2}LD_CMA' :::: ../bee_samples_listed/byPop/AR11.list ::: low med &> logs/ACGTcounts_MajMinCounts_AR11_TEST_lowMedLD.out &
+[1] 3540 - COMPLETED 9.17.19
+
+# make ancestry_hmm input files:
+(5C) making scaffolds CMA input file
+bees/local_ancestry$ parallel 'mkdir -p results/ancestry_hmm/TEST/{1}_LD; paste results/SNPs/TEST/Group1_highLD_CMA.genos $(for i in $(cat ../bee_samples_listed/byPop/AR11.list); do echo results/SNPs/TEST/countsMajMin/"$i".counts.txt; done) > results/ancestry_hmm/TEST/{1}_LD/AR11_Group1_TEST_{1}.counts' ::: low high med
+COMPLETED
+# make all population ploidy files for future use
+local_ancestry$ for i in $(cat ../bee_samples_listed/byPop/combined_sept19_pops.list); do cat ../bee_samples_listed/byPop/$i.list | awk '{print $1"\t"2}' > results/ancestry_hmm/$i.ploidy; done
+
+# running ancestry hmm (estimate both times; prior is 100 and 60 generations for C-M and then A-(C-M) admixture; NO BOOTSTRAP
+local_ancestry$ nohup parallel 'cd results/ancestry_hmm/TEST/{1}_LD; ancestry_hmm_v0.94 -e 3e-3 -a 3 0.25 0.44 0.31 -p 0 100000 0.25 -p 1 -100 0.44 -p 2 -60 0.31 --tmax 150 --tmin 2 --ne 670000 -i AR11_Group1_TEST_{1}.counts -s ../../AR11.ploidy' ::: high low med &> logs/ancestry_hmm_AR11_TEST.out &
+[1] 6454 - RUNNING 9.17.19
+
+
+
+
