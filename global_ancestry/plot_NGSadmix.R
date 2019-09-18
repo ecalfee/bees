@@ -14,6 +14,7 @@ library(mapdata)
 library(viridis)
 library(viridisLite)
 library(RColorBrewer)
+library(patchwork) # for combining plots in one output # https://github.com/thomasp85/patchwork
 source("../colors.R") # for color palette
 #Rio Claro, Sao Paulo Brazil: 22.4149° S, 47.5651° W (Google maps)
 sao_paulo <- data.frame(long = -47.5651, lat = -22.4149)

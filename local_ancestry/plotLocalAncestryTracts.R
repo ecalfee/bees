@@ -10,6 +10,7 @@ library(emdbook)
 library(betareg)
 library(gridExtra)
 library(MASS) # for mvrnorm
+library(ggpointdensity)
 
 source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
 source("../../covAncestry/forqs_sim/k_matrix.R") # import useful functions
@@ -396,7 +397,7 @@ meta.pop <- meta.ind %>%
 
 
 # get ancestry frequencies for each population across the genome
-dir_results <- "results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot"
+dir_results <- "Amel4.5_results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot"
 
 popA <- lapply(pops, function(p) read.table(paste0(dir_results, "/anc/", p, ".A.anc"),
                                             stringsAsFactors = F))
@@ -476,7 +477,7 @@ ggsave("../../bee_manuscript/figures/California_has_shorter_ancestry_blocks.png"
        height = 3, width = 8, units = "in")
 
 
-sites0 <- read.table("results/SNPs/thin1kb_common3/included_scaffolds.pos", stringsAsFactors = F,
+sites0 <- read.table("Amel4.5_results/SNPs/thin1kb_common3/included_scaffolds.pos", stringsAsFactors = F,
                     sep = "\t", header = F)
 colnames(sites0) <- c("scaffold", "pos")
 sites <- tidyr::separate(sites0, scaffold, c("chr", "scaffold_n"), remove = F) %>%
@@ -518,7 +519,7 @@ bees_all8 <- bees_all8_0 %>%
   left_join(., subgroups, by = "population")
 
 # get ancestries
-A_bees_all8 <- lapply(bees_all8$Bee_ID, function(p) read.table(paste0("results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/", p, ".A.anc"),
+A_bees_all8 <- lapply(bees_all8$Bee_ID, function(p) read.table(paste0("Amel4.5_results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/", p, ".A.anc"),
                                             stringsAsFactors = F))
 A_all8 <- do.call(cbind, A_bees_all8)
 colnames(A_all8) <- bees_all8$Bee_ID

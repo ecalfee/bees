@@ -127,16 +127,43 @@ min(diff(GL3$rpos))
 # all GL3 sites:
 GL3_CMA_genos <- left_join(GL3[ , c("scaffold", "pos")],
                            CMA_genos, by = c("scaffold", "pos")) %>%
-  mutate(rdiff = c(1, diff(rpos)/100)) # print difference in morgans between positions
-# start first chr position at 1 (there is not diff to calc)
+  mutate(rdiff = c(1, format(round(diff(rpos)/100, 12), scientific = F))) # 12 decimals, units Morgans, no scientific number
+# rdiff starts at 1 for chr position 1 (there is not difference in Morgans to calc)
+
+# get counts from external files:
+ids <- read.table("../local_ancestry/results/ancestry_hmm/AR11.ploidy", header = F,
+                  sep = "\t", stringsAsFactors = F)$V1
+# each id has a major and minor allele counts:
+ids_major_minor <- unlist(lapply(ids, function(i) paste(i, c("major", "minor"), sep = "_")))
+ids_counts <- cbind(GL3[ , c("scaffold", "pos")],
+                    data.frame(do.call(cbind, 
+                                       lapply(ids, function(i) 
+                                         read.table(paste0("../local_ancestry/results/SNPs/TEST/countsMajMin/", 
+                                                           i, ".counts.txt"), 
+                                                    header = F, sep = "\t", stringsAsFactors = F)))) %>%
+                      data.table::setnames(ids_major_minor))
+
+# allele counts for ref A/C/M pops for ancestry hmm
 write.table(GL3_CMA_genos[ , c("scaffold", "pos", 
                                "C_major", "C_minor", 
                                "M_major", "M_minor", 
                                "A_major", "A_minor", "rdiff")], 
             "../local_ancestry/results/SNPs/TEST/Group1_highLD_CMA.genos",
             col.names = F, row.names = F, quote = F, sep = "\t")
+# variant sites file
 write.table(GL3_CMA_genos[ , 1:4], "../local_ancestry/results/SNPs/TEST/Group1_highLD_CMA.var.sites",
             col.names = F, row.names = F, quote = F, sep = "\t")
+# ancestry hmm input file for pop AR11
+write.table(left_join(GL3_CMA_genos[ , c("scaffold", "pos", 
+                               "C_major", "C_minor", 
+                               "M_major", "M_minor", 
+                               "A_major", "A_minor", "rdiff")],
+                      ids_counts, by = c("scaffold", "pos")),
+            "../local_ancestry/results/ancestry_hmm/TEST/high_LD/Group1_highLD_CMA.counts",
+            col.names = F, row.names = F, quote = F, sep = "\t")
+
+
+
 
 # thin SNPs:
 spacing = .005 # min cM spacing
@@ -151,7 +178,7 @@ for (i in 1:nrow(GL3)) {
 }
 GL3_CMA_genos_low <- left_join(GL3[keep_snp, c("scaffold", "pos")],
                            CMA_genos, by = c("scaffold", "pos")) %>%
-  mutate(rdiff = c(1, diff(rpos)/100))
+  mutate(rdiff = c(1, format(round(diff(rpos)/100, 12), scientific = F))) # 12 decimals, units Morgans, no scientific number
 write.table(GL3_CMA_genos_low[ , c("scaffold", "pos", 
                                "C_major", "C_minor", 
                                "M_major", "M_minor", 
@@ -160,6 +187,15 @@ write.table(GL3_CMA_genos_low[ , c("scaffold", "pos",
             col.names = F, row.names = F, quote = F, sep = "\t")
 write.table(GL3_CMA_genos_low[ , 1:4], "../local_ancestry/results/SNPs/TEST/Group1_lowLD_CMA.var.sites",
             col.names = F, row.names = F, quote = F, sep = "\t")
+write.table(left_join(GL3_CMA_genos_low[ , c("scaffold", "pos", 
+                                         "C_major", "C_minor", 
+                                         "M_major", "M_minor", 
+                                         "A_major", "A_minor", "rdiff")],
+                      ids_counts, by = c("scaffold", "pos")),
+            "../local_ancestry/results/ancestry_hmm/TEST/low_LD/Group1_lowLD_CMA.counts",
+            col.names = F, row.names = F, quote = F, sep = "\t")
+
+
 
 # more moderate LD filtering to .001cM
 # thin SNPs:
@@ -175,7 +211,8 @@ for (i in 1:nrow(GL3)) {
 }
 GL3_CMA_genos_med <- left_join(GL3[keep_snp2, c("scaffold", "pos")],
                                CMA_genos, by = c("scaffold", "pos")) %>%
-  mutate(rdiff = c(1, diff(rpos)/100))
+  mutate(rdiff = c(1, format(round(diff(rpos)/100, 12), scientific = F))) # 12 decimals, units Morgans, no scientific number
+
 write.table(GL3_CMA_genos_med[ , c("scaffold", "pos", 
                                    "C_major", "C_minor", 
                                    "M_major", "M_minor", 
@@ -184,4 +221,103 @@ write.table(GL3_CMA_genos_med[ , c("scaffold", "pos",
             col.names = F, row.names = F, quote = F, sep = "\t")
 write.table(GL3_CMA_genos_med[ , 1:4], "../local_ancestry/results/SNPs/TEST/Group1_medLD_CMA.var.sites",
             col.names = F, row.names = F, quote = F, sep = "\t")
+write.table(left_join(GL3_CMA_genos_med[ , c("scaffold", "pos", 
+                                         "C_major", "C_minor", 
+                                         "M_major", "M_minor", 
+                                         "A_major", "A_minor", "rdiff")],
+                      ids_counts, by = c("scaffold", "pos")),
+            "../local_ancestry/results/ancestry_hmm/TEST/med_LD/Group1_medLD_CMA.counts",
+            col.names = F, row.names = F, quote = F, sep = "\t")
 
+# very low LD:
+# thin SNPs:
+spacing3 = .01 # min cM spacing
+keep_snp3 <- rep(F, nrow(GL3))
+last_rpos3 <- -100
+for (i in 1:nrow(GL3)) {
+  this_rpos3 <- GL3[i, "rpos"]
+  if (this_rpos3 - last_rpos3 >= spacing3){
+    keep_snp3[i] <- T
+    last_rpos3 <- this_rpos3 
+  } # else do nothing  
+}
+GL3_CMA_genos_verylow <- left_join(GL3[keep_snp3, c("scaffold", "pos")],
+                               CMA_genos, by = c("scaffold", "pos")) %>%
+  mutate(rdiff = c(1, format(round(diff(rpos)/100, 12), scientific = F))) # 12 decimals, units Morgans, no scientific number
+write.table(GL3_CMA_genos_verylow[ , c("scaffold", "pos", 
+                                   "C_major", "C_minor", 
+                                   "M_major", "M_minor", 
+                                   "A_major", "A_minor", "rdiff")], 
+            "../local_ancestry/results/SNPs/TEST/Group1_verylowLD_CMA.genos",
+            col.names = F, row.names = F, quote = F, sep = "\t")
+write.table(GL3_CMA_genos_verylow[ , 1:4], "../local_ancestry/results/SNPs/TEST/Group1_verylowLD_CMA.var.sites",
+            col.names = F, row.names = F, quote = F, sep = "\t")
+write.table(left_join(GL3_CMA_genos_verylow[ , c("scaffold", "pos", 
+                                             "C_major", "C_minor", 
+                                             "M_major", "M_minor", 
+                                             "A_major", "A_minor", "rdiff")],
+                      ids_counts, by = c("scaffold", "pos")),
+            "../local_ancestry/results/ancestry_hmm/TEST/verylow_LD/Group1_verylowLD_CMA.counts",
+            col.names = F, row.names = F, quote = F, sep = "\t")
+
+
+
+# compare results across low med and high LD runs of ancestry_hmm
+anc <- lapply(pop_ids, function(id)
+  calc_anc_from_post(post = read_post(id = id, dir = dir_input)))
+verylow2 <- read_post("AR1103", dir = "../local_ancestry/results/ancestry_hmm/TEST/verylow_LD/")
+anc_verylow2 <- cbind(verylow2, calc_anc_from_post(post = verylow2))
+low2 <- read_post("AR1103", dir = "../local_ancestry/results/ancestry_hmm/TEST/low_LD/")
+anc_low2 <- cbind(low2, calc_anc_from_post(post = low2))
+high2 <- read_post("AR1103", dir = "../local_ancestry/results/ancestry_hmm/TEST/high_LD/")
+anc_high2 <- cbind(high2, calc_anc_from_post(post = high2))
+med2 <- read_post("AR1103", dir = "../local_ancestry/results/ancestry_hmm/TEST/med_LD/")
+anc_med2 <- cbind(med2, calc_anc_from_post(post = med2))
+
+anc_low2_match <- inner_join(verylow2[ , c("chrom", "position")],
+                                      anc_low2,
+                                      by = c("chrom", "position"))
+anc_verylow2_match <- left_join(anc_low2_match[ , c("chrom", "position")],
+                             anc_verylow2,
+                             by = c("chrom", "position"))
+anc_high2_match <- left_join(verylow2[ , c("chrom", "position")],
+                            anc_high2,
+                            by = c("chrom", "position"))
+anc_high2_match_low <- left_join(low2[ , c("chrom", "position")],
+                             anc_high2,
+                             by = c("chrom", "position"))
+anc_high2_match_med <- left_join(med2[ , c("chrom", "position")],
+                                 anc_high2,
+                                 by = c("chrom", "position"))
+anc_low2_match_med <- inner_join(med2[ , c("chrom", "position")],
+                             anc_low2,
+                             by = c("chrom", "position"))
+anc_med2_match_low <- inner_join(low2[ , c("chrom", "position")],
+                                 anc_med2,
+                                 by = c("chrom", "position"))
+anc_verylow2_match_med <- inner_join(med2[ , c("chrom", "position")],
+                                 anc_verylow2,
+                                 by = c("chrom", "position"))
+anc_med2_match_verylow <- inner_join(verylow2[ , c("chrom", "position")],
+                                 anc_med2,
+                                 by = c("chrom", "position"))
+cor(anc_verylow2$A, anc_high2_match$A)
+plot(anc_verylow2$A, anc_high2_match$A)
+cor(anc_verylow2_match$A, anc_low2_match$A)
+plot(anc_verylow2_match$A, anc_low2_match$A)
+cor(anc_verylow2_match_med$A, anc_med2_match_verylow$A)
+plot(anc_verylow2_match_med$A, anc_med2_match_verylow$A)
+cor(anc_low2_match_med$A, anc_med2_match_low$A)
+plot(anc_low2_match_med$A, anc_med2_match_low$A)
+cor(anc_high2_match_med$A, anc_med2$A)
+plot(anc_high2_match_med$A, anc_med2$A)
+
+cor(anc_low2$A, anc_high2_match_low$A)
+plot(anc_low2$A, anc_high2_match_low$A)
+cor(anc_low2$C, anc_high2_match_low$C)
+plot(anc_low2$C, anc_high2_match_low$C)
+cor(anc_low2$M, anc_high2_match_low$M)
+plot(anc_low2$M, anc_high2_match_low$M)
+anc_low2[which(anc_low2$A < .2 & anc_high2_match_low$A > .6),]
+anc_low2[which(anc_low2$C < .2 & anc_high2_match_low$C > .6),]
+expLowLD <- rexp(n = 10000, rate = 60)

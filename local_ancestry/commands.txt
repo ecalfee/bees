@@ -392,8 +392,92 @@ COMPLETED
 local_ancestry$ for i in $(cat ../bee_samples_listed/byPop/combined_sept19_pops.list); do cat ../bee_samples_listed/byPop/$i.list | awk '{print $1"\t"2}' > results/ancestry_hmm/$i.ploidy; done
 
 # running ancestry hmm (estimate both times; prior is 100 and 60 generations for C-M and then A-(C-M) admixture; NO BOOTSTRAP
-local_ancestry$ nohup parallel 'cd results/ancestry_hmm/TEST/{1}_LD; ancestry_hmm_v0.94 -e 3e-3 -a 3 0.25 0.44 0.31 -p 0 100000 0.25 -p 1 -100 0.44 -p 2 -60 0.31 --tmax 150 --tmin 2 --ne 670000 -i AR11_Group1_TEST_{1}.counts -s ../../AR11.ploidy' ::: high low med &> logs/ancestry_hmm_AR11_TEST.out &
-[1] 6454 - RUNNING 9.17.19
+# TESTING 3 levels of LD filtering (no LD filter, all informative sites MAF > .3 in 1 pop = highLD,
+LD filter at .005 = lowLD, LD filter at .001 = medLD)
+local_ancestry$ nohup parallel 'cd results/ancestry_hmm/TEST/{1}_LD; ancestry_hmm_v0.94 -e 3e-3 -a 3 0.25 0.44 0.31 -p 0 100000 0.25 -p 1 -100 0.44 -p 2 -60 0.31 --tmax 150 --tmin 2 --ne 670000 -i Group1_{1}LD_CMA.counts -s ../../AR11.ploidy' ::: high &> logs/ancestry_hmm_AR11_TEST_high.out &
+[1] 7088 - RUNNING 9.18.19
+
+# OOPs it ran the same thing 3 times -- all high LD. Remade input files and re-running low and med LD:
+local_ancestry$ nohup parallel 'cd results/ancestry_hmm/TEST/{1}_LD; ancestry_hmm_v0.94 -e 3e-3 -a 3 0.25 0.44 0.31 -p 0 100000 0.25 -p 1 -100 0.44 -p 2 -60 0.31 --tmax 150 --tmin 2 --ne 670000 -i Group1_{1}LD_CMA.counts -s ../../AR11.ploidy' ::: low &> logs/ancestry_hmm_AR11_TEST_low.out &
+[1] 7073 - RUNNING 9.18.19
+
+local_ancestry$ nohup parallel 'cd results/ancestry_hmm/TEST/{1}_LD; ancestry_hmm_v0.94 -e 3e-3 -a 3 0.25 0.44 0.31 -p 0 100000 0.25 -p 1 -100 0.44 -p 2 -60 0.31 --tmax 150 --tmin 2 --ne 670000 -i Group1_{1}LD_CMA.counts -s ../../AR11.ploidy' ::: med &> logs/ancestry_hmm_AR11_TEST_med.out &
+[1] 7054 - RUNNING 9.18.19
+
+local_ancestry$ nohup parallel 'cd results/ancestry_hmm/TEST/{1}_LD; ancestry_hmm_v0.94 -e 3e-3 -a 3 0.25 0.44 0.31 -p 0 100000 0.25 -p 1 -100 0.44 -p 2 -60 0.31 --tmax 150 --tmin 2 --ne 670000 -i Group1_{1}LD_CMA.counts -s ../../AR11.ploidy' ::: verylow &> logs/ancestry_hmm_AR11_TEST_verylow.out & &
+[1] 8707 - RUNNING 9.18.19
+
+# I compare TEST outputs in inspect_genotypes.R and they have high correlation (>.95) across all levels of LD filters. However, with high LD the time estimates are nearly twice as large. Based on these results, I'll use the low LD filter, 0.005 cM ~ 200kb, where mean block length after 60 generations of admixture is 0.016 Morgans, or an average of ~ 333 markers/block and less than 1% of blocks are expected to have lengths < .0001 M (2 markers), and <0.3% of blocks are expected to be shorter than the marker spacing. Over 97% of blocks should contain at least 10 markers.
+
+# steps to creating ancestry_hmm input files and running local ancestry calling:
+# (1) Get ACM genotypes using samtools GL for all variant sites (see geno_lik_and_SNPs/
+
+# (2) Thin/filter SNPs running script thin_SNPs_add_genos_ancestry_hmm.R interactively:
+# (i) MAF in at least one group (A/C/M) >= .3 and 
+# (ii) all A/C/M ancestry groups having >=6 individuals with called genotypes.
+# (iii) minimum .005 cM spacing between closest SNPs, based on recomb. map
+# this creates output files per chromosome, e.g. local_ancestry/results/SNPs/combined_sept19/Group1.var.sites and Group1.CMA.genos
+# In total, I keep about 1/7th of all SNPs, 542K SNPs
+
+# (3) combine sites files into one file for all chromosomes, and indexed that sites file with angsd:
+local_ancestry/results/SNPs/combined_sept19$ (for i in {1..16}; do cat Group$i.var.sites; done) > chr.var.sites
+local_ancestry/results/SNPs/combined_sept19$ angsd sites index chr.var.sites
+local_ancestry/results/SNPs/combined_sept19$ for i in {1..16}; do angsd sites index Group$i.var.sites; done
+# combined CMA allele counts into one file for all chromosome:
+local_ancestry/results/SNPs/combined_sept19$ (for i in {1..16}; do cat Group$i.CMA.genos; done) > chr.CMA.genos
+
+# (4) get read counts for every individual for all SNPs:
+local_ancestry$ nohup parallel --joblog logs/ACGTcounts_MajMinCounts_combined_sept19.log --noswap --jobs 4 './countReadsACGT.sh {1} combined_sept19 chr; Rscript ./getMajorMinorReadCountsFromACGT.R {1} combined_sept19 chr' :::: ../bee_samples_listed/combined_sept19.list &> logs/ACGTcounts_MajMinCounts_combined_sept19.out &
+[1] 13294 - RUNNING 9.18.19
+
+# (5)
+# combined site information and allele counts from A/C/M with individual read counts to make input files:
+# (one input file per population):
+
+# to do this, I paste together stripped files into correct order for ancestry_hmm input file
+# note: order is CMA and I reset recombination distance at each scaffold (not LG)
+# chromosome, position_bp, allele counts A1 in C, allele counts A2 in C, allele counts A1 in M, allele counts A2 in M, allele counts A1 in A, allele counts A2 in A,
+# distance in Morgans between previous marker and this one
+# read counts A1 in sample1, read counts A2 in sample1, read counts A1 in sample2 etc.
+local_ancestry$ mkdir -p results/ancestry_hmm/combined_sept19; for i in $(cat ../bee_samples_listed/byPop/combined_sept19_pops.list); do paste results/SNPs/combined_sept19/chr.CMA.genos $(for j in $(cut -f1 results/ancestry_hmm/"$i".ploidy); do echo results/SNPs/combined_sept19/countsMajMin/"$j".counts.txt; done) > results/ancestry_hmm/combined_sept19/"$i".counts; done
+WAITING 2 RUN
+
+(6) run ancestry_hmm for each population:
+(ESTIMATE TIME BUT NO BOOTSTRAP)
+local_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/ancestry_hmm_combined_sept19.log \
+'A=$(grep '{1}' {2} | cut -f2); \
+C=$(grep '{1}' {2} | cut -f3); \
+M=$(grep '{1}' {2} | cut -f4); \
+echo pop: "{1}" A:"$A" C:"$C" M:"$M"; \
+cd results/ancestry_hmm/combined_sept19/posterior; \
+cd results/ancestry_hmm/combined_sept19/posterior; \
+ancestry_hmm_v0.94 -e 3e-3 -a 3 "$C" "$M" "$A" \
+-p 0 100000 "$C" -p 1 -100 "$M" -p 2 -60 "$A" \
+--tmax 150 --tmin 2 --ne 670000 \
+-i ../{1}.counts -s ../../../SNPs/{1}.ploidy' \
+:::: ../bee_samples_listed/byPop/combined_sept19_pops.list ::: ../global_ancestry/results/NGSAdmix/K3_combined_sept19_chr_prunedBy250.pop.anc \
+&> logs/ancestry_hmm_combined_sept19.out &
+WAITING 2 RUN
+
+
+# I get the times out of the log file like this:
+grep 'optimum' -B 1 -A 4 logs/ancestry_hmm_combined_sept19.out
+# and note that most are reasonably close to 60 gen (C-M) then 30 generations (A-(C-M))
+# but the lowest A-ancestry populations in California have very old A ancestry admixture estimates (older than C-M event) ..possibly because these are really picking up partly ILS or, perhaps more likely, the time just can't be estimated accurately by this method because there aren't very many blocks of A ancestry.
+local_ancestry$ grep 'optimum' -B 1 -A 4 logs/ancestry_hmm_combined_sept19.out > results/ancestry_hmm/combined_sept19/time_estimates_extracted_from_log.txt
+WAITING 2 RUN
+
+# calculating ancestry proportions across the genome
+local_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_anc_combined_sept19.log \
+'Rscript ./calcAncFromPost.R {1} results/ancestry_hmm/combined_sept19/posterior' \
+:::: ../bee_samples_listed/byPop/combined_sept19_pops.list \
+&> logs/calc_anc_combined_sept19.out &
+WAITING 2 RUN
+
+# make a bed file with the mean ancestry estimates in included AR and CA populations, using R script plotAncestryTracts.R
+WAITING 2 RUN
+
+
 
 
 
