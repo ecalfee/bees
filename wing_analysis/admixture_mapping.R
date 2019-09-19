@@ -10,6 +10,7 @@ wings <- read.table("ALL_Wings_CA_AR.csv",
   mutate(Bee_ID = sapply(Label, function(x) strsplit(x, split = "-")[[1]][3]))
 
 # note: there are some duplicates. one must be mislabelled. may remove the full pair for now.
+View(filter(wings, Bee_ID %in% wings$Bee_ID[duplicated(wings$Bee_ID)]))
 
 # load bee data
 # Bee IDs

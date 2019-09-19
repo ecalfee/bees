@@ -11,9 +11,9 @@ library(betareg)
 library(gridExtra)
 library(MASS) # for mvrnorm
 library(ggpointdensity)
-
+source("../colors.R") # for color palette
 source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
-source("../../covAncestry/forqs_sim/k_matrix.R") # import useful functions
+#source("../../covAncestry/forqs_sim/k_matrix.R") # import useful functions
 
 
 bees1 <- read.table("results/SNPs/thin1kb_common3/pass1_2018.ploidy", stringsAsFactors = F, 
@@ -376,7 +376,8 @@ anc_all_plus_meta %>%
 # Newest bee sequences
 # load metadata
 # load population ancestry frequencies:
-pops <- read.table("../bee_samples_listed/byPop/pops_included.list", stringsAsFactors = F)$V1
+#pops <- read.table("../bee_samples_listed/byPop/pops_included.list", stringsAsFactors = F)$V1
+pops <- read.table("../bee_samples_listed/byPop/combined_sept19_pops.list", stringsAsFactors = F)$V1
 bees <- do.call(rbind, 
                 lapply(pops, function(p) data.frame(Bee_ID = read.table(paste0("../bee_samples_listed/byPop/", p, ".list"),
                                                     stringsAsFactors = F)$V1, population = p, stringsAsFactors = F)))
@@ -397,7 +398,8 @@ meta.pop <- meta.ind %>%
 
 
 # get ancestry frequencies for each population across the genome
-dir_results <- "Amel4.5_results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot"
+#dir_results <- "Amel4.5_results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot"
+dir_results <- "results/ancestry_hmm/combined_sept19/posterior"
 
 popA <- lapply(pops, function(p) read.table(paste0(dir_results, "/anc/", p, ".A.anc"),
                                             stringsAsFactors = F))
@@ -435,9 +437,10 @@ admix_times <- do.call(rbind, lapply(c("A", "C", "M"), function(anc) read.table(
     cbind(time_pops, .)))
 
 # the ancestry proportion values in the log rom ancestry_hmm are just the priors from NGSAdmix:
-# d_ACM and d_pop_ACM are loaded from plot_NGSadmix.R script
-left_join(d_pop_ACM, filter(admix_times, ancestry == "A"), by = "population") %>%
-  with(., plot(A, proportion, xlim = 0:1, ylim = 0:1, col = "blue"))
+# admix.pops and admix.ind are loaded from plot_NGSadmix.R script
+left_join(admix.pops, filter(admix_times, ancestry == "A"), by = "population") %>%
+  with(., plot(A, proportion, xlim = 0:1, ylim = 0:1, col = "blue", main = "should be perfect match -- showing prior"))
+abline(0, 1)
 
 
 # plot ancestry times vs. mean ancestry proportion:
@@ -445,16 +448,19 @@ admix_times %>%
   left_join(., meta.pop, by = "population") %>%
   filter(., ancestry != "C") %>% # no time, first ancestry
   ggplot(., aes(x = abs(lat), y = time, color = zone, shape = factor(year))) +
-  geom_point() +
+  geom_point(alpha = .75) +
   facet_grid(. ~ ancestry) +
-  ggtitle("Inferred time of admixture pulses from HMM") +
+  scale_color_manual(values = col_NA_SA_both, name = "Hybrid zone") +
+  #ggtitle("Inferred time of admixture pulses from HMM") +
   ylab("Time (generations)") +
   xlab("Degrees latitude from the equator") +
-  labs(color = "Hybrid Zone", shape = "Collection")
+  labs(shape = "Collection") +
+  theme_classic() +
+  scale_shape_manual(values = c(17, 19))
 ggsave("plots/time_of_admixture_vs_latitude.png",
-       height = 5, width = 14, units = "in")
-ggsave("../../bee_manuscript/figures/time_of_admixture_vs_latitude.png",
-       height = 5, width = 14, units = "in")
+       height = 3, width = 6, units = "in")
+ggsave("../../bee_manuscript/figures/time_of_admixture_vs_latitude.pdf",
+       height = 3, width = 6, units = "in", device = "pdf")
 
 # compare California and Argentina: 
 # For the same ancestry proportions, do they have similar inferred times of admixture?
@@ -465,25 +471,41 @@ admix_times %>%
   filter(., ancestry != "C") %>%
   mutate(ancestry_labels = paste(ancestry, "ancestry admixture pulse")) %>%
   ggplot(., aes(x = proportion, y = time, color = zone, shape = factor(year))) +
-  geom_point() +
-  ggtitle("Time since admixture estimated from ancestry block lengths") +
+  geom_point(alpha = .75) +
+  #ggtitle("Time since admixture estimated from ancestry block lengths") +
   facet_grid(. ~ ancestry_labels) +
+  scale_color_manual(values = col_NA_SA_both, name = "Hybrid zone") +
   ylab("Time (generations in the past)") +
-  xlab("Admixture proportion (ancestry_hmm)") +
-  labs(color = "Hybrid Zone", shape = "Collection")
+  xlab("Admixture proportion") +
+  labs(color = "Hybrid Zone", shape = "Collection") +
+  theme_classic() +
+  scale_shape_manual(values = c(17, 19))
 ggsave("plots/California_has_shorter_ancestry_blocks.png",
-       height = 3, width = 8, units = "in")
-ggsave("../../bee_manuscript/figures/California_has_shorter_ancestry_blocks.png",
-       height = 3, width = 8, units = "in")
+       height = 3, width = 6, units = "in")
+ggsave("../../bee_manuscript/figures/California_has_shorter_ancestry_blocks.pdf",
+       height = 3, width = 6, units = "in", device = "pdf")
 
 
-sites0 <- read.table("Amel4.5_results/SNPs/thin1kb_common3/included_scaffolds.pos", stringsAsFactors = F,
-                    sep = "\t", header = F)
+#sites0 <- read.table("Amel4.5_results/SNPs/thin1kb_common3/included_scaffolds.pos", stringsAsFactors = F,
+#                    sep = "\t", header = F)
+sites0 <- read.table("results/SNPs/combined_sept19/chr.var.sites", stringsAsFactors = F,
+                     sep = "\t", header = F)[ , 1:2]
 colnames(sites0) <- c("scaffold", "pos")
-sites <- tidyr::separate(sites0, scaffold, c("chr", "scaffold_n"), remove = F) %>%
-  mutate(scaffold_n = as.numeric(scaffold_n)) %>%
-  mutate(chr_n = as.numeric(substr(chr, 6, 100))) %>%
-  mutate(snp_id = paste0("snp", chr_n, ".", scaffold, ".", pos))
+chr_lengths <- cbind(read.table("../data/honeybee_genome/chr.names", stringsAsFactors = F),
+                     read.table("../data/honeybee_genome/chr.lengths", stringsAsFactors = F)) %>%
+  data.table::setnames(c("chr", "scaffold", "chr_length")) %>%
+  mutate(chr_n = 1:16) %>%
+  mutate(chr_end = cumsum(chr_length)) %>%
+  mutate(chr_start = chr_end - chr_length) %>%
+  mutate(chr_mid = (chr_start + chr_end)/2)
+
+#sites <- tidyr::separate(sites0, scaffold, c("chr", "scaffold_n"), remove = F) %>%
+#  mutate(scaffold_n = as.numeric(scaffold_n)) %>%
+#  mutate(chr_n = as.numeric(substr(chr, 6, 100))) %>%
+#  mutate(snp_id = paste0("snp", chr_n, ".", scaffold, ".", pos))
+sites <- left_join(sites0, chr_lengths[ , c("chr", "scaffold", "chr_n", "chr_start")], by = "scaffold") %>%
+  mutate(cum_pos = pos + chr_start)
+
 #test_id <- read.table("results/SNPs/thin1kb_common3/included.snplist", stringsAsFactors = F,
 #                      sep = "\t", header = F)$V1
 #table(test_id == sites$snp_id) # good
@@ -533,14 +555,15 @@ abline(v = quantile(meanA, .99), col = "orange")
 abline(v = quantile(meanA, .01), col = "orange")
 dev.off()
 
-CA_pops_included <- meta.pop[meta.pop$group %in% c("N_CA", "S_CA", "CA_2018") & meta.pop$year >= 2014, ]
+#CA_pops_included <- meta.pop[meta.pop$group %in% c("N_CA", "S_CA", "CA_2018") & meta.pop$year >= 2014, ]
+CA_pops_included <- meta.pop[meta.pop$zone == "N. America", ]
 CA_A <- A[, CA_pops_included$population]
 CA_A_earlier <- A[, meta.pop$population[meta.pop$group %in% c("N_CA", "S_CA") & meta.pop$year < 2014]]
 CA_A_2014 <- A[, meta.pop$population[meta.pop$group %in% c("N_CA", "S_CA") & meta.pop$year == 2014]]
 CA_A_2018 <- A[, meta.pop$population[meta.pop$group %in% c("CA_2018")]]
 plot(apply(CA_A_2014, 1, mean), apply(CA_A_2018, 1, mean))
 plot(apply(CA_A_earlier, 1, mean), apply(CA_A_2018, 1, mean))
-AR_pops_included <- meta.pop[meta.pop$group == "AR_2018", ]
+AR_pops_included <- meta.pop[meta.pop$zone == "S. America", ]
 AR_A <- A[, AR_pops_included$population]
 
 # take mean across individuals, not across populations:
@@ -649,11 +672,12 @@ ggsave("plots/mean_A_ancestry_CA_vs_AR_rainbow_by_chr.png",
        device = "png", height = 10, width = 12, units = "in")
 # zoom in on Group1.23 because it has both high and low outliers:
 data.frame(sites, CA = meanA_CA, AR = meanA_AR) %>%
-  filter(chr == "Group1" & scaffold_n %in% 20:23) %>%
+  #filter(chr == "Group1" & scaffold_n %in% 20:23) %>%
+  filter(chr == "Group1") %>%
   gather("pop", "Afreq", c("CA", "AR")) %>%
   ggplot(aes(x = pos, y = Afreq, color = pop)) +
   geom_point(size = .1) +
-  facet_wrap(~scaffold_n) + 
+  #facet_wrap(~scaffold_n) + 
   ggtitle("African ancestry frequencies in CA and AR")
 ggsave("plots/mean_A_ancestry_CA_and_AR_Group1_scaffolds_20-23.png", 
        device = "png", height = 10, width = 12, units = "in")
@@ -1329,6 +1353,26 @@ legend("bottomright", legend = c(0.99, 0.95, 0.75, 0.5),
        lwd = 4,
        col=c("lightgreen", "salmon", "lightblue", "yellow"))
 dev.off()
+
+# make a new kind of density plot:
+ggplot(data = data.frame(CA = meanA_CA, AR = meanA_AR)[c(T, rep(F, 10)), ],
+       aes(x = CA, y = AR)) +
+  #geom_point()
+  ggpointdensity::geom_pointdensity(adjust = .1) +
+  scale_color_viridis(option = "magma") +
+  theme_classic() +
+  xlab("S. America") +
+  ylab("N. America")
+ggsave("plots/A_CA_vs_AR_density.png",
+       height = 5, width = 6, units = "in", device = "png")
+ggsave("../../bee_manuscript/figures/A_CA_vs_AR_density.png",
+       height = 5, width = 6, units = "in", device = "png")
+plot(meanA_CA, meanA_AR, col = alpha("grey", alpha = .3), pch = 20,
+     main = "Ancestry frequencies in both hybrid zones across SNPs",
+     xlab = "Mean African ancestry in California bees",
+     ylab = "Mean African ancestry in Argentina bees")
+
+
 
 png("plots/density_MVN_overlay_on_scatterplot_w_ind_zone_quantiles.png", 
     height = 8, width = 8, units = "in", res = 300)

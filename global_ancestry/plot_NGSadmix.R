@@ -673,12 +673,6 @@ ggsave(paste0("plots/NGS_admix_Ref_bySource", name, ".png"),
 
 # print file with population frequencies of each admixed population 
 # to use as priors in local ancestry inference
-d_ACM <- d_admix %>%
-  #filter(source %in% c("Calfee", "Ramirez")) %>%
-  tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
-  left_join(., anc, by = "ancestry") %>%
-  dplyr::select(-ancestry) %>%
-  spread(ancestry_label, p)
 
 admix.pops %>%
   dplyr::select(c("population", "A", "C", "M", "n")) %>%

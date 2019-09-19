@@ -466,8 +466,15 @@ ancestry_hmm_v0.94 -e 3e-3 -a 3 "$C" "$M" "$A" \
 grep 'optimum' -B 1 -A 4 logs/ancestry_hmm_combined_sept19.out
 # and note that most are reasonably close to 60 gen (C-M) then 30 generations (A-(C-M))
 # but the lowest A-ancestry populations in California have very old A ancestry admixture estimates (older than C-M event) ..possibly because these are really picking up partly ILS or, perhaps more likely, the time just can't be estimated accurately by this method because there aren't very many blocks of A ancestry.
-local_ancestry$ grep 'optimum' -B 1 -A 4 logs/ancestry_hmm_combined_sept19.out > results/ancestry_hmm/combined_sept19/time_estimates_extracted_from_log.txt
+local_ancestry$ grep 'optimum' -B 1 -A 4 logs/ancestry_hmm_combined_sept19.out > results/ancestry_hmm/combined_sept19/posterior/time_estimates_extracted_from_log.txt
 COMPLETED
+# extracting times in a more usable format from the log of ancestry_hmm:
+local_ancestry$ cd results/ancestry_hmm/combined_sept19/posterior 
+$ grep 'pop' time_estimates_extracted_from_log.txt | cut -f2 -d" " > time_pops.txt
+$ grep 'type' -A3 time_estimates_extracted_from_log.txt | awk 'NR%5 == 2 {print $0}' > time_C.txt
+$ grep 'type' -A3 time_estimates_extracted_from_log.txt | awk 'NR%5 == 3 {print $0}' > time_M.txt
+$ grep 'type' -A3 time_estimates_extracted_from_log.txt | awk 'NR%5 == 4 {print $0}' > time_A.txt
+# plotted in plotLocalAncestryTracts.R
 
 # calculating ancestry proportions across the genome
 local_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_anc_combined_sept19.log \
