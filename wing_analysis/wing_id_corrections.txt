@@ -1,0 +1,11 @@
+wrong_label	correct_label
+RW-A-CA1512-11-07-18	RW-A-CA1312-11-07-18
+RW-R-CA1501-10-31-18	RW-T-CA1503-10-31-18
+RW-U-CA1309-11-28-18	RW-U-CA0309-11-28-18
+RW-V-CA1220-01-29-19	RW-V-CA1120-01-29-19
+RW-W-CA1216-01-29-19	repeat_measurement
+LW-C-CA0913-01-29-19	repeat_measurement
+RW-A-CA0501-03-14-19	unclear_handwriting_exlude_both?
+LW-G-CA0424-02-15-19	no_picture_of_left_wing_likely_repeat_measure_of_right
+RW-Z-CA0112-03-14-19	unclear_exclude_both
+RW-Y-AR1410-03-14-19	RW-Y-CA1410-03-14-19
