@@ -10,12 +10,11 @@ ANCESTRY="${2}"
 ANCESTRY_HMM_PREFIX="${3}"
 BEE_ID_FILE="${4}"
 SNP_PREFIX="${5}"
-SNP_FILE="../geno_lik_and_SNPs/results/variant_sites/${SNP_PREFIX}.var.sites"
-REGIONS_FILE="results/${ANCESTRY_HMM_PREFIX}/variant_sites/${SNP_PREFIX}.regions"
+SNP_FILE="../geno_lik_and_SNPs/results/${ANCESTRY_HMM_PREFIX}/variant_sites/${SNP_PREFIX}.var.sites"
+REGIONS_FILE="../geno_lik_and_SNPs/results/${ANCESTRY_HMM_PREFIX}/variant_sites/${SNP_PREFIX}.regions"
 DIR_BAMS=results/"${ANCESTRY_HMM_PREFIX}"/"${ANCESTRY}"/bams
 DIR_OUT=results/"$ANCESTRY_HMM_PREFIX"/"$ANCESTRY"/allele_freq
 BAM_LIST="$DIR_OUT"/"$POP".bams
-
 
 # general bash script settings to make sure if any errors in the pipeline fail
 # then it’s a ‘fail’ and it passes all errors to exit and allows no unset variables
@@ -29,7 +28,7 @@ echo "Calculating allele frequencies for POP: "$POP" and ancestry "$ANCESTRY
 
 # make directory to store output (if doesn't yet exist)
 
-mkdir -p "$DIR_OUT"
+mkdir -p "$DIR_OUT/$SNP_PREFIX"
 
 # make list of bams to include
 for i in $(cat "$BEE_ID_FILE")
@@ -39,7 +38,7 @@ done > $BAM_LIST
 echo "bam list:" $BAM_LIST
 
 echo "finding site allele frequencies"
-angsd -out "${DIR_OUT}/${POP}.${SNP_PREFIX}" \
+angsd -out "${DIR_OUT}/${SNP_PREFIX}/${POP}" \
 -bam "$BAM_LIST" \
 -ref "$REF" \
 -underFlowProtect 1 \
