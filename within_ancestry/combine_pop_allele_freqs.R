@@ -7,9 +7,9 @@
 library(dplyr)
 
 # to run:
-# Rscript combine_pop_allele_freqs.R AR01 results/allele_freq_all ../data/bees_new_positions/ALL.var.sites
+# Rscript combine_pop_allele_freqs.R AR01 results/allele_freq_all Group1
 
-# can also be used to extract within ancestry freqs, e.g. results/thin1kb_common3_byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/AA/allele_freq
+# can also be used to extract within ancestry freqs, e.g. results/combined_sept19/A/allele_freq
 
 # arguments
 args = commandArgs(trailingOnly=TRUE)
@@ -18,7 +18,8 @@ POP = args[1]
 # paths to input and output directories
 path_allele_freqs = args[2]
 # sites file
-sites_file = args[3]
+SITES_PREFIX = args[3]
+sites_file = paste0("../geno_lik_and_SNPs/results/variant_sites/", SITES_PREFIX, ".var.sites")
 
 sites0 <- read.table(sites_file, 
                     stringsAsFactors = F, header = F) %>%
@@ -34,7 +35,7 @@ f <- allele_freq %>%
   mutate(p = ifelse(phat > 1, 1, phat)) %>% # gets rid of weird angsd rounding error
   dplyr::select(p) %>%
   data.table::setnames(POP)
-write.table(f, paste0(path_allele_freqs, "/", POP, ".freqs.txt"),
+write.table(f, paste0(path_allele_freqs, "/", POP, ".", SITES_PREFIX, ".freqs.txt"),
             col.names = T, row.names = F, quote = F)
 
 # separate out number of individuals with data and write to file
@@ -42,5 +43,5 @@ n <- allele_freq %>%
   mutate(n = ifelse(is.na(nInd), 0, nInd)) %>% # NA means no individuals with data
   dplyr::select(n) %>%
   data.table::setnames(POP)
-write.table(n, paste0(path_allele_freqs, "/", POP, ".nInd"),
+write.table(n, paste0(path_allele_freqs, "/", POP, ".", SITES_PREFIX, ".nInd"),
             col.names = T, row.names = F, quote = F)

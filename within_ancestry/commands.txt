@@ -191,6 +191,23 @@ Also, I should be able to calc dxy myself from the unfolded 2d sfs (arbitrarily 
 within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_allele_freq_all_HAv3.1.log './allele_freq.sh {1} {2} combined_sept19' :::: ../bee_samples_listed/byPop/pops_included_plus_ACM.list :::: ../data/honeybee_genome/chr.names &> logs/calc_allele_freq_all_HAv3.1.out &
 [1] 21063 - RUNNING 9.17.19
 
+# using local_ancestry scripts I called high confidence AA/CC/MM HOMOZYGOUS ANCESTRY tracts for all bees,
+e.g. local_ancestry/results/tracts/combined_sept19/A/CA1207.bed'
+
+# Now I filter bams to only save reads that overlap these tracts:
+within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/get_BAMS_AA_CC_MM_ancestry_tracts_0.8_HAv3.1.log './getBamsForTracts.sh {1} {2} combined_sept19' :::: ../bee_samples_listed/byPop/combined_sept19_pops.IDs ::: C M A &> logs/get_BAMS_AA_CC_MM_ancestry_tracts_0.8_HAv3.1.out &
+[1] 7443 - RUNNING 9.27.19
+
+# then using reads from these bams, I
+# calculate allele frequencies at all those SNPs using simple counts:
+# I will do this by chromosome and then combined results with a SNP file to capture all SNPs, including NAs:
+within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_allele_freq_within_ancestry_HAv3.1.log './allele_freq_within_ancestry.sh {1} {2} combined_sept19 ../bee_samples_listed/byPop/{1}.list {3}; Rscript ./combine_pop_allele_freqs.R {1} results/combined_sept19/{2}/allele_freq {3}' ../bee_samples_listed/byPop/combined_sept19_pops.list ::: A C M :::: ../data/honeybee_genome/chr.names &> logs/calc_allele_freq_within_ancestry_HAv3.1.out &
+WAITING 2 RUN # note: if needed I could speed the above command up a bunch by filtering bams for mapQ>30
+
+
+# NOTE: I also want to get allele freqs for NA and SA as groups within each ancestry and I guess also for all reads, regardless of ancestry, but only for regions of interest (have to ask will sites file of whole chromosome + rf with just a segment do the whole chr or just that segment?)
+
+
 
 
 

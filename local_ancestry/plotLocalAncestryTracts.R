@@ -684,7 +684,8 @@ ggsave("plots/mean_A_ancestry_CA_and_AR_Group1_scaffolds_20-23.png",
 
 
 # plot K matrix
-zAnc_bees = make_K_calcs(t(A))
+pops_by_lat <- meta.pop$population[order(meta.pop$lat)]
+zAnc_bees = make_K_calcs(t(A[ , pops_by_lat]))
 
 
 melt(zAnc_bees$K) %>%
@@ -692,21 +693,51 @@ melt(zAnc_bees$K) %>%
   geom_tile() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
-  scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
+  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
+  scale_fill_viridis() +
   ggtitle("K covariance - bees")
 ggsave("plots/k_matrix_all_pops.png", 
        height = 6, width = 8, 
        units = "in", device = "png")
 melt(cov2cor(zAnc_bees$K)) %>%
+  filter(Var1 != Var2) %>% # omit diagonal
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
+  theme_classic() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
-  scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
-  ggtitle("K correlation - bees")
+  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
+  scale_fill_viridis() +
+  xlab("") +
+  ylab("") +
+  ggtitle("K correlation matrix - bees")
 ggsave("plots/k_correlation_matrix_all_pops.png", 
        height = 6, width = 8, 
        units = "in", device = "png")
+ggsave("../../bee_manuscript/figures/k_correlation_matrix_all_pops.pdf", 
+       height = 7, width = 8, 
+       units = "in", device = "pdf")
+
+# make a new K matrix but omit outlier points:
+ZAnc_bees_noOutliers = make_K_calcs(t(A[!(meanA > quantile(meanA, .6) | 
+                                            meanA < quantile(meanA, .4)), 
+                                        pops_by_lat]))
+melt(cov2cor(ZAnc_bees_noOutliers$K)) %>%
+  filter(Var1 != Var2) %>% # omit diagonal
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis() +
+  xlab("") +
+  ylab("") +
+  ggtitle("K correlation matrix - bees")
+ggsave("plots/k_NO_OUTLIERS_correlation_matrix_all_pops.png", 
+       height = 7, width = 8, 
+       units = "in", device = "png")
+ggsave("../../bee_manuscript/figures/k_NO_OUTLIERS_correlation_matrix_all_pops.pdf", 
+       height = 7, width = 8, 
+       units = "in", device = "pdf")
 
 
 summary(meanA)
@@ -1355,18 +1386,50 @@ legend("bottomright", legend = c(0.99, 0.95, 0.75, 0.5),
 dev.off()
 
 # make a new kind of density plot:
-ggplot(data = data.frame(CA = meanA_CA, AR = meanA_AR)[c(T, rep(F, 10)), ],
+p_density <- ggplot(data = data.frame(CA = meanA_CA, AR = meanA_AR), #[c(T, rep(F, 10)), ],
        aes(x = CA, y = AR)) +
   #geom_point()
-  ggpointdensity::geom_pointdensity(adjust = .1) +
+  #geom_bin2d(bins = 100) +
+  #stat_density2d() +
+  ggpointdensity::geom_pointdensity(adjust = 2, size = .5) + 
+  # change method away from kde2d for original k neighbor plot, but may have to thin
+  # takes way longer -- also need to rasterize
   scale_color_viridis(option = "magma") +
+  scale_fill_viridis(option = "magma") +
   theme_classic() +
-  xlab("S. America") +
-  ylab("N. America")
+  xlab("N. America") +
+  ylab("S. America") #+
+  #labs(color = "No. Nearby Points")
+plot(p_density)
 ggsave("plots/A_CA_vs_AR_density.png",
+       plot = p_density,
        height = 5, width = 6, units = "in", device = "png")
 ggsave("../../bee_manuscript/figures/A_CA_vs_AR_density.png",
        height = 5, width = 6, units = "in", device = "png")
+# thin points and plot nearest neighbors:
+p_neighbors <- ggplot(data = data.frame(CA = meanA_CA, AR = meanA_AR)[c(T, rep(F, 100)), ],
+                    aes(x = CA, y = AR)) +
+  #geom_point()
+  #geom_bin2d(bins = 100) +
+  #stat_density2d() +
+  ggpointdensity::geom_pointdensity(adjust = .1, size = .5) + 
+  # change method away from kde2d for original k neighbor plot, but may have to thin
+  # takes way longer -- also need to rasterize
+  scale_color_viridis(option = "magma") +
+  scale_fill_viridis(option = "magma") +
+  theme_classic() +
+  xlab("N. America") +
+  ylab("S. America") #+
+#labs(color = "No. Nearby Points")
+plot(p_neighbors)
+ggsave("plots/A_CA_vs_AR_neighbors.png",
+       plot = p_density,
+       height = 5, width = 6, units = "in", device = "png")
+ggsave("../../bee_manuscript/figures/A_CA_vs_AR_neighbors.png",
+       height = 5, width = 6, units = "in", device = "png")
+
+
+
 plot(meanA_CA, meanA_AR, col = alpha("grey", alpha = .3), pch = 20,
      main = "Ancestry frequencies in both hybrid zones across SNPs",
      xlab = "Mean African ancestry in California bees",

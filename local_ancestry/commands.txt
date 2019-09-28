@@ -444,6 +444,7 @@ local_ancestry$ nohup parallel --joblog logs/ACGTcounts_MajMinCounts_combined_se
 local_ancestry$ mkdir -p results/ancestry_hmm/combined_sept19; for i in $(cat ../bee_samples_listed/byPop/combined_sept19_pops.list); do paste results/SNPs/combined_sept19/chr.CMA.genos $(for j in $(cut -f1 results/ancestry_hmm/"$i".ploidy); do echo results/SNPs/combined_sept19/countsMajMin/"$j".counts.txt; done) > results/ancestry_hmm/combined_sept19/"$i".counts; done
 COMPLETED 9.18.19
 
+
 (6) run ancestry_hmm for each population:
 (ESTIMATE TIME BUT NO BOOTSTRAP)
 local_ancestry$ mkdir -p results/ancestry_hmm/combined_sept19/posterior
@@ -485,3 +486,19 @@ local_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_anc_combined
 
 # make a bed file with the mean ancestry estimates in included AR and CA populations, using R script plotAncestryTracts.R
 WAITING 2 RUN
+
+
+# getting high-confidence homozygous tracts:
+# first translate variant sites to a bed file so I can get ancestry calls at SNPs -> ancestry tracts
+local_ancestry$ Rscript ./ancestry_sites_to_tracts.R results/SNPs/combined_sept19/chr 
+# created results/SNPs/combined_sept19/chr.var.sites.bed
+
+
+# find tracts with high posteriors for homozygous AA CC MM ancestry using bash script:
+local_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/get_AA_CC_MM_ancestry_tracts_0.8_Amel3.1.log './getHighPosteriorTracts.sh {1} {2} {3} combined_sept19 results/SNPs/combined_sept19/chr.var.sites.bed' :::: ../bee_samples_listed/byPop/combined_sept19_pops.IDs ::: 3 6 8 :::+ C M A &> logs/get_AA_CC_MM_ancestry_tracts_0.8_Amel3.1.out &
+[1] 29575 - RUNNING 9.27.19
+
+
+
+
+

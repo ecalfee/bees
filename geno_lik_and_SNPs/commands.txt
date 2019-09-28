@@ -179,6 +179,11 @@ angsd sites index results/combined_sept19/variant_sites/${i}.var.sites; done
 # make regions file for each sites file (so angsd doesn't walk through the whole genome):
 geno_lik_and_SNPs$ for i in $(cat ../data/honeybee_genome/chr.names); do cut -f1 results/combined_sept19/variant_sites/${i}.var.sites | sort | uniq > results/combined_sept19/variant_sites/${i}.regions; done
 
+# I also made a variant sites file for all chr together, but it is so large it's unlikely to be useful:
+geno_lik_and_SNPs/results/combined_sept19/variant_sites$ (for i in {1..16}; do cat Group$i.var.sites; done) > chr.var.sites
+geno_lik_and_SNPs/results/combined_sept19/variant_sites$ angsd sites index chr.var.sites
+
+
 # then I use angsd to call genotypes for the high coverage reference panels
 # using known major/minor from sites file, no phred quality cutoff (error rates go into model),
 # and requiring minimum 6 reads to call a genotype. 

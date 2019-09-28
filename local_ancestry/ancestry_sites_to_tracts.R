@@ -20,11 +20,12 @@ PATH = args[1]
 get_start_end <- function(path){
   sites0 <- read.table(paste0(path, ".var.sites"),
                       stringsAsFactors = F, header = F)
-  snp_list <- read.table(paste0(path, ".snplist"),
-  stringsAsFactors = F, header = F)
+  #snp_list <- read.table(paste0(path, ".snplist"),
+  #stringsAsFactors = F, header = F)
   colnames(sites0) <- c("chrom", "pos", "allele1", "allele2")
-  colnames(snp_list) <- c("snp_id")
-  sites <- cbind(sites0, snp_list)
+  #colnames(snp_list) <- c("snp_id")
+  #sites <- cbind(sites0, snp_list)
+  sites <- sites0
   sites$start <- floor(sites$pos - diff(c(sites$pos[1]-1, sites$pos), lag = 1)/2)
   sites$end <- floor(sites$pos + diff(c(sites$pos, sites$pos[length(sites$pos)]), lag = 1)/2)
   sites$isStartChr <- c("hi", sites$chrom[-length(sites$chrom)]) != sites$chrom
@@ -32,6 +33,7 @@ get_start_end <- function(path){
   # special cases at start and end of the chromosome/scaffold 
   sites$start[sites$isStartChr] <- sites$pos[sites$isStartChr] - 1
   sites$end[sites$isEndChr] <- sites$pos[sites$isEndChr]
+  sites$snp_id <- paste(sites$chrom, sites$pos, sep = "_")
   return(sites[, c("chrom", "start", "end", "snp_id")])
 }
 # find start and end positions for all sites across 10 chromosomes
