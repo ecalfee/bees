@@ -63,10 +63,12 @@ plot(m_snp)
 # try again: fit each snp independently and save b_lat and b_snp (slope and intercept) ? and theta
 # really I want the best fitting logistic, that minimizes theta.. I'll look up options in R
 A_snp_all <- A[ , meta.AR.order.by.lat$population] # take only SA
-system.time(A_snp_1 <- A_snp_all[1, ] %>% # take just 1 snp
+A_snp_1 <- A_snp_all[1, ] %>% # take just 1 snp
   tidyr::gather(., "population", "A") %>%
-  left_join(., meta.AR.order.by.lat, by = "population"))
-
+  left_join(meta.AR.order.by.lat, ., by = "population")
+A_snp_1 <- MVNsim_bounded[8, ] %>% # take a snp with some zeros
+  tidyr::gather(., "population", "A") %>%
+  left_join(meta.AR.order.by.lat, ., by = "population")
 
 m_snp1 <- map( # quadratic approximation of the posterior MAP
   alist(

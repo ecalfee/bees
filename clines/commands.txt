@@ -42,7 +42,9 @@ https://nsidc.org/data/NSIDC-0063
 
 # note: the simulations run all snps at once but I broke up the A ancestry observations into 5 sets
 clines$ nohup parallel --noswap --jobs 7 --joblog logs/calc_betareg_ind_snps.log 'Rscript betareg_clines_ind_loci.R {1} {2} {3} {4} ' ::: MVNsim_zero_bounded MVNsim_bounded A :::+ 1 1 1 100001 200001 300001 400001 :::+ 100000 100000 100000 200000 300000 400000 600000 :::+ MVNsim_zero_bounded MVNsim_bounded A1 A2 A3 A4 A5 &> logs/calc_betareg_ind_snps.out &
-[1] 15422 - RUNNING 9.29.19
+[1] 15422 - RUNNING 9.29.19. OOPS values at 0 and 1 cause problems. Exactly 1 observed value hits the 1 bound (none at zero), but simulated values more frequently hit the 0,1 bounds. So for now I add/subtract 10^-5 to put all values on (0,1) but a better solution could be found.
+[1] 17428 - RUNNING 9.29.19
+
 # steep_outliers.R has code to look at local ancestry clines at individual snps. testing functions and comparing ML vs. MAP estimates adn I'll use it to analyze the results from betareg_clines_ind_loci.R
 
 
