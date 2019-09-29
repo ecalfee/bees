@@ -11,6 +11,7 @@ library(betareg)
 library(gridExtra)
 library(MASS) # for mvrnorm
 library(ggpointdensity)
+#library(ggridges) # to get density plot without bottom line on x axis
 source("../colors.R") # for color palette
 source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
 #source("../../covAncestry/forqs_sim/k_matrix.R") # import useful functions
@@ -404,15 +405,18 @@ dir_results <- "results/ancestry_hmm/combined_sept19/posterior"
 popA <- lapply(pops, function(p) read.table(paste0(dir_results, "/anc/", p, ".A.anc"),
                                             stringsAsFactors = F))
 A <- do.call(cbind, popA)
+rm(popA)
 colnames(A) <- pops
 popM <- lapply(pops, function(p) read.table(paste0(dir_results, "/anc/", p, ".M.anc"),
                                             stringsAsFactors = F))
 M <- do.call(cbind, popM)
 colnames(M) <- pops
+rm(popM)
 popC <- lapply(pops, function(p) read.table(paste0(dir_results, "/anc/", p, ".C.anc"),
                                             stringsAsFactors = F))
 C <- do.call(cbind, popC)
 colnames(C) <- pops
+rm(popC)
 
 # mean ancestry across populations
 meanA0 <- apply(A, 1, mean)
@@ -745,10 +749,11 @@ sd(meanA)
 
 # simulate from MVN distribution:
 AR_CA_K <- make_K_calcs(t(cbind(AR_A, CA_A)))
-#sim_n <- 10^6 # slow
-sim_n <- 10^5
+#n_sim <- 10^6 # slow
+n_sim <- 10^5
+#n_sim = length(meanA) # simulate data of same length
 set.seed(101)
-MVNsim <- mvrnorm(n = sim_n, 
+MVNsim <- mvrnorm(n = n_sim, 
                   mu = AR_CA_K$alpha, 
                   Sigma = AR_CA_K$K, 
                   tol = 1e-6, 
@@ -785,12 +790,14 @@ meanA_MVNsim <- apply(cbind(MVNsim_AR, MVNsim_CA)[ , c(AR_pops_included$populati
 # simulate from MVN distribution:
 AR_CA_K_zero <- AR_CA_K$K
 summary(AR_CA_K_zero[AR_CA_K$K < 0])
-sum(AR_CA_K$K < 0)/prod(dim(AR_CA_K$K)) # 11% of covariances < 0
+sum(AR_CA_K$K < 0)/prod(dim(AR_CA_K$K)) # ~13% of covariances < 0
 summary(AR_CA_K$K[AR_CA_K$K > 0])
+# conclusion: negative covariances are on the same order as positive covariances
 summary(AR_CA_K$K[T])
+summary(as.matrix(AR_CA_K$K)[lower.tri(as.matrix(AR_CA_K$K), diag = F)]) # don't include diagonals
 AR_CA_K_zero[AR_CA_K$K < 0] <- 0
 set.seed(101)
-MVNsim_zero <- mvrnorm(n = sim_n, 
+MVNsim_zero <- mvrnorm(n = n_sim, 
                   mu = AR_CA_K$alpha, 
                   Sigma = AR_CA_K_zero, 
                   tol = 1e-6, 
@@ -798,7 +805,9 @@ MVNsim_zero <- mvrnorm(n = sim_n,
                   EISPACK = FALSE)
 
 # how many simulations exceed the bounds?
-# overall few, but more than 15% for some populations
+# overall few, but more than 25% for some populations
+sum(MVNsim < 0)/sum(table(MVNsim<0))
+sum(MVNsim > 1)/sum(table(MVNsim>1))
 sum(MVNsim_zero < 0)/sum(table(MVNsim_zero<0))
 sum(MVNsim_zero > 1)/sum(table(MVNsim_zero>1))
 hist(MVNsim[MVNsim_zero<0])
@@ -811,10 +820,11 @@ data.frame(population = colnames(MVNsim_zero),
   left_join(., admix_proportions, by = "population") %>%
   left_join(., meta.pop, by = "population") %>%
   ggplot(., aes(x = A, y = percent_0, color = zone)) +
-  geom_point() +
+  geom_point(alpha = .75) +
   xlab("Mean A ancestry proportion (ancestry_hmm)") +
   ylab("Percent sims < 0 (MVN)") +
-  ggtitle("Percent simulated population ancestry frequencies < 0 (MVN)")
+  #ggtitle("Percent simulated population ancestry frequencies < 0 (MVN)") +
+  scale_color_manual(values = col_NA_SA_both, name = NULL)
 ggsave("plots/percents_MVN_sims_need_truncation_low.png",
        height = 3, width = 8, units = "in")
 
@@ -1094,14 +1104,14 @@ dev.off()
 MVNsim_AR_bounded_quantile <- quantile(meanA_MVNsim_AR_bounded, .99)
 MVNsim_CA_bounded_quantile <- quantile(meanA_MVNsim_CA_bounded, .99)
 table(meanA_MVNsim_AR_bounded > MVNsim_AR_bounded_quantile & 
-        meanA_MVNsim_CA_bounded > MVNsim_CA_bounded_quantile)/sim_n
-.01^2 # it's about six times as likely under the MVN to get a double outlier at top .01% than it would be under true independence between N and S America
+        meanA_MVNsim_CA_bounded > MVNsim_CA_bounded_quantile)/n_sim
+.01^2 # it's about 5-6 times as likely under the MVN to get a double outlier at top .01% than it would be under true independence between N and S America
 # but still same order of magnitude. Also I maybe need to simulate a larger # of trials to get accuracy in the tails (only expect 1000 outliers each out of 100k, very small # overlap)
 # when I simulated 1 million MVN's I got .000521 as the probability of outliers in both CA and AR at .01%
 MVNsim_AR_bounded_quantile_low <- quantile(meanA_MVNsim_AR_bounded, .01)
 MVNsim_CA_bounded_quantile_low <- quantile(meanA_MVNsim_CA_bounded, .01)
 table(meanA_MVNsim_AR_bounded < MVNsim_AR_bounded_quantile_low & 
-        meanA_MVNsim_CA_bounded < MVNsim_CA_bounded_quantile_low)/sim_n
+        meanA_MVNsim_CA_bounded < MVNsim_CA_bounded_quantile_low)/n_sim
 # on the low side it's similar. some variance from low # expected hits in my simulations
 
 
@@ -1110,28 +1120,28 @@ table(meanA_MVNsim_AR_bounded < MVNsim_AR_bounded_quantile_low &
 # first read in individual alpha estimates for mean A ancestry
 CA_indAlpha <- do.call(rbind,
                        lapply(CA_pops_included$population, function(p) 
-  read.table(paste0("results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/", p, ".alpha.anc"),
-                                            stringsAsFactors = F)))
+  read.table(paste0("results/ancestry_hmm/combined_sept19/posterior/anc/", p, ".alpha.anc"),
+                                            stringsAsFactors = F, header = T)))
 AR_indAlpha <- do.call(rbind,
                        lapply(AR_pops_included$population, function(p) 
-                         read.table(paste0("results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/", p, ".alpha.anc"),
-                                    stringsAsFactors = F)))
+                         read.table(paste0("results/ancestry_hmm/combined_sept19/posterior/anc/", p, ".alpha.anc"),
+                                    stringsAsFactors = F, header = T)))
 
 # compare distribution between binomial and MVN for 10^5 simulations
 set.seed(101) # use same seed
 PoiBinsim_CA <- apply(do.call(rbind,
                         lapply(CA_indAlpha$A, 
                        function(alpha)
-                         rbinom(n = sim_n, size = 2, prob = alpha)))/2, 2, mean)
+                         rbinom(n = n_sim, size = 2, prob = alpha)))/2, 2, mean)
 PoiBinsim_AR <- apply(do.call(rbind,
                                  lapply(AR_indAlpha$A, 
                                         function(alpha)
-                                          rbinom(n = sim_n, size = 2, prob = alpha)))/2, 2, mean)
+                                          rbinom(n = n_sim, size = 2, prob = alpha)))/2, 2, mean)
 PoiBinsim_combined <- (PoiBinsim_CA*sum(CA_pops_included$n_bees) + PoiBinsim_AR*sum(AR_pops_included$n_bees))/sum(c(CA_pops_included$n_bees, AR_pops_included$n_bees))
                                                                                                                     
 # MVN simulation bounded with no covariances
 set.seed(101)
-MVNsim_no_cov <- mvrnorm(n = sim_n, 
+MVNsim_no_cov <- mvrnorm(n = n_sim, 
                        mu = AR_CA_K$alpha, 
                        Sigma = diag(diag(AR_CA_K$K), length(AR_CA_K$alpha), length(AR_CA_K$alpha)), 
                        tol = 1e-6, 
@@ -1158,20 +1168,47 @@ sim_compare <-
            MVN_no_covariance = meanA_MVNsim_no_cov_bounded,
            #MVN_no_bounds = meanA_MVNsim,
            MVN_with_covariance = meanA_MVNsim_zero_bounded,
-           observed_data = sample(meanA, sim_n, replace = F)) %>% # downsample data to match length of simulations
+           #MVN_with_covariance_and_negs = meanA_MVNsim_bounded,
+           #observed_data = meanA) %>%
+           observed_data = sample(meanA, n_sim, replace = F)) %>% # downsample data to match length of simulations
   tidyr::gather(., "distribution", "A")
 # plot
 p_sim_compare <- sim_compare %>%
   ggplot(., aes(x = A, color = distribution)) +
-  geom_density(lwd = 1) +
-  theme_bw() +
+  #geom_density_line(lwd = 1) +
+  geom_line(stat = "density", #alpha = .75, 
+            aes(linetype = distribution)) +
+  theme_classic() +
   xlab("Combined sample mean African ancestry") +
-  scale_color_discrete(name = "Distribution", labels = c("observed_data"="Observed data", "poisson_binomial"="Poisson Binomial", "MVN_no_covariance"="MVN variance only", "MVN_with_covariance"="MVN"))
+  ylab("Density") +
+  scale_color_viridis_d(option = "viridis", name = NULL, 
+                        limits = c("observed_data", "MVN_with_covariance", "MVN_no_covariance", "poisson_binomial"),
+                        labels = c("observed_data"="Observed data", "poisson_binomial"="Poisson Binomial", "MVN_no_covariance"="MVN variance only", "MVN_with_covariance"="MVN")) +
+  scale_linetype_manual(name = NULL, values = c(1,2,3,4),
+                        limits = c("observed_data", "MVN_with_covariance", "MVN_no_covariance", "poisson_binomial"),
+                        labels = c("observed_data"="Observed data", "poisson_binomial"="Poisson Binomial", "MVN_no_covariance"="MVN variance only", "MVN_with_covariance"="MVN"))
+#scale_color_discrete(name = "Distribution", labels = c("observed_data"="Observed data", "poisson_binomial"="Poisson Binomial", "MVN_no_covariance"="MVN variance only", "MVN_with_covariance"="MVN"))
 p_sim_compare
+p_sim_compare2 <- sim_compare %>%
+  ggplot(., aes(x = A, color = distribution)) +
+  #geom_density_line(lwd = 1) +
+  geom_line(stat = "density", alpha = .75) +
+  theme_classic() +
+  xlab("Combined sample mean African ancestry") +
+  ylab("Density") +
+  scale_color_viridis_d(option = "viridis", name = NULL, 
+                        limits = c("observed_data", "MVN_with_covariance", "MVN_no_covariance", "poisson_binomial"),
+                        labels = c("observed_data"="Observed data", "poisson_binomial"="Poisson Binomial", "MVN_no_covariance"="MVN variance only", "MVN_with_covariance"="MVN"))
+# use alpha instead of different line types
+
 ggsave("plots/distribution_data_vs_poibin_vs_MVN_sim.png",
-       plot = p_sim_compare,
+       plot = p_sim_compare2,
        device = "png",
-       width = 8, height = 4, units = "in")
+       width = 6, height = 4, units = "in")
+ggsave("../../bee_manuscript/figures/distribution_data_vs_poibin_vs_MVN_sim.pdf",
+       plot = p_sim_compare2,
+       device = "pdf",
+       width = 6, height = 4, units = "in")
 
 for (path in c("plots/", 
                "../../bee_manuscript/figures/")){
@@ -1608,7 +1645,7 @@ AR_CA_K_minus_sampling %>% # not quite
 # simulate the variance:
 a = .5
 n_binom = 10
-n_sim = 10^5
+
 # simulate 100 loci, just binomial variance
 sim_pop1 <- rbinom(size = n_binom, n = n_sim, p = a)/n_binom  
 var(sim_pop1)
@@ -2146,71 +2183,4 @@ lapply(1:9, function(x) table(some_tracts[[x]]$length <= 10000))
 lapply(1:9, function(x) table(some_tracts[[x]]$length <= 5000))
 lapply(1:9, function(x) table(some_tracts[[x]]$length <= 1000))
 lapply(1:9, function(x) table(some_tracts[[x]]$length <= 2000))
-
-
-
-
-
-# compare the priors with the mean inferred ancestry from ancestry_hmm
-# make individual ancestry plots too:
-compare_anc_ind <- rbind(CA_indAlpha, AR_indAlpha) %>% # ancestry_hmm genomewide estimates for individuals
-  tidyr::gather(., "ancestry", "ancestry_hmm", c("A", "C", "M")) %>%
-  left_join(., tidyr::gather(d_ACM[ , c("Bee_ID", "A", "C", "M")], "ancestry", "NGSAdmix", c("A", "C", "M")), # NGSAdmix genomewide estimates for individuals
-            by = c("ancestry"="ancestry", "ID"="Bee_ID"))
-compare_anc_pop <- admix_proportions %>% # ancestry_hmm genomewide estimates for individuals
-  tidyr::gather(., "ancestry", "ancestry_hmm", c("A", "C", "M")) %>%
-  left_join(., tidyr::gather(d_pop_ACM[ , c("population", "A", "C", "M")], "ancestry", "NGSAdmix", c("A", "C", "M")), # NGSAdmix genomewide estimates for individuals
-            by = c("ancestry"="ancestry", "population"="population"))
-p_ind <- compare_anc_ind %>%
-  ggplot(., aes(NGSAdmix, ancestry_hmm, color = ancestry)) +
-  geom_point(alpha = .5) +
-  theme_bw() +
-  geom_abline(slope = 1, intercept = 0, color = "darkgrey") +
-  xlab("NGSAdmix") +
-  ylab("ancestry_hmm") +
-  ggtitle("Individual ancestry estimates")
-p_pop <- compare_anc_pop %>%
-  ggplot(., aes(NGSAdmix, ancestry_hmm, color = ancestry)) +
-  geom_point(pch = 1) +
-  theme_bw() +
-  geom_abline(slope = 1, intercept = 0, color = "darkgrey") +
-  xlab("NGSAdmix") +
-  ylab("ancestry_hmm") +
-  ggtitle("Population ancestry estimates")
-p_pop_ind <- grid.arrange(p_pop + theme(legend.position = "none"), p_ind, nrow = 1, ncol = 2, right = 2)
-p_pop_ind
-# save plot locally and in bee_manuscript figures folder.
-ggsave("plots/mean_ancestry_prior_posterior_ancestry_hmm.png",
-       plot = p_pop_ind,
-       device = "png",
-       width = 8, height = 5, units = "in")
-ggsave("../../bee_manuscript/figures/mean_ancestry_prior_posterior_ancestry_hmm.png",
-       plot = p_pop_ind,
-       device = "png",
-       width = 8, height = 5, units = "in")
-
-# I can use the older version (below) if I just want a population-level plot
-
-colors_3 <- scales::hue_pal()(3)
-
-for (path in c("plots/mean_pop_ancestry_prior_posterior_ancestry_hmm.png", 
-               "../../bee_manuscript/figures/mean_pop_ancestry_prior_posterior_ancestry_hmm.png")){
-  png(path,
-      height = 5, width = 6, units = "in", res= 300)
-  left_join(admix_proportions, filter(admix_times, ancestry == "A"), by = "population") %>%
-    with(., plot(proportion, A, xlim = 0:1, ylim = 0:1, col = colors_3[1], 
-                 xlab = "mean ancestry prior (NGSAdmix)",
-                 ylab = "mean ancestry posterior (ancestry_hmm)", 
-                 main = "Effect of HMM on inferred mean population ancestry"))
-  left_join(admix_proportions, filter(admix_times, ancestry == "M"), by = "population") %>%
-    with(., points(proportion, M, xlim = 0:1, ylim = 0:1, col = colors_3[3]))
-  left_join(admix_proportions, filter(admix_times, ancestry == "C"), by = "population") %>%
-    with(., points(proportion, C, xlim = 0:1, ylim = 0:1, col = colors_3[2]))
-  abline(0, 1)
-  legend("bottomright", legend = c("A", "C", "M"),
-         col = colors_3,
-         pch = 1,
-         title = "Ancestry")
-  dev.off()
-}
 

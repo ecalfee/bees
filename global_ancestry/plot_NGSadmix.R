@@ -835,3 +835,65 @@ byR %>%
   ggtitle("reference A/C/M ancestries clearly distinguished across high (5) vs low (1) recomb. bins")
 ggsave("plots/ref_bees_ACM_well_identifiable_across_rbin5.png", device = "png",
        width = 8, height = 6, units = "in")
+
+
+#---------------------------------------------------------------------------------------------
+# Comparison of ancestry_hmm and NGSAdmix global ancestry estimates:
+# first read in data from ancestry_hmm, summarised by individual:
+# first read in individual alpha estimates for mean A ancestry
+CA_indAlpha <- do.call(rbind,
+                       lapply(CA_pops_included$population, function(p) 
+                         read.table(paste0("../local_ancestry/results/ancestry_hmm/combined_sept19/posterior/anc/", p, ".alpha.anc"),
+                                    stringsAsFactors = F, header = T)))
+AR_indAlpha <- do.call(rbind,
+                       lapply(AR_pops_included$population, function(p) 
+                         read.table(paste0("../local_ancestry/results/ancestry_hmm/combined_sept19/posterior/anc/", p, ".alpha.anc"),
+                                    stringsAsFactors = F, header = T)))
+
+
+
+# compare the priors with the mean inferred ancestry from ancestry_hmm
+# make individual ancestry plots too:
+compare_anc_ind <- rbind(CA_indAlpha, AR_indAlpha) %>% # ancestry_hmm genomewide estimates for individuals
+  tidyr::gather(., "ancestry", "ancestry_hmm", c("A", "C", "M")) %>%
+  left_join(., tidyr::gather(admix.ind[ , c("Bee_ID", "A", "C", "M")], "ancestry", "NGSAdmix", c("A", "C", "M")), # NGSAdmix genomewide estimates for individuals
+            by = c("ancestry"="ancestry", "ID"="Bee_ID"))
+compare_anc_pop <- admix_proportions %>% # ancestry_hmm genomewide estimates for individuals
+  tidyr::gather(., "ancestry", "ancestry_hmm", c("A", "C", "M")) %>%
+  left_join(., tidyr::gather(admix.pops[ , c("population", "A", "C", "M")], "ancestry", "NGSAdmix", c("A", "C", "M")), # NGSAdmix genomewide estimates for individuals
+            by = c("ancestry"="ancestry", "population"="population"))
+p_ind <- compare_anc_ind %>%
+  ggplot(., aes(NGSAdmix, ancestry_hmm, color = ancestry)) +
+  geom_point(alpha = .5, pch = 1) +
+  theme_classic() +
+  geom_abline(slope = 1, intercept = 0, color = "darkgrey") +
+  xlab("NGSAdmix") +
+  ylab("ancestry_hmm") +
+  ggtitle("B.") +
+  scale_color_manual(values = col_ACM, name = "Ancestry")
+p_pop <- compare_anc_pop %>%
+  ggplot(., aes(NGSAdmix, ancestry_hmm, color = ancestry)) +
+  geom_point(alpha = .75) +
+  theme_classic() +
+  geom_abline(slope = 1, intercept = 0, color = "darkgrey") +
+  xlab("NGSAdmix") +
+  ylab("ancestry_hmm") +
+  ggtitle("A.") +
+  scale_color_manual(values = col_ACM)
+p_pop_ind <- grid.arrange(p_pop + theme(legend.position = "none"), p_ind, nrow = 1, ncol = 2, right = 2)
+p_pop_ind
+# save plot locally and in bee_manuscript figures folder.
+ggsave("plots/mean_ancestry_prior_posterior_ancestry_hmm.png",
+       plot = p_pop_ind,
+       device = "png",
+       width = 8, height = 5, units = "in")
+ggsave("../../bee_manuscript/figures/mean_ancestry_prior_posterior_ancestry_hmm.pdf",
+       plot = p_pop_ind,
+       device = "pdf",
+       width = 8, height = 5, units = "in")
+compare_anc_pop %>%
+  group_by(ancestry) %>%
+  summarise(corr = cor(ancestry_hmm, NGSAdmix, method = "pearson"))
+compare_anc_ind %>%
+  group_by(ancestry) %>%
+  summarise(corr = cor(ancestry_hmm, NGSAdmix, method = "pearson"))

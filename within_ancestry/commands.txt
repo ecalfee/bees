@@ -214,8 +214,21 @@ within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/get_BAMS_AA_CC_M
 # then using reads from these bams, I calculate allele frequencies at all those SNPs using simple counts:
 # I will do this by chromosome and then combined results with a SNP file to capture all SNPs, including NAs:
 within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_allele_freq_within_ancestry_HAv3.1.log './allele_freq_within_ancestry.sh {1} {2} combined_sept19 ../bee_samples_listed/byPop/{1}.list {3}; Rscript ./combine_pop_allele_freqs.R {1} combined_sept19 {2} {3}' :::: ../bee_samples_listed/byPop/combined_sept19_pops.list ::: A C M combined :::: ../data/honeybee_genome/chr.names &> logs/calc_allele_freq_within_ancestry_HAv3.1.out &
-[1] 16091 - RUNNING 9.28.19
-# note: if needed I could speed the above command up a bunch by pre-filtering bams for mapQ>30
+[1] 16091 - RUNNING 9.28.19. COMPLETED BUT SOME FAILED, e.g.
+Stanislaus_2014 A combined_sept19 ../bee_samples_listed/byPop/Stanislaus_2014.list Group13
+Group 2 riverside_2014 combined
+results/combined_sept19/A/allele_freq/Group13/Stanislaus_2014.mafs.gz
+results/combined_sept19/combined/allele_freq/Group2/Riverside_2014.mafs.gz
+# trying a failed file by hand:
+./allele_freq_within_ancestry.sh Riverside_2014 combined combined_sept19 ../bee_samples_listed/byPop/Riverside_2014.list Group2; Rscript ./combine_pop_allele_freqs.R Riverside_2014 combined_sept19 combined Group2 # worked just fine ..
+within_ancestry$ cp logs/calc_allele_freq_within_ancestry_HAv3.1.out logs/calc_allele_freq_within_ancestry_HAv3.1_retry_failed.out
+within_ancestry$ cp logs/calc_allele_freq_within_ancestry_HAv3.1.log logs/calc_allele_freq_within_ancestry_HAv3.1_retry_failed.log
+within_ancestry$ nohup parallel --noswap --retry-failed --jobs 3 --joblog logs/calc_allele_freq_within_ancestry_HAv3.1_retry_failed.log './allele_freq_within_ancestry.sh {1} {2} combined_sept19 ../bee_samples_listed/byPop/{1}.list {3}; Rscript ./combine_pop_allele_freqs.R {1} combined_sept19 {2} {3}' :::: ../bee_samples_listed/byPop/combined_sept19_pops.list ::: A C M combined :::: ../data/honeybee_genome/chr.names &> logs/calc_allele_freq_within_ancestry_HAv3.1_retry_failed.out &
+[1] 7260 - RUNNING 9.28.19. Not sure the problem, but if it's because multiple threads are trying to access the same bams list file, I may have to redo all of them (not so bad..didn't take that long).
+
+# To be safe, I'm just going to rerun the whole batch overnight on one thread:
+within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq_within_ancestry_HAv3.1_1thread.log './allele_freq_within_ancestry.sh {1} {2} combined_sept19 ../bee_samples_listed/byPop/{1}.list {3}; Rscript ./combine_pop_allele_freqs.R {1} combined_sept19 {2} {3}' :::: ../bee_samples_listed/byPop/combined_sept19_pops.list ::: A C M combined :::: ../data/honeybee_genome/chr.names &> logs/calc_allele_freq_within_ancestry_HAv3.1_1thread.out &
+[1] 9307 - RUNNING 9.28.19. I'll still need to check if any had empty files and therefore didn't successfully complete part 2.
 
 
 # NOTE: I also want to get allele freqs for NA and SA as groups within each ancestry and I guess also for all reads, regardless of ancestry, but only for regions of interest (have to ask will sites file of whole chromosome + rf with just a segment do the whole chr or just that segment?)
