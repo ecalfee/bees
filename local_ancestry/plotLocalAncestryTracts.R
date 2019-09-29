@@ -392,30 +392,58 @@ meta.pop <- meta.ind %>%
   dplyr::summarise(n_bees = n(),
                    lat = mean(lat),
                    long = mean(long)) %>%
-  left_join(data.frame(population = pops, stringsAsFactors = F),
+  left_join(data.frame(population = pops, stringsAsFactors = F), # limits to included populations
             ., by = "population") %>%
+  # not relevant anymore, not using Riverside 1999 historical samples:
   mutate(lat = ifelse(population == "Riverside_1999", .[.$population == "Riverside_2014", "lat"], lat)) %>%
-  mutate(zone = ifelse(group == "AR_2018", "S. America", "N. America"))
+  mutate(zone = ifelse(group == "AR_2018", "S. America", "N. America")) %>%
+  arrange(lat)
+
+# included populations by latitude:
+pops_by_lat <- meta.pop$population[order(meta.pop$lat)]
+meta.AR.order.by.lat <- data.frame(population = pops_by_lat, stringsAsFactors = F) %>%
+  left_join(., meta.pop, by = "population") %>%
+  filter(zone == "S. America") %>%
+  mutate(abs_lat_SA_c = abs(lat) - mean(abs(lat))) # absolute latitude centered for SA
+save(file = "results/pops_by_lat.RData", list = c("pops_by_lat", "meta.pop", "meta.AR.order.by.lat"))
+
+# get SNP sites where ancestry was called
+sites0 <- read.table("results/SNPs/combined_sept19/chr.var.sites", stringsAsFactors = F,
+                     sep = "\t", header = F)[ , 1:2]
+colnames(sites0) <- c("scaffold", "pos")
+chr_lengths <- cbind(read.table("../data/honeybee_genome/chr.names", stringsAsFactors = F),
+                     read.table("../data/honeybee_genome/chr.lengths", stringsAsFactors = F)) %>%
+  data.table::setnames(c("chr", "scaffold", "chr_length")) %>%
+  mutate(chr_n = 1:16) %>%
+  mutate(chr_end = cumsum(chr_length)) %>%
+  mutate(chr_start = chr_end - chr_length) %>%
+  mutate(chr_mid = (chr_start + chr_end)/2)
+
+sites <- left_join(sites0, chr_lengths[ , c("chr", "scaffold", "chr_n", "chr_start")], by = "scaffold") %>%
+  mutate(cum_pos = pos + chr_start)
 
 
 # get ancestry frequencies for each population across the genome
-#dir_results <- "Amel4.5_results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot"
 dir_results <- "results/ancestry_hmm/combined_sept19/posterior"
 
-popA <- lapply(pops, function(p) read.table(paste0(dir_results, "/anc/", p, ".A.anc"),
+popA <- lapply(pops_by_lat, function(p) read.table(paste0(dir_results, "/anc/", p, ".A.anc"),
                                             stringsAsFactors = F))
 A <- do.call(cbind, popA)
 rm(popA)
-colnames(A) <- pops
-popM <- lapply(pops, function(p) read.table(paste0(dir_results, "/anc/", p, ".M.anc"),
+colnames(A) <- pops_by_lat
+
+# save ancestry data for later access:
+save(file = "results/A.RData", list = c("A", "sites"))
+
+popM <- lapply(pops_by_lat, function(p) read.table(paste0(dir_results, "/anc/", p, ".M.anc"),
                                             stringsAsFactors = F))
 M <- do.call(cbind, popM)
-colnames(M) <- pops
+colnames(M) <- pops_by_lat
 rm(popM)
-popC <- lapply(pops, function(p) read.table(paste0(dir_results, "/anc/", p, ".C.anc"),
+popC <- lapply(pops_by_lat, function(p) read.table(paste0(dir_results, "/anc/", p, ".C.anc"),
                                             stringsAsFactors = F))
 C <- do.call(cbind, popC)
-colnames(C) <- pops
+colnames(C) <- pops_by_lat
 rm(popC)
 
 # mean ancestry across populations
@@ -429,6 +457,7 @@ admix_proportions <- data.frame(population = pops,
                                 C = apply(C, 2, mean),
                                 M = apply(M, 2, mean),
                                 stringsAsFactors = F)
+
 
 # get time of admixture estimates
 time_pops <- read.table(paste0(dir_results, "/", "time_pops.txt"), 
@@ -489,26 +518,6 @@ ggsave("plots/California_has_shorter_ancestry_blocks.png",
 ggsave("../../bee_manuscript/figures/California_has_shorter_ancestry_blocks.pdf",
        height = 3, width = 6, units = "in", device = "pdf")
 
-
-#sites0 <- read.table("Amel4.5_results/SNPs/thin1kb_common3/included_scaffolds.pos", stringsAsFactors = F,
-#                    sep = "\t", header = F)
-sites0 <- read.table("results/SNPs/combined_sept19/chr.var.sites", stringsAsFactors = F,
-                     sep = "\t", header = F)[ , 1:2]
-colnames(sites0) <- c("scaffold", "pos")
-chr_lengths <- cbind(read.table("../data/honeybee_genome/chr.names", stringsAsFactors = F),
-                     read.table("../data/honeybee_genome/chr.lengths", stringsAsFactors = F)) %>%
-  data.table::setnames(c("chr", "scaffold", "chr_length")) %>%
-  mutate(chr_n = 1:16) %>%
-  mutate(chr_end = cumsum(chr_length)) %>%
-  mutate(chr_start = chr_end - chr_length) %>%
-  mutate(chr_mid = (chr_start + chr_end)/2)
-
-#sites <- tidyr::separate(sites0, scaffold, c("chr", "scaffold_n"), remove = F) %>%
-#  mutate(scaffold_n = as.numeric(scaffold_n)) %>%
-#  mutate(chr_n = as.numeric(substr(chr, 6, 100))) %>%
-#  mutate(snp_id = paste0("snp", chr_n, ".", scaffold, ".", pos))
-sites <- left_join(sites0, chr_lengths[ , c("chr", "scaffold", "chr_n", "chr_start")], by = "scaffold") %>%
-  mutate(cum_pos = pos + chr_start)
 
 #test_id <- read.table("results/SNPs/thin1kb_common3/included.snplist", stringsAsFactors = F,
 #                      sep = "\t", header = F)$V1
@@ -687,20 +696,33 @@ ggsave("plots/mean_A_ancestry_CA_and_AR_Group1_scaffolds_20-23.png",
        device = "png", height = 10, width = 12, units = "in")
 
 
-# plot K matrix
-pops_by_lat <- meta.pop$population[order(meta.pop$lat)]
+# plot K matrix (! order by latitude!)
 zAnc_bees = make_K_calcs(t(A[ , pops_by_lat]))
 
 
 melt(zAnc_bees$K) %>%
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
-  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
   scale_fill_viridis() +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  xlab("") +
+  ylab("") +
   ggtitle("K covariance - bees")
 ggsave("plots/k_matrix_all_pops.png", 
+       height = 6, width = 8, 
+       units = "in", device = "png")
+melt(zAnc_bees$K) %>%
+  filter(Var1 != Var2) %>%
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  scale_fill_viridis() +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  xlab("") +
+  ylab("") +
+  ggtitle("K covariance - bees")
+ggsave("plots/k_matrix_all_pops_no_var.png", 
        height = 6, width = 8, 
        units = "in", device = "png")
 melt(cov2cor(zAnc_bees$K)) %>%
@@ -709,9 +731,9 @@ melt(cov2cor(zAnc_bees$K)) %>%
   geom_tile() +
   theme_classic() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
-  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
-  scale_fill_viridis() +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1,
+                     #limits = c(-.35, .55)) +
+                     limits = c(-.12, .32)) +
   xlab("") +
   ylab("") +
   ggtitle("K correlation matrix - bees")
@@ -723,8 +745,8 @@ ggsave("../../bee_manuscript/figures/k_correlation_matrix_all_pops.pdf",
        units = "in", device = "pdf")
 
 # make a new K matrix but omit outlier points:
-ZAnc_bees_noOutliers = make_K_calcs(t(A[!(meanA > quantile(meanA, .6) | 
-                                            meanA < quantile(meanA, .4)), 
+ZAnc_bees_noOutliers = make_K_calcs(t(A[!(meanA > quantile(meanA, .9) | 
+                                            meanA < quantile(meanA, .1)), 
                                         pops_by_lat]))
 melt(cov2cor(ZAnc_bees_noOutliers$K)) %>%
   filter(Var1 != Var2) %>% # omit diagonal
@@ -732,7 +754,9 @@ melt(cov2cor(ZAnc_bees_noOutliers$K)) %>%
   geom_tile() +
   theme_classic() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis() +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1,
+                     #limits = c(-.35, .55)) +
+                     limits = c(-.12, .32)) +
   xlab("") +
   ylab("") +
   ggtitle("K correlation matrix - bees")
@@ -748,14 +772,13 @@ summary(meanA)
 sd(meanA)
 
 # simulate from MVN distribution:
-AR_CA_K <- make_K_calcs(t(cbind(AR_A, CA_A)))
 #n_sim <- 10^6 # slow
 n_sim <- 10^5
 #n_sim = length(meanA) # simulate data of same length
 set.seed(101)
 MVNsim <- mvrnorm(n = n_sim, 
-                  mu = AR_CA_K$alpha, 
-                  Sigma = AR_CA_K$K, 
+                  mu = zAnc_bees$alpha, 
+                  Sigma = zAnc_bees$K, 
                   tol = 1e-6, 
                   empirical = FALSE, 
                   EISPACK = FALSE)
@@ -785,21 +808,25 @@ meanA_MVNsim_bounded <- apply(cbind(MVNsim_AR_bounded, MVNsim_CA_bounded)[ , c(A
 meanA_MVNsim <- apply(cbind(MVNsim_AR, MVNsim_CA)[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
                                function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(AR_pops_included$n_bees, CA_pops_included$n_bees)))
 
+# save MVN simulation as data objects
+save(MVNsim_bounded, meanA_MVNsim_bounded, meanA_MVNsim_AR_bounded, meanA_MVNsim_CA_bounded,
+     file = "results/MVNsim_bounded.RData")
+
 # Add in constraint that all covariances must be 0 or positive
 # (effectively I zero out negative covariances):
-# simulate from MVN distribution:
-AR_CA_K_zero <- AR_CA_K$K
-summary(AR_CA_K_zero[AR_CA_K$K < 0])
-sum(AR_CA_K$K < 0)/prod(dim(AR_CA_K$K)) # ~13% of covariances < 0
-summary(AR_CA_K$K[AR_CA_K$K > 0])
+summary(zAnc_bees$K[zAnc_bees$K < 0])
+sum(zAnc_bees$K < 0)/prod(dim(zAnc_bees$K)) # ~13% of covariances < 0
+summary(zAnc_bees$K[zAnc_bees$K > 0])
 # conclusion: negative covariances are on the same order as positive covariances
-summary(AR_CA_K$K[T])
-summary(as.matrix(AR_CA_K$K)[lower.tri(as.matrix(AR_CA_K$K), diag = F)]) # don't include diagonals
-AR_CA_K_zero[AR_CA_K$K < 0] <- 0
+summary(zAnc_bees$K[T])
+summary(as.matrix(zAnc_bees$K)[lower.tri(as.matrix(zAnc_bees$K), diag = F)]) # don't include diagonals
+# simulate from MVN distribution:
+K_zero <- zAnc_bees$K
+K_zero[zAnc_bees$K < 0] <- 0
 set.seed(101)
 MVNsim_zero <- mvrnorm(n = n_sim, 
-                  mu = AR_CA_K$alpha, 
-                  Sigma = AR_CA_K_zero, 
+                  mu = zAnc_bees$alpha, 
+                  Sigma = K_zero, 
                   tol = 1e-6, 
                   empirical = FALSE, 
                   EISPACK = FALSE)
@@ -848,7 +875,9 @@ meanA_MVNsim_zero_bounded <- apply(cbind(MVNsim_AR_zero_bounded, MVNsim_CA_zero_
 meanA_MVNsim_zero <- apply(cbind(MVNsim_AR_zero, MVNsim_CA_zero)[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
                       function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(AR_pops_included$n_bees, CA_pops_included$n_bees)))
 
-
+# save data objects from this simulation:
+save(MVNsim_zero_bounded, meanA_MVNsim_zero_bounded, meanA_MVNsim_AR_zero_bounded, meanA_MVNsim_CA_zero_bounded,
+     file = "results/MVNsim_zero_bounded.RData")
 
 
 #summarise
@@ -870,8 +899,8 @@ abline(a = 0, b = 1)
 var(meanA_MVNsim_bounded)
 var(meanA_MVNsim_zero_bounded) # very slightly higher variance -- could just be simulation noise
 # this makes sense because the covariances I zero-d out were very slight
-summary(diag(AR_CA_K$K))
-summary(AR_CA_K$K[lower.tri(AR_CA_K$K, diag = F)])
+summary(diag(zAnc_bees$K))
+summary(zAnc_bees$K[lower.tri(zAnc_bees$K, diag = F)])
 
 #QQ-plots:
 png("plots/QQ_plots_against_MVN.png",
@@ -1142,8 +1171,8 @@ PoiBinsim_combined <- (PoiBinsim_CA*sum(CA_pops_included$n_bees) + PoiBinsim_AR*
 # MVN simulation bounded with no covariances
 set.seed(101)
 MVNsim_no_cov <- mvrnorm(n = n_sim, 
-                       mu = AR_CA_K$alpha, 
-                       Sigma = diag(diag(AR_CA_K$K), length(AR_CA_K$alpha), length(AR_CA_K$alpha)), 
+                       mu = zAnc_bees$alpha, 
+                       Sigma = diag(diag(zAnc_bees$K), length(zAnc_bees$alpha), length(zAnc_bees$alpha)), 
                        tol = 1e-6, 
                        empirical = FALSE, 
                        EISPACK = FALSE)
@@ -1553,7 +1582,7 @@ A_plus_sites %>%
 # Also Harpur's study blasted the markers against the genome + 5kb to get coordinates for prior varroa-hygeine QTLs 
 
 # plotting K covariance in ancestry matrix
-melt(AR_CA_K$K) %>%
+melt(zAnc_bees$K) %>%
   #filter(!(Var1 == "Avalon_2014" | Var2 == "Avalon_2014")) %>%
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
@@ -1566,7 +1595,7 @@ ggsave("plots/k_matrix_CA_AR_pops.png",
        height = 6, width = 8, 
        units = "in", device = "png")
 # plot as correlation:
-melt(cov2cor(AR_CA_K$K)) %>%
+melt(cov2cor(zAnc_bees$K)) %>%
   #filter(!(Var1 == "Avalon_2014" | Var2 == "Avalon_2014")) %>%
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
@@ -1579,7 +1608,7 @@ ggsave("plots/k_matrix_correlation_CA_AR_pops.png",
        height = 6, width = 8, 
        units = "in", device = "png")
 
-melt(AR_CA_K$K) %>% # filter out Avalon to get better color distinction between the others
+melt(zAnc_bees$K) %>% # filter out Avalon to get better color distinction between the others
   filter(!(Var1 == "Avalon_2014" | Var2 == "Avalon_2014")) %>%
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
@@ -1592,7 +1621,7 @@ ggsave("plots/k_matrix_CA_AR_pops_no_Avalon.png",
        height = 6, width = 8, 
        units = "in", device = "png")
 # get rid of diagonal to better see negative covariances:
-melt(AR_CA_K$K) %>%
+melt(zAnc_bees$K) %>%
   mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
@@ -1605,7 +1634,7 @@ ggsave("plots/k_matrix_CA_AR_pops_no_within_pop.png",
        height = 6, width = 8, 
        units = "in", device = "png")
 # no diagonal look at correlations:
-melt(cov2cor(AR_CA_K$K)) %>%
+melt(cov2cor(zAnc_bees$K)) %>%
   mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
@@ -1626,13 +1655,13 @@ ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_correlations.png",
 # p is the African ancestry allele frequency, q = 1-p and n = number of haplotypes = 2*n_bees in a population
 # but then because I'm using variance in frequencies, not counts, I divide by n^2
 # except this isn't quite right because it should be observed allele freq at a locus, not genomewide mean
-n_bees_per_pop <- sapply(names(AR_CA_K$alpha), function(p) meta.pop[meta.pop$population == p, "n_bees"])
-sampling_var_diag <- ((2*n_bees_per_pop/(2*n_bees_per_pop - 1))*n_bees_per_pop*2*AR_CA_K$alpha*(1 - AR_CA_K$alpha))/(2*n_bees_per_pop)^2 
-AR_CA_K_minus_sampling <- AR_CA_K$K
+n_bees_per_pop <- sapply(names(zAnc_bees$alpha), function(p) meta.pop[meta.pop$population == p, "n_bees"])
+sampling_var_diag <- ((2*n_bees_per_pop/(2*n_bees_per_pop - 1))*n_bees_per_pop*2*zAnc_bees$alpha*(1 - zAnc_bees$alpha))/(2*n_bees_per_pop)^2 
+K_bees_minus_sampling <- zAnc_bees$K
 for (i in 1:length(sampling_var_diag)){
-  AR_CA_K_minus_sampling[i,i] <- AR_CA_K_minus_sampling[i,i] - sampling_var_diag[i]
+  K_bees_minus_sampling[i,i] <- K_bees_minus_sampling[i,i] - sampling_var_diag[i]
 }
-AR_CA_K_minus_sampling %>% # not quite
+K_bees_minus_sampling %>% # not quite
   melt() %>%
   dplyr::filter(!(Var1 == "Avalon_2014" | Var2 == "Avalon_2014")) %>%
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
@@ -1664,8 +1693,8 @@ mean((sim_pop2 - mean(sim_pop2))^2)
 mean(sim_pop2)*(1-mean(sim_pop2))/n_binom # mean theoretical
 
 
-log(1/(1 - diag(AR_CA_K$K)/(AR_CA_K$alpha*(1 - AR_CA_K$alpha))))
-log(diag(AR_CA_K$K)/(AR_CA_K$alpha*(1 - AR_CA_K$alpha)))
+log(1/(1 - diag(zAnc_bees$K)/(zAnc_bees$alpha*(1 - zAnc_bees$alpha))))
+log(diag(zAnc_bees$K)/(zAnc_bees$alpha*(1 - zAnc_bees$alpha)))
 
 # goal: set cutoffs for when distribution doesn't match MVN anymore
 # remove outliers SNPs beyond these cutoffs
@@ -1714,7 +1743,7 @@ wf2_10hap <- sapply(wf2, function(x) sim_WF(n_gen = 1, N = 5, start_freq = x))
 cov(wf2_16hap, wf2_10hap)
 var(wf2_10hap)
 var(wf2)
-AR_CA_K$K
+zAnc_bees$K
 cov(meanA_CA, meanA_AR)/(.85*.15)*200
 cov(meanA_CA, meanA_AR)/(.5*.5)*200
 cov_CA_AR <- mean((meanA_CA-mean(meanA_CA))*(meanA_AR - mean(meanA_AR)))
@@ -1726,7 +1755,7 @@ mean(meanA)
 cov_CA_AR
 1/(cov_CA_AR/(.85*.15)*2)
 1/(cov_CA_AR/(mean(meanA)*(1-mean(meanA)))*2)
-AR_CA_K$K
+zAnc_bees$K
 1/(.001/(mean(meanA)*(1-mean(meanA)))*2)
 # how do I do the w/in pop small pop correction??
 (mean((wf2_16hap - .5)^2))/(.5*.5)

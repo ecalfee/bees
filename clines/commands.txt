@@ -10,6 +10,7 @@ Temperate honey bees use behavioral clustering inside the hive and honey bee sto
 
 Rio Claro, Sao Paulo Brazil: 22.4149° S, 47.5651° W (Google maps)
 
+# Mean ancestry clines (using global ancestry for each individual):
 plot_clines.R:
 # For climate variables, I download spatial data from worldclim.org
 using the Raster package in R, which retrieves bioclim1.4 
@@ -19,7 +20,6 @@ I also downloaded 1961-1990 (by decade) from another databease CRU TS 4.03 to ge
 https://crudata.uea.ac.uk/cru/data/hrg/cru_ts_4.03/cruts.1905011326.v4.03/frs/
 frosty <- read.table("~/Downloads/cru_ts4.03.1961.1970.frs.dat.gz")
 BUT I DON'T UNDERSTAND THE UNITS HERE!
-
 
 So I also downloaded 10minute resolution for an average 1961-1990 frost
 https://crudata.uea.ac.uk/cru/data/hrg/tmc/
@@ -34,5 +34,17 @@ I could likewise compute the per-month frost estimate using the approximations f
 Alternatively, I could use this 0.5min spatial resolution of global frost days, with caveats that it's 
 most accurate in the arctic and uses different temporal range 1920-1980
 https://nsidc.org/data/NSIDC-0063
+
+
+# Individual loci clines (using mean local ancestry for each population):
+# NOTE: I could use individual ancestry, not population mean, but I don't think it's worth the computatational intensity as Argentinian populations are sampled fairly evenly. I don't try to fit clines to just CA for now because I only sampled half the zone. Also, I use ML not map because it's very similar and faster.
+# betareg_clines_ind_loci.R has code to fit a ML beta regression to each snp with an ancestry cline # cite betareg paper. I use this to run fits in parallel.
+
+# note: the simulations run all snps at once but I broke up the A ancestry observations into 5 sets
+clines$ nohup parallel --noswap --jobs 7 --joblog logs/calc_betareg_ind_snps.log 'Rscript betareg_clines_ind_loci.R {1} {2} {3} {4} ' ::: MVNsim_zero_bounded MVNsim_bounded A :::+ 1 1 1 100001 200001 300001 400001 :::+ 100000 100000 100000 200000 300000 400000 600000 :::+ MVNsim_zero_bounded MVNsim_bounded A1 A2 A3 A4 A5 &> logs/calc_betareg_ind_snps.out &
+[1] 15422 - RUNNING 9.29.19
+# steep_outliers.R has code to look at local ancestry clines at individual snps. testing functions and comparing ML vs. MAP estimates adn I'll use it to analyze the results from betareg_clines_ind_loci.R
+
+
 
 TO DO: ignoring frost, just using 0.5 resolution bioclim variables, first do a pca and use the first 5 PCs as covariates in a linear model of ancestry. Then re-run all the models with individual variables and print a table for the manuscript supplement. Decide what you want your final plot to be for the paper and update that section of the manuscript results.
