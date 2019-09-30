@@ -38,8 +38,8 @@ A_snp_all <- get(DATA_NAME)[ , meta.AR.order.by.lat$population]
 # e.g. see zoib() An R Package for Bayesian Inference for Beta Regression an dZero/One Inflated Beta Regression by Fang Liu and Yunchuan Kong
 # zoib: https://journal.r-project.org/archive/2015/RJ-2015-019/RJ-2015-019.pdf
 # or to transform all the data [0, 1] -> (0,1), e.g. (y(n−1) +0.5)/n, where n is the sample size (Smithson and Verkuilen 2006)
-A_snp_all[A_snp_all == 0] <- 10^-5
-A_snp_all[A_snp_all == 1] <- 1 - 10^-5
+A_snp_all[A_snp_all <= 0] <- 10^-5
+A_snp_all[A_snp_all >= 1] <- 1 - 10^-5
 # in the observed data, there is only 1 value with A = 1 and none with A = 0
 # but in the simulations, many more values hit the bounds.
 
