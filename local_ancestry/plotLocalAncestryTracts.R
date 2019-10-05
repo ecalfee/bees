@@ -11,11 +11,13 @@ library(betareg)
 library(gridExtra)
 library(MASS) # for mvrnorm
 library(ggpointdensity)
+library(coda) # for hpdi calc
+library(hex) # for hex plot
 #library(ggridges) # to get density plot without bottom line on x axis
 source("../colors.R") # for color palette
 source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
 #source("../../covAncestry/forqs_sim/k_matrix.R") # import useful functions
-
+source("calc_FDRs.R") # scripts to calculate false discovery rates
 
 bees1 <- read.table("results/SNPs/thin1kb_common3/pass1_2018.ploidy", stringsAsFactors = F, 
                                      header = F, sep = "\t")$V1
@@ -786,7 +788,7 @@ MVNsim <- mvrnorm(n = n_sim,
 
 
 # sets bounds at 0 and 1
-MVNsim_bounded <- MVNsim 
+MVNsim_bounded <- data.frame(MVNsim, stringsAsFactors = F) 
 MVNsim_bounded[MVNsim < 0] <- 0
 MVNsim_bounded[MVNsim > 1] <- 1
 
@@ -857,7 +859,7 @@ ggsave("plots/percents_MVN_sims_need_truncation_low.png",
 
 
 
-MVNsim_zero_bounded <- MVNsim_zero # sets bounds at 0 and 1
+MVNsim_zero_bounded <- data.frame(MVNsim_zero, stringsAsFactors = F) # sets bounds at 0 and 1
 MVNsim_zero_bounded[MVNsim_zero < 0] <- 0
 MVNsim_zero_bounded[MVNsim_zero > 1] <- 1
 MVNsim_AR_zero <- MVNsim_zero[ , AR_pops_included$population]
@@ -1275,67 +1277,16 @@ dev.off()
 
 # What are my false discovery rates?
 # get a 1% and 5% FDR for jointly shared outliers under the MVN (based on simulations):
-fdr_shared_high <- function(a1, a2, pop1, pop2, sims1, sims2){# takes in an ancestry, test for high ancestry in both zones
-  obs <- sum(pop1 >= a1 & pop2 >= a2) # observations exceeding threshold
-  null <- sum(sims1 >= a1 & sims2 >= a2)/length(sims1)*length(pop1) # expected number of neutral loci exceeding threshold in data set size length(pop1)
-  null/obs
-}
-fdr_shared_low <- function(a1, a2, pop1, pop2, sims1, sims2){# takes in an ancestry, test for low ancestry in both zones
-  obs <- sum(pop1 <= a1 & pop2 <= a2)
-  null <- sum(sims1 <= a1 & sims2 <= a2)/length(sims1)*length(pop1)
-  null/obs
-}
-fdr_1pop_high <- function(a, pop, sims){# takes in an ancestry, test for high ancestry in 1 zone
-  obs <- sum(pop >= a)
-  null <- sum(sims >= a)/length(sims)*length(pop)
-  null/obs
-}
-fdr_1pop_low <- function(a, pop, sims){# takes in an ancestry, test for low ancestry in 1 zone
-  obs <- sum(pop <= a)
-  null <- sum(sims <= a)/length(sims)*length(pop)
-  null/obs
-}
 
-# set FDR thresholds for A ancestry in Africanized bees
-test_fdr_shared_high <- sapply(1:length(meanA), function(x) # takes a while
-  fdr_shared_high(a1 = meanA_AR[x], a2 = meanA_CA[x], pop1 = meanA_AR, pop2 = meanA_CA, 
-                  sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
-test_fdr_shared_low <- sapply(1:length(meanA), function(x) # takes a while
-  fdr_shared_low(a1 = meanA_AR[x], a2 = meanA_CA[x], pop1 = meanA_AR, pop2 = meanA_CA, 
-                  sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
-
-# putting FDRs together with data
-meanA_both <- data.frame(AR = meanA_AR, CA = meanA_CA, both = meanA,
-                         FDR_shared_high = test_fdr_shared_high,
-                         FDR_shared_low = test_fdr_shared_low)
-table(meanA_both$FDR_shared_high < .05)/nrow(meanA_both) # 0.45% of sites appear positively selected in both zones at 5% FDR  
-summary(meanA_both$both[meanA_both$FDR_shared_high < .05 | is.na(meanA_both$FDR_shared_high)])
-hist(meanA_both$both[meanA_both$FDR_shared_high < .05 | is.na(meanA_both$FDR_shared_high)])
-hist(meanA_both$CA[meanA_both$FDR_shared_high < .05 | is.na(meanA_both$FDR_shared_high)])
-hist(meanA_both$AR[meanA_both$FDR_shared_high < .05 | is.na(meanA_both$FDR_shared_high)])
-
-meanA_both %>%  
-  filter(FDR_shared_high < .1 | is.na(FDR_shared_high)) %>%
-  ggplot(aes(x = CA, y = AR, color = FDR_shared_high)) +
-  geom_point() # doesn't look quite right -- how do you do a joint probability false-discovery-rate?
-summary(meanA_both$both)
-summary(meanA_both$both[is.na(meanA_both$FDR_shared_high)])
-summary(meanA_both$CA)
-# what is the FDR for top 1% overlap between both zones? About 8% FDR
-test_fdr_shared_high_quantiles <- sapply(c(0.9, 0.95, 0.99, 0.991, 0.992, 0.993, 0.994, 0.995, 0.999, 0.9999), function(x) # takes a while
-  fdr_shared_high(a1 = quantile(meanA_AR, x), a2 = quantile(meanA_CA, x), pop1 = meanA_AR, pop2 = meanA_CA, 
-                  sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
-test_fdr_shared_high_quantiles
-# alternatively I could walk along individual FDRs, rather than quantiles. 
-# Or walk along sd's above mean ancestry for each zone
+# walk along sd's above mean ancestry for each zone
 sd_CA <- sd(meanA_CA)
 mu_CA <- mean(meanA_CA)
 sd_AR <- sd(meanA_AR)
 mu_AR <- mean(meanA_AR)
-sd_range <- seq(0, 5, by = .01) # I can make this more precise later if I want
+sd_range <- seq(0, 5, by = .005) # I can make this more precise later if I want
 
 # get standard deviation cutoffs for FDR shared high loci
-FDR_values = c(.1, .05, .01)
+
 test_fdr_shared_high_sds <- sapply(sd_range, function(x)
   fdr_shared_high(a1 = mu_AR+x*sd_AR, a2 = mu_CA+x*sd_CA, pop1 = meanA_AR, pop2 = meanA_CA, 
                   sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
@@ -1393,11 +1344,15 @@ FDRs <- read.table("results/FDRs_MVN_01_high_low_A_percent_cutoffs.txt",
                    stringsAsFactors = F, header = T, sep = "\t")
 
 # what percent of the genome matches these cutoffs?
-table(meanA_CA > FDRs$CA_high[FDRs$FDR_values==.05])/length(meanA_CA) # 0.28% of loci (very few!)
+table(meanA_CA > FDRs$CA_high[FDRs$FDR_values==.05])/length(meanA_CA) # 0.26% of loci
 table(sites$scaffold[meanA_CA > FDRs$CA_high[FDRs$FDR_values==.05]]) # where are they?
 
+# high AR
+table(meanA_AR > FDRs$AR_high[FDRs$FDR_values==.05])/length(meanA_AR) # 0.06% of loci (very few!)
+table(sites$scaffold[meanA_AR > FDRs$AR_high[FDRs$FDR_values==.05]]) # where are they?
+
 # about .3% of the genome is found in high shared sites at 5% FDR
-table(meanA_CA > FDRs$shared_high_CA[FDRs$FDR_values==.05] & meanA_AR > FDRs$shared_high_AR[FDRs$FDR_values == .05])/length(meanA_CA) # 0.28% of loci (very few!)
+table(meanA_CA > FDRs$shared_high_CA[FDRs$FDR_values==.05] & meanA_AR > FDRs$shared_high_AR[FDRs$FDR_values == .05])/length(meanA_CA)
 table(sites$scaffold[meanA_CA > FDRs$shared_high_CA[FDRs$FDR_values==.1] & meanA_AR > FDRs$shared_high_AR[FDRs$FDR_values == .1]])
 
 
@@ -1424,32 +1379,19 @@ dev.off()
 
 # actually maybe what I want is simpler -- just a density plot for the MVN sim underneath my data points
 ggplot() +
-  geom_point(data = data.frame(meanA_CA = meanA_CA, meanA_AR = meanA_AR), 
-             aes(x = meanA_CA, y = meanA_AR)) +
+  geom_density_2d(data = data.frame(meanA_CA = meanA_CA, meanA_AR = meanA_AR), 
+             aes(x = meanA_CA, y = meanA_AR), color = "blue") +
   geom_density_2d(data = data.frame(MVN_CA = meanA_MVNsim_CA_zero_bounded,
                                     MVN_AR = meanA_MVNsim_AR_zero_bounded), 
-                  aes(x=MVN_CA, y=MVN_AR))
+                  aes(x=MVN_CA, y=MVN_AR), color = "orange")
+ggplot() +
+  stat_density_2d(data = data.frame(meanA_CA = meanA_CA, meanA_AR = meanA_AR), 
+                  aes(x = meanA_CA, y = meanA_AR, fill = stat(level)), geom = "hex")
+
+cor(meanA_CA, meanA_AR)
+cor(meanA_MVNsim_AR_zero_bounded, meanA_MVNsim_CA_zero_bounded)
 # I can use stat_contour if I have a z gridded for what I want to display
-png("plots/density_MVN_overlay_on_scatterplot.png", 
-    height = 8, width = 8, units = "in", res = 300)
-plot(meanA_CA, meanA_AR, col = alpha("grey", alpha = .3), pch = 20,
-     main = "Ancestry frequencies in both hybrid zones across SNPs",
-     xlab = "Mean African ancestry in California bees",
-     ylab = "Mean African ancestry in Argentina bees")
-#plot(meanA_MVNsim_CA_zero_bounded, meanA_MVNsim_AR_zero_bounded, col = "grey", pch = 20)
-emdbook::HPDregionplot(cbind(meanA_MVNsim_CA_zero_bounded, meanA_MVNsim_AR_zero_bounded), 
-                       prob = c(0.99, 0.95, 0.75, 0.5), 
-                       n = 100, # number of grid points
-                       #h = .1, let the function choose smoothing automatically (defaults to bandwidth.nrd())
-                       col=c("lightgreen", "salmon", "lightblue", "yellow"), 
-                       lwd = 3, 
-                       add = TRUE)
-legend("bottomright", legend = c(0.99, 0.95, 0.75, 0.5), 
-       title = "Neutral simulation density",
-       lty = 1,
-       lwd = 4,
-       col=c("lightgreen", "salmon", "lightblue", "yellow"))
-dev.off()
+
 
 # make a new kind of density plot:
 p_density <- ggplot(data = data.frame(CA = meanA_CA, AR = meanA_AR), #[c(T, rep(F, 10)), ],
@@ -1466,12 +1408,47 @@ p_density <- ggplot(data = data.frame(CA = meanA_CA, AR = meanA_AR), #[c(T, rep(
   xlab("N. America") +
   ylab("S. America") #+
   #labs(color = "No. Nearby Points")
-plot(p_density)
+plot(p_density +
+       geom_density_2d(data = data.frame(MVN_CA = meanA_MVNsim_CA_zero_bounded,
+                                         MVN_AR = meanA_MVNsim_AR_zero_bounded), 
+                       aes(x=MVN_CA, y=MVN_AR), color = "orange"))
+
+b <- as.mcmc(cbind(meanA_MVNsim_CA_zero_bounded, meanA_MVNsim_AR_zero_bounded))
+a <- emdbook::HPDregionplot(b, vars = c("meanA_MVNsim_CA_zero_bounded", "meanA_MVNsim_AR_zero_bounded"), 
+                            prob = c(0.99, .9, .75), 
+                            n = 100, # number of grid points
+                            #h = .1, let the function choose smoothing automatically (defaults to bandwidth.nrd())
+                            #col=c("lightgreen", "salmon", "lightblue", "yellow"), 
+                            lwd = 3, 
+                            h = .05,
+                            add = TRUE)
+b_data <- as.mcmc(cbind(meanA_CA, meanA_AR))
+a_data <- emdbook::HPDregionplot(b_data, vars = c("meanA_CA", "meanA_AR"), 
+                                 prob = c(0.99, .9, .75), 
+                                 n = 100, # number of grid points
+                                 #h = .1, let the function choose smoothing automatically (defaults to bandwidth.nrd())
+                                 #col=c("lightgreen", "salmon", "lightblue", "yellow"), 
+                                 lwd = 3, 
+                                 h = .05,
+                                 add = TRUE)
+p_density2 <- ggplot() +
+  geom_hex(data = data.frame(meanA_CA = meanA_CA, meanA_AR = meanA_AR), 
+           aes(x = meanA_CA, y = meanA_AR, color = ..count.., fill = ..count..), bins = 200) +
+  scale_fill_viridis(option = "magma", end = 1, begin = 0.1) +
+  scale_color_viridis(option = "magma", end = 1, begin = 0.1) +
+  theme_classic() +
+  xlab("N. America") +
+  ylab("S. America") +
+  geom_polygon(data = data.frame(a[[1]]), 
+               aes(x = x, y = y),
+               fill = NA, color = "orange", lwd = 1)
+plot(p_density2)
 ggsave("plots/A_CA_vs_AR_density.png",
-       plot = p_density,
+       plot = p_density2,
        height = 5, width = 6, units = "in", device = "png")
-ggsave("../../bee_manuscript/figures/A_CA_vs_AR_density.png",
-       height = 5, width = 6, units = "in", device = "png")
+ggsave("../../bee_manuscript/figures/A_CA_vs_AR_density.pdf",
+       plot = p_density2,
+       height = 5, width = 6, units = "in", device = "pdf")
 # thin points and plot nearest neighbors:
 p_neighbors <- ggplot(data = data.frame(CA = meanA_CA, AR = meanA_AR)[c(T, rep(F, 100)), ],
                     aes(x = CA, y = AR)) +

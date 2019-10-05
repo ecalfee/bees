@@ -7,7 +7,7 @@ library(rethinking)
 library(betareg)
 source("../colors.R") # for color palette
 source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
-
+source("../local_ancestry/calc_FDRs.R") # scripts to calculate false discovery rates
 # script attempts to identify outlier loci with steep clines across latitude
 
 # I need to load the local ancestry data from plotLocalAncestryTracts.R:
@@ -61,7 +61,7 @@ with(post_m_snp[ , c("mu", "theta")], plot(mu ~ theta)) # didn't work
 plot(m_snp)
 
 # try again: fit each snp independently and save b_lat and b_snp (slope and intercept) ? and theta
-# really I want the best fitting logistic, that minimizes theta.. I'll look up options in R
+# really I want the best fitting logistic, that minimizes theta.. I'll look up options in R 
 A_snp_all <- A[ , meta.AR.order.by.lat$population] # take only SA
 A_snp_1 <- A_snp_all[1, ] %>% # take just 1 snp
   tidyr::gather(., "population", "A") %>%
@@ -101,8 +101,10 @@ MVN_clines <- read.table("results/ind_snp_clines/MVNsim_bounded.txt",
                          header = T, sep = "\t")
 MVN_zero_clines <- read.table("results/ind_snp_clines/MVNsim_zero_bounded.txt",
                               header = T, sep = "\t")
-A_clines1 <- read.table("results/ind_snp_clines/A1.txt",
-                        header = T, sep = "\t")
+# look at all individual clines across all loci
+A_clines1 <- do.call(rbind,
+                     lapply(1:5, function(i) read.table(paste0("results/ind_snp_clines/A", i, ".txt"),
+                        header = T, sep = "\t")))
 apply(MVN_clines, 2, hist)
 with(MVN_clines, plot(mu, b_lat))
 summary(MVN_clines$mu)
@@ -215,6 +217,52 @@ A[more_A, ] %>%
 # conclusion: We see an excess of both shallow and steep clines compared to MVN simulations, but mostly an excess of shallow clines
 # these clines don't look dramatic to me though, especially the steep ones. And I'm not sure what to make of the shallow ones.
 # tbd once I have all the data
+blat_range = seq(from = range(A_clines1$b_lat)[1], 
+                 to = range(A_clines1$b_lat)[2],
+                 by = .1)
+test_fdr_steep_clines <- sapply(blat_range, function(x) 
+  fdr_1pop_low(a = x, pop = A_clines1$b_lat, 
+                sims = MVN_zero_clines$b_lat))
+FDRs_steep_clines_low <- sapply(FDR_values, function(p) 
+  max(blat_range[test_fdr_steep_clines<p], na.rm = T))
+fdr_1pop_low <- function(a, pop, sims){# takes in an ancestry, test for low ancestry in 1 zone
+  obs <- sum(pop <= a)
+  null <- sum(sims <= a)/length(sims)*length(pop)
+  null/obs
+}
+obs <- sum(A_clines1$b_lat < -0.8)
+null <- sum(MVN_zero_clines$b_lat <= -0.8)/length(MVN_zero_clines$b_lat)*length(A_clines1$b_lat)
+head(A_clines1)
+quantile(A_clines1$b_lat, .01)
+summary(meanA_CA[A_clines1$b_lat <= quantile(A_clines1$b_lat, .01)])
+summary(meanA_CA[A_clines1$b_lat > quantile(A_clines1$b_lat, .01)])
+A_clines1$center = -1*A_clines1$mu/A_clines1$b_lat + mean(meta.AR.order.by.lat$lat)
+MVN_zero_clines$center = -1*MVN_zero_clines$mu/MVN_zero_clines$b_lat + mean(meta.AR.order.by.lat$lat)
+summary(A_clines1$center)
+quantile(A_clines1$center, probs = c(.01, .025, .05, .1, .5, .9, .95, .975, .99))
+summary(MVN_zero_clines$center)
+quantile(MVN_zero_clines$center, probs = c(.01, .025, .05, .1, .5, .9, .95, .975, .99))
+table(cbind(sites_r, A_clines1)[A_clines1$center > quantile(A_clines1$center, .01), "r_bin5"])
+
+# steep clines are possibly enriched in regions of the genome with low r:
+table(sites_r$r_bin5[A_clines1$b_lat <= quantile(A_clines1$b_lat, .01)])/table(sites_r$r_bin5)
+sapply(1:16, function(i) sum(sites_r$chr_n[A_clines1$b_lat <= quantile(A_clines1$b_lat, .01)] == i)/sum(sites_r$chr_n == i))
+#table(sites_r$chr[A_clines1$b_lat <= quantile(A_clines1$b_lat, .01)])/table(sites_r$chr)
+# maybe chr6 has an excess. looks like low recombining region Group11 may be driving the effect
+cbind(sites_r, A_clines1)[A_clines1$b_lat <= quantile(A_clines1$b_lat, .01), ] %>%
+  ggplot(.) +
+  geom_point(aes(x = pos, y = b_lat, color = r_bin5_factor)) +
+  facet_wrap(~chr)
+cbind(sites_r, A_clines1, AR = meanA_AR)[A_clines1$b_lat <= quantile(A_clines1$b_lat, .01), ] %>%
+  ggplot(.) +
+  geom_point(aes(x = pos, y = AR, color = r_bin5_factor)) +
+  facet_wrap(~chr)
+# Group11 possibly has some large inversion or something, not the largest peak, but the widest.
+# also not colocalized with the other region of high M
+cbind(sites_r, A_clines1, AR = meanA_AR)[A_clines1$b_lat <= quantile(A_clines1$b_lat, .01), ] %>%
+  ggplot(.) +
+  geom_point(aes(x = pos, y = AR, color = r_bin5_factor)) +
+  facet_wrap(~chr)
 
 qqplot(MVN_clines$b_lat, A_clines1$b_lat)
 abline(0, 1, col = "blue")

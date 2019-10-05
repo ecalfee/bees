@@ -228,10 +228,25 @@ within_ancestry$ nohup parallel --noswap --retry-failed --jobs 3 --joblog logs/c
 
 # To be safe, I'm just going to rerun the whole batch overnight on one thread:
 within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq_within_ancestry_HAv3.1_1thread.log './allele_freq_within_ancestry.sh {1} {2} combined_sept19 ../bee_samples_listed/byPop/{1}.list {3}; Rscript ./combine_pop_allele_freqs.R {1} combined_sept19 {2} {3}' :::: ../bee_samples_listed/byPop/combined_sept19_pops.list ::: A C M combined :::: ../data/honeybee_genome/chr.names &> logs/calc_allele_freq_within_ancestry_HAv3.1_1thread.out &
-[1] 9307 - RUNNING 9.28.19. I'll still need to check if any had empty files and therefore didn't successfully complete part 2.
-
+[1] 9307 - RUNNING 9.28.19. COMPLETED. NOTE: 3 files had 1 or 0 snps with observations on a chromosome, and therefore failed in combine_pop_allele_freqs.R. I fix these below.
+Problem files =
+bees/within_ancestry$ awk '$7 > 0 {print $0}' logs/calc_allele_freq_within_ancestry_HAv3.1_1thread.log
+323	:	1569728127.710	     0.754	0	195	1	0	./allele_freq_within_ancestry.sh Davis_2014 A combined_sept19 ../bee_samples_listed/byPop/Davis_2014.list Group3; Rscript ./combine_pop_allele_freqs.R Davis_2014 combined_sept19 A Group3
+1882    :       1569746077.298       0.620      0       183     1       0       ./allele_freq_within_ancestry.sh AR27 C combined_sept19 ../bee_samples_listed/byPop/AR27.list Group10; Rscript ./combine_pop_allele_freqs.R AR27 combined_sept19 C Group10
+1944    :       1569746880.534       0.700      0       183     1       0       ./allele_freq_within_ancestry.sh AR29 C combined_sept19 ../bee_samples_listed/byPop/AR29.list Group8; Rscript ./combine_pop_allele_freqs.R AR29 combined_sept19 C Group8
+# yes, there are also 3 errors from R joining datasets:
+within_ancestry/results/combined_sept19$ grep 'Error' ../../logs/calc_allele_freq_within_ancestry_HAv3.1_1thread.out 
+Error: Can't join on 'minor' x 'minor' because of incompatible types (logical / character)
+Error: Can't join on 'chromo' x 'scaffold' because of incompatible types (logical / character)
+Error: Can't join on 'chromo' x 'scaffold' because of incompatible types (logical / character)
+I modified the script to accommodate no snps in .mafs.gz files and reran these files:
+within_ancestry$ parallel 'Rscript ./combine_pop_allele_freqs.R {1} combined_sept19 {2} {3}' ::: Davis_2014 AR27 AR29 :::+ A C C :::+ Group3 Group10 Group8
+# ran no problem. all done!
 
 # NOTE: I also want to get allele freqs for NA and SA as groups within each ancestry and I guess also for all reads, regardless of ancestry, but only for regions of interest (have to ask will sites file of whole chromosome + rf with just a segment do the whole chr or just that segment?)
+
+
+
 
 
 

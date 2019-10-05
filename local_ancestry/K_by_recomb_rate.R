@@ -30,15 +30,15 @@ levels(rmap$r_bin5)
 
 # map recombination rates (and bins/quintiles) onto sites
 sites_r <- bedr(
-    engine = "bedtools", 
-    input = list(a = dplyr::mutate(sites, start = pos - 1, end = pos) %>%  # make 0 index for bedtools
-                   dplyr::select(chr, start, end, pos, scaffold, chr_n, chr_start, cum_pos),
-                 b = rmap), 
-    method = "map", 
-    # cM_Mb is col 4 and r_bin5 is col 6
-    params = "-g ../data/honeybee_genome/chr_names.lengths -c 4,6 -o collapse", 
-    check.chr = F
-  ) 
+  engine = "bedtools", 
+  input = list(a = dplyr::mutate(sites, start = pos - 1, end = pos) %>%  # make 0 index for bedtools
+                 dplyr::select(chr, start, end, pos, scaffold, chr_n, chr_start, cum_pos),
+               b = rmap), 
+  method = "map", 
+  # cM_Mb is col 4 and r_bin5 is col 6
+  params = "-g ../data/honeybee_genome/chr_names.lengths -c 4,6 -o collapse", 
+  check.chr = F
+) 
 colnames(sites_r) <- c("chr", "start", "end", "pos", "scaffold", 
                        "chr_n", "chr_start", "cum_pos", "cM_Mb", "r_bin5")
 sites_r$cM_Mb <- as.numeric(sites_r$cM_Mb)
@@ -47,7 +47,10 @@ sites_r$chr_n <- as.numeric(sites_r$chr_n)
 sites_r$cum_pos <- as.numeric(sites_r$cum_pos)
 sites_r$chr_start <- as.numeric(sites_r$chr_start)
 sites_r$r_bin5_factor <- factor(sites_r$r_bin5, levels = levels(rmap$r_bin5),
-                                   ordered = T)
+                                ordered = T)
+# negative correlation between being a tight snp and high recombination rate, even when we exclude Group11
+cor(A_clines1$b_lat[sites_r$chr] <= quantile(A_clines1$b_lat, .01), sites_r$cM_Mb)
+cor(A_clines1$b_lat[sites_r$chr != "Group11"] <= quantile(A_clines1$b_lat, .01), sites_r$cM_Mb[sites_r$chr != "Group11"])
 
 str(sites_r)
 table(sites_r$r_bin5)
@@ -137,7 +140,7 @@ pairs(m_lat_r_bypop)
 # make K matrix for each recombination rate bin
 K_byr <- lapply(levels(rmap$r_bin5), function(r)
   make_K_calcs(t(A[ sites_r$r_bin5 == r, pops_by_lat])))
-  
+
 # plot K for each recombination rate bin
 for (a in 1:5){
   melt(K_byr[[a]]$K) %>%
@@ -210,5 +213,4 @@ for (a in 1:5){
 # Take a stab at interpretation and add it to your manuscript first. Also add whatever you have
 # on how the slopes don't appear to get steeper from low to high recombination.
 # also try excluding + outliers again. And if you have it, your steepest sloped loci, to see if that's driving
-# the effect
-
+# the effect -- mean slope doesn't get steeper, but top 1% are in low r regions

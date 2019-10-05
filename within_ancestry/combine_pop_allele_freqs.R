@@ -29,7 +29,12 @@ sites0 <- read.table(sites_file,
   data.table::setnames(c("scaffold", "pos", "major", "minor"))
 
 allele_freq <- read.table(paste0(path_allele_freqs, "/", POP, ".mafs.gz"),
-                          stringsAsFactors = F, header = T) %>%
+                          stringsAsFactors = F, header = T,
+                          # means will join on empty data.frame
+                          colClasses = c("character", "numeric", 
+                                         "character", "character",
+                                         "character", "numeric",
+                                         "integer")) %>%
   left_join(sites0, ., by = c("scaffold"="chromo", "pos"="position",
                               "major", "minor"))
 

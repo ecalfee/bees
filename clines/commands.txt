@@ -48,6 +48,7 @@ clines$ nohup parallel --noswap --jobs 4 --joblog logs/calc_betareg_ind_snps2.lo
 [1] 18387 - RUNNING 9.29.19. all done except redo last one. didn't work:
 clines$ nohup parallel --noswap --jobs 1 --joblog logs/calc_betareg_ind_snpsA5.log 'Rscript betareg_clines_ind_loci.R {1} {2} {3} {4} ' ::: A ::: 400001 :::+ 542655 :::+ A5 &> logs/calc_betareg_ind_snpsA5.out &
 [1] 19532 - RUNNING 9.29.19
+[1] 19721.
 
 # steep_outliers.R has code to look at local ancestry clines at individual snps. testing functions and comparing ML vs. MAP estimates adn I'll use it to analyze the results from betareg_clines_ind_loci.R
 
