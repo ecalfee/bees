@@ -243,9 +243,13 @@ I modified the script to accommodate no snps in .mafs.gz files and reran these f
 within_ancestry$ parallel 'Rscript ./combine_pop_allele_freqs.R {1} combined_sept19 {2} {3}' ::: Davis_2014 AR27 AR29 :::+ A C C :::+ Group3 Group10 Group8
 # ran no problem. all done!
 
+# Now also calculate allele freqs for NA and SA as groups within each ancestry, and also for all reads, regardless of ancestry:
+within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq_within_ancestry_NA_CA_HAv3.1_1thread.log './allele_freq_within_ancestry.sh {1} {2} combined_sept19 ../bee_samples_listed/byPop/{1}.list {3}; Rscript ./combine_pop_allele_freqs.R {1} combined_sept19 {2} {3}' ::: NA SA ::: A C M combined :::: ../data/honeybee_genome/chr.names &> logs/calc_allele_freq_within_ancestry_NA_CA_HAv3.1_1thread.out &
+[1] 767 - RUNNING 10.5.19
+
 # NOTE: I also want to get allele freqs for NA and SA as groups within each ancestry and I guess also for all reads, regardless of ancestry, but only for regions of interest (have to ask will sites file of whole chromosome + rf with just a segment do the whole chr or just that segment?)
 
-
+# I could alternative, or in addition, visualize within-ancestry associations by PCA
 
 
 

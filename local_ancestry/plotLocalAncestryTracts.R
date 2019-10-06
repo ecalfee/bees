@@ -12,7 +12,7 @@ library(gridExtra)
 library(MASS) # for mvrnorm
 library(ggpointdensity)
 library(coda) # for hpdi calc
-library(hex) # for hex plot
+#library(hex) # for hex plot
 #library(ggridges) # to get density plot without bottom line on x axis
 source("../colors.R") # for color palette
 source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
@@ -561,14 +561,6 @@ A_bees_all8 <- lapply(bees_all8$Bee_ID, function(p) read.table(paste0("Amel4.5_r
 A_all8 <- do.call(cbind, A_bees_all8)
 colnames(A_all8) <- bees_all8$Bee_ID
 
-# make plots - all loci, mean ancestry across all pops
-png("plots/histogram_A_ancestry_all_loci.png", height = 6, width = 8, units = "in", res = 300)
-hist(meanA, main = "all loci: mean ancestry across populations")
-abline(v = max(meanA), col = "blue")
-abline(v = min(meanA), col = "blue")
-abline(v = quantile(meanA, .99), col = "orange")
-abline(v = quantile(meanA, .01), col = "orange")
-dev.off()
 
 #CA_pops_included <- meta.pop[meta.pop$group %in% c("N_CA", "S_CA", "CA_2018") & meta.pop$year >= 2014, ]
 CA_pops_included <- meta.pop[meta.pop$zone == "N. America", ]
@@ -591,6 +583,14 @@ meanA_AR <- apply(AR_A, 1, function(x) sum(x*AR_pops_included$n_bees)/sum(AR_pop
 meanA <- apply(A[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
                function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(CA_pops_included$n_bees, AR_pops_included$n_bees)))
 
+# make plots - all loci, mean ancestry across all pops
+png("plots/histogram_A_ancestry_all_loci.png", height = 6, width = 8, units = "in", res = 300)
+hist(meanA, main = "all loci: mean ancestry across populations")
+abline(v = max(meanA), col = "blue")
+abline(v = min(meanA), col = "blue")
+abline(v = quantile(meanA, .99), col = "orange")
+abline(v = quantile(meanA, .01), col = "orange")
+dev.off()
 
 sites %>%
   filter(meanA_CA > quantile(meanA_CA, .99) & 
@@ -1342,6 +1342,10 @@ FDRs = data.frame(FDR_values = FDR_values,
 write.table(FDRs, "results/FDRs_MVN_01_high_low_A_percent_cutoffs.txt", quote = F, col.names = T, row.names = F, sep = "\t")
 FDRs <- read.table("results/FDRs_MVN_01_high_low_A_percent_cutoffs.txt", 
                    stringsAsFactors = F, header = T, sep = "\t")
+data.frame(mu = c(mu_CA, mu_AR), sd = c(sd_CA, sd_AR), 
+           zone = c("N. America", "S. America"), short_name = c("CA", "AR"),
+           stringsAsFactors = F) %>% 
+  write.table(., "results/mu_sd_CA_AR.txt", quote = F, col.names = T, row.names = F, sep = "\t")
 
 # what percent of the genome matches these cutoffs?
 table(meanA_CA > FDRs$CA_high[FDRs$FDR_values==.05])/length(meanA_CA) # 0.26% of loci
@@ -1510,18 +1514,15 @@ dev.off()
 # write a bed file with outlier regions (to compare with honeybee genes):
 # ancestry calls are extended to halfway between any two calls and end at the position of the last/first call for a scaffold
 # note: this does not extend all the way to the ends of the chromosomes (so some genes may not have ancestry calls)
-A_plus_sites <- bind_cols(sites, data.frame(CA = meanA_CA, AR = meanA_AR, stringsAsFactors = F)) 
-A_plus_sites$half_right <- c(diff(A_plus_sites$pos, 1), 1)/2 # halfway between that and next position
-
-A_plus_sites$half_right[c(diff(A_plus_sites$scaffold_n, 1), 0) != 0] <- 0.5 # new scaffold
-A_plus_sites$half_left <- c(0.5, A_plus_sites$half_right[1:(nrow(A_plus_sites) - 1)]) # halfway between focal locus and previous position
-# make bed start and end points
-A_plus_sites$end <- floor(A_plus_sites$pos + A_plus_sites$half_right)
-A_plus_sites$start <- floor(A_plus_sites$pos - A_plus_sites$half_left)
-
-# write bed file with mean ancestry for Argentina and California included bees
-# also include whether a site meets a FDR threshold for selection
-A_plus_sites %>%
+sites_bed <- read.table("results/SNPs/combined_sept19/chr.var.sites.bed",
+                        header = F, stringsAsFactors = F) %>%
+  data.table::setnames(c("scaffold", "start", "end", "snp_id"))
+#table(paste(sites$scaffold, sites$pos, sep = "_") == sites_bed$snp) # match up, good
+A_AR_CA <- sites %>%
+  dplyr::select(chr, pos, cum_pos) %>%
+  bind_cols(sites_bed, .) %>%
+  mutate(CA = meanA_CA, AR = meanA_AR, combined = meanA) %>%
+  # add FDRs
   mutate(FDR_shared_high = ifelse(CA >= FDRs[FDRs$FDR_values == .01, "shared_high_CA"] & AR >= FDRs[FDRs$FDR_values == .01, "shared_high_AR"],
                                   .01, ifelse(CA >= FDRs[FDRs$FDR_values == .05, "shared_high_CA"] & AR >= FDRs[FDRs$FDR_values == .05, "shared_high_AR"],
                                               .05, ifelse(CA >= FDRs[FDRs$FDR_values == .1, "shared_high_CA"] & AR >= FDRs[FDRs$FDR_values == .1, "shared_high_AR"],
@@ -1547,11 +1548,16 @@ A_plus_sites %>%
                                          .05, ifelse(AR <= FDRs[FDRs$FDR_values == .1, "AR_low"],
                                                      .1, NA)))) %>%
   dplyr::select(scaffold, start, end, snp_id, AR, CA, FDR_shared_high, FDR_AR_high, FDR_CA_high, 
-                FDR_shared_low, FDR_AR_low, FDR_CA_low) %>%
-  write.table(., 
-              "results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/mean_ancestry_AR_CA_included.bed", 
-              sep = "\t", quote = F, col.names = F, row.names = F)
+                FDR_shared_low, FDR_AR_low, FDR_CA_low, combined, chr, pos, cum_pos)
+  
 
+# write bed file with mean ancestry for Argentina and California included bees
+# also include whether a site meets a FDR threshold for selection
+A_AR_CA %>%
+  write.table(., 
+              "results/mean_ancestry_AR_CA.bed", 
+              sep = "\t", quote = F, col.names = F, row.names = F)
+save(A_AR_CA, file = "results/mean_ancestry_AR_CA.RData")
 
 # I think I'm making some independence assumption here with the FDR rates
 # It might be better to bin ancestry into broader windows, before calculating covariances.

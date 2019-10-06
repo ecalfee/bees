@@ -78,5 +78,67 @@ functional_analysis/results/grooming_QTL_Arechavaleta-Velasco_2012.bed
 # TO DO: functional analysis of candidate genes
 What have other papers done? e.g. "We used DAVID v 6.7 (Huang et al. 2009) to identify if the list of candidate genes associated with hygienic behavior was enriched for Gene Ontology (GO) terms, focusing specifically on BP_4, MF_4, and CC_4. All tests we performed using Drosophila homologs identified with BlastP match (E-value threshold 1e-10) and because of our small gene list, we accepted any GO term with P < 0.1" - Harpur 2019
 
+--------------------------------HAv3.1 genome version------------------------------------------------------
+
+# Step (0) Gather QTL and gene positions. Make bed files of positions on scaffolds.
+# Step (1) Make bed files.
+# Step (2) Identify any direct overlap of QTLs and top hits. Any candidate genes?
+# Step (2) Assess average ancestry in QTLs vs. not. Use permutations to test significance.
+# Step (3) Test for enrichment of top hits in vs. out of QTLs.
+
+# Step (0) A Gather QTL positions and make bed files for positions on scaffolds.
+Note: Harpur's study blasted the markers against the genome + 5kb to get coordinates for prior varroa-hygeine QTLs 
+# Step (0) B Get genes and their positions: 
+FILE SAVED HERE: bees/data/honeybee_genome/gene_annotations/ref_Amel_HAv3.1_top_level.gff3.gz
+# Downloaded 7/22/19 latest genome assembly for apis mellifera - Amel_HAv3.1 from RefSeq NCBI.
+# Found by search NCBI accession number QIUM00000000; published in Wallberg 2019 doi: 10.1186/s12864-019-5642-0 .
+# Additional version info from NCBI (latest):
+Amel_HAv3.1
+
+Organism: Apis mellifera (honey bee)
+Infraspecific name: Strain: DH4
+Sex: male
+Submitter: Uppsala University
+Date: 2018/09/10
+Assembly level: Chromosome
+Genome representation: full
+RefSeq category: representative genome
+GenBank assembly accession: GCA_003254395.2 (latest)
+RefSeq assembly accession: GCF_003254395.2 (latest)
+IDs: 1949871 [UID] 7372188 [GenBank] 7434688 [RefSeq]
+
+
+# made a new file with just genes
+data/honeybee_genome/gene_annotations$ zcat ref_Amel_HAv3.1_top_level.gff3.gz | tail -n +10 | awk '$3 == "gene" {print $0}' > ../../../functional_analysis/results/HAv3.1_genes_only.gff3
+# ~12.3K genes
+
+# make genes bed file (sorted)
+functional_analysis$ awk '{print $1"\t"$4-1"\t"$5"\t"$2"\t"$3"\t"$9}' results/HAv3.1_genes_only.gff3 | bedtools sort -faidx ../data/honeybee_genome/scaffolds_with_mtDNA.list  > results/HAv3.1_genes_only.scaffolds_with_mtDNA.gff3.sorted.bed
+
+# remove genes in mtDNA (NC_001566.1) and miscellaneous scaffolds (no ancestry calls b/c no genetic map)
+by finding overlap with bed file with just chromosome:
+# chr only bed file, 12.2K genes
+data/honeybee_genome$ awk '{print $1"\t"0"\t"$2}' chr.lengths > chr.bed
+functional_analysis$ bedtools intersect -a results/HAv3.1_genes_only.scaffolds_with_mtDNA.gff3.sorted.bed -b ../data/honeybee_genome/chr.bed -wa > results/HAv3.1_genes_only.chr.gff3.sorted.bed
+
+# in local ancestry make this file (includes FDR):
+../local_ancestry/results/mean_ancestry_AR_CA.bed
+
+# use bedtools to find contiguous outlier regions and map mean combined AR and CA ancestries to genes:
+# done in script rank_genes.R
+
+# notes: Harpur's methods for comparing with aggression QTLs:
+"Defense response [..] has a clear genetic basis and is often cited as an adaptation contributing to the success of their expansion (Fletcher 1978)."
+Citations for "all six previously reported defence response QTL regions that had been
+reported with microsatellite markers": (Hunt et al. 1998, Hunt et al. 1999, Guzman-Novoa et al. 2002, Lobo et al. 2003, Gibson et al. 2015) "We used the microsatellite sequence and extracted
+BLASTN matches against the honey bee genome (E-value< 1e-5). For all analysis involving
+QTLs, we added an additional 50Kb to either side of the QTL"
+"We performed hypergeometric tests with DAVID 6.8 (Huang et al. 2009) to identify if
+our gene set was enriched for Gene Ontology (GO) and KEGG pathway terms using Apis
+mellifera gene calls against a background of all genes in the honeybee genome."
+
+
+
+
 
 
