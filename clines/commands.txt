@@ -54,6 +54,18 @@ clines$ nohup parallel --noswap --jobs 1 --joblog logs/calc_betareg_ind_snpsA5.l
 
 # trying a different approach: I just fit the nonlinear least squares logistic to the population ancestries for each snp
 clines$ nohup parallel --noswap --jobs 7 --joblog logs/calc_nls_logistic_ind_snps.log 'Rscript nls_logistic_clines_ind_loci.R {1} {2} {3} {4} ' ::: MVNsim_zero_bounded MVNsim_bounded A A A A A :::+ 1 1 1 100001 200001 300001 400001 :::+ 100000 100000 100000 200000 300000 400000 542655 :::+ MVNsim_zero_bounded MVNsim_bounded A1 A2 A3 A4 A5 &> logs/calc_nls_logistic_ind_snps.out &
+[1] 23762 - RUNNING 10.6.19. COMPLETED.
+
+# source for other methods of fitted clines: https://onlinelibrary.wiley.com/doi/full/10.1111/jeb.13524
+Silu Wang 2019 Evolutionary Biology. Has a b = 4/w in her cline parameterization
+"To examine the location and width of the geographical clines, we used the nls function in R to fit an equilibrium sigmoidal cline model (Gay et al., 2008; Szymura & Barton, 1986) to the relationship between site location (x) and site mean HI (y). The fit of this model was used to estimate cline centre (c) and width (w). This was done for each sampling period. The confidence intervals of c and w were acquired by assuming asymptotic normality, using the confint function in R."
+"We therefore used AIC (Akaike, 1973) to compare cline models of 2015–16 to the ‘fixed‐centre cline model’ that has cline centres fixed to the estimates of cline centres in 1987–94, c1987‐94 (widths were allowed to differ). "
+Used multiple time points to estimate if neutral diffusion is at play:
+"We tested the change of cline width against the neutral diffusion model (Barton & Hewitt, 1985),
+where w is the cline width, MATH is the standard deviation of parental‐offspring distance and t is the number of generations since the formation of hybrid zone."
+# I may be better off trying to estimate deviation from neutrality Using
+# the center vs. edges of the hybrid zone contrast..in one of the classic Barton & Szymura papers
+
 
 
 TO DO: ignoring frost, just using 0.5 resolution bioclim variables, first do a pca and use the first 5 PCs as covariates in a linear model of ancestry. Then re-run all the models with individual variables and print a table for the manuscript supplement. Decide what you want your final plot to be for the paper and update that section of the manuscript results.
