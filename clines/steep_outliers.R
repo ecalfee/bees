@@ -97,103 +97,119 @@ curve(logistic(m_snp1_betareg$coefficients$mean["(Intercept)"] +
       from = -4, to = 4, add = T, col = "orange")
 
 # read in results from betareg_clines_ind_loci.R:
-MVN_clines <- read.table("results/ind_snp_clines/MVNsim_bounded.txt",
+MVN_clines <- read.table("results/ind_snp_nls_clines/MVNsim_bounded.txt",
                          header = T, sep = "\t")
-MVN_zero_clines <- read.table("results/ind_snp_clines/MVNsim_zero_bounded.txt",
+MVN_zero_clines <- read.table("results/ind_snp_nls_clines/MVNsim_zero_bounded.txt",
                               header = T, sep = "\t")
 # look at all individual clines across all loci
 A_clines1 <- do.call(rbind,
-                     lapply(1:5, function(i) read.table(paste0("results/ind_snp_clines/A", i, ".txt"),
+                     lapply(1:5, function(i) read.table(paste0("results/ind_snp_nls_clines/A", i, ".txt"),
                         header = T, sep = "\t")))
 apply(MVN_clines, 2, hist)
-with(MVN_clines, plot(mu, b_lat))
+with(MVN_clines, plot(mu, b))
 summary(MVN_clines$mu)
 hist(MVN_clines$mu)
 summary(MVN_zero_clines$mu)
 hist(MVN_zero_clines$mu)
-summary(MVN_clines$b_lat)
-hist(MVN_clines$b_lat)
-summary(MVN_zero_clines$b_lat)
-hist(MVN_zero_clines$b_lat)
-summary(A_clines1$b_lat)
-hist(A_clines1$b_lat)
+summary(A_clines1$mu)
+hist(A_clines1$mu)
+summary(MVN_clines$b)
+hist(MVN_clines$b)
+summary(MVN_zero_clines$b)
+hist(MVN_zero_clines$b)
+summary(A_clines1$b)
+hist(A_clines1$b)
+
+# define logistic curve
+logistic3 <- function(x, mu, b){
+  1/(1 + exp(-b*(x - mu)))
+}
 
 # plot a few clines from the simulations and from the data:
-plot(1, 1, xlim = c(-4, 4), ylim = c(0,1), col = NULL, main = "some clines") # make empty plot
+plot(1, 1, xlim = range(meta.AR.order.by.lat$lat), ylim = c(0,1), col = NULL, main = "some clines") # make empty plot
 for (i in sample(1:nrow(A_clines1), size = 10)){
-  curve(logistic(A_clines1$mu[i] + 
-                   x*A_clines1$b_lat[i]), 
-        from = -4, to = 4, add = T, col = "blue")
+  curve(logistic3(x = x, mu = A_clines1$mu[i], b = A_clines1$b[i]), 
+        from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2], add = T, col = "blue")
 }
 for (i in sample(1:nrow(MVN_clines), size = 10)){
-  curve(logistic(MVN_clines$mu[i] + 
-                   x*MVN_clines$b_lat[i]), 
-        from = -4, to = 4, add = T, col = "red")
+  curve(logistic3(x = x, mu = MVN_clines$mu[i], b = MVN_clines$b[i]), 
+        from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2], add = T, col = "red")
 }
 for (i in sample(1:nrow(MVN_zero_clines), size = 10)){
-  curve(logistic(MVN_zero_clines$mu[i] + 
-                   x*MVN_zero_clines$b_lat[i]), 
-        from = -4, to = 4, add = T, col = "orange")
+  curve(logistic3(x = x, mu = MVN_zero_clines$mu[i], b = MVN_zero_clines$b[i]), 
+        from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2], add = T, col = "orange")
 }
 # plot the most extreme cline observed:
-curve(logistic(A_clines1$mu[which.max(A_clines1$b_lat)] + 
-                   x*A_clines1$b_lat[which.max(A_clines1$b_lat)]), 
-        from = -4, to = 4, add = T, col = "blue", lwd = 3)
-curve(logistic(A_clines1$mu[which.min(A_clines1$b_lat)] + 
-                 x*A_clines1$b_lat[which.min(A_clines1$b_lat)]), 
-      from = -4, to = 4, add = T, col = "blue", lwd = 3, lty = 2)
-curve(logistic(A_clines1$mu[which.max(A_clines1$mu)] + 
-                 x*A_clines1$b_lat[which.max(A_clines1$mu)]), 
-      from = -4, to = 4, add = T, col = "blue", lwd = 3, lty = 3)
-curve(logistic(A_clines1$mu[which.min(A_clines1$mu)] + 
-                 x*A_clines1$b_lat[which.min(A_clines1$mu)]), 
-      from = -4, to = 4, add = T, col = "blue", lwd = 3, lty = 4)
-mean(A_clines1$mu)
-var(A_clines1$mu)
-mean(A_clines1$b_lat)
-var(A_clines1$b_lat)
+curve(logistic3(x = x, mu = A_clines1$mu[which.max(A_clines1$b)], 
+                   b = A_clines1$b[which.max(A_clines1$b)]), 
+      from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2], 
+      add = T, col = "blue", lwd = 3)
+curve(logistic3(x = x, mu = A_clines1$mu[which.min(A_clines1$b)], 
+                b = A_clines1$b[which.min(A_clines1$b)]), 
+      from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2],
+      add = T, col = "blue", lwd = 3, lty = 2)
+curve(logistic3(x = x, mu = A_clines1$mu[which.max(A_clines1$mu)], 
+                b = A_clines1$b[which.max(A_clines1$mu)]), 
+      from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2],
+      add = T, col = "blue", lwd = 3, lty = 3)
+curve(logistic3(x = x, mu = A_clines1$mu[which.min(A_clines1$mu)], 
+                b = A_clines1$b[which.min(A_clines1$mu)]), 
+      from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2],
+      add = T, col = "blue", lwd = 3, lty = 4)
+mean(A_clines1$mu, na.rm = T)
+var(A_clines1$mu, na.rm = T)
+mean(A_clines1$b, na.rm = T)
+var(A_clines1$b, na.rm = T)
 # plot extremes for simulations too:
-curve(logistic(MVN_clines$mu[which.max(MVN_clines$b_lat)] + 
-                 x*MVN_clines$b_lat[which.max(MVN_clines$b_lat)]), 
-      from = -4, to = 4, add = T, col = "red", lwd = 3)
-curve(logistic(MVN_clines$mu[which.min(MVN_clines$b_lat)] + 
-                 x*MVN_clines$b_lat[which.min(MVN_clines$b_lat)]), 
-      from = -4, to = 4, add = T, col = "red", lwd = 3, lty = 2)
-curve(logistic(MVN_clines$mu[which.max(MVN_clines$mu)] + 
-                 x*MVN_clines$b_lat[which.max(MVN_clines$mu)]), 
-      from = -4, to = 4, add = T, col = "red", lwd = 3, lty = 3)
-curve(logistic(MVN_clines$mu[which.min(MVN_clines$mu)] + 
-                 x*MVN_clines$b_lat[which.min(MVN_clines$mu)]), 
-      from = -4, to = 4, add = T, col = "red", lwd = 3, lty = 4)
-mean(MVN_clines$mu)
-var(MVN_clines$mu)
-mean(MVN_clines$b_lat)
-var(MVN_clines$b_lat)
+curve(logistic3(x = x, mu = MVN_clines$mu[which.max(MVN_clines$b)], 
+                b = MVN_clines$b[which.max(MVN_clines$b)]), 
+      from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2],
+      add = T, col = "red", lwd = 3)
+curve(logistic3(x = x, mu = MVN_clines$mu[which.min(MVN_clines$b)], 
+                b = MVN_clines$b[which.min(MVN_clines$b)]), 
+      from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2],
+      add = T, col = "red", lwd = 3, lty = 2)
+curve(logistic3(x = x, mu = MVN_clines$mu[which.max(MVN_clines$mu)], 
+                b = MVN_clines$b[which.max(MVN_clines$mu)]), 
+      from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2],
+      add = T, col = "red", lwd = 3, lty = 3)
+curve(logistic3(x = x, mu = MVN_clines$mu[which.min(MVN_clines$mu)], 
+                b = MVN_clines$b[which.min(MVN_clines$mu)]), 
+      from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2], 
+      add = T, col = "red", lwd = 3, lty = 4)
+mean(MVN_clines$mu, na.rm = T)
+var(MVN_clines$mu, na.rm = T)
+mean(MVN_clines$b, na.rm = T)
+var(MVN_clines$b, na.rm = T)
 # and simulation with all + or zero covariances:
-curve(logistic(MVN_zero_clines$mu[which.max(MVN_zero_clines$b_lat)] + 
-                 x*MVN_zero_clines$b_lat[which.max(MVN_zero_clines$b_lat)]), 
-      from = -4, to = 4, add = T, col = "orange", lwd = 3)
-curve(logistic(MVN_zero_clines$mu[which.min(MVN_zero_clines$b_lat)] + 
-                 x*MVN_zero_clines$b_lat[which.min(MVN_zero_clines$b_lat)]), 
-      from = -4, to = 4, add = T, col = "orange", lwd = 3, lty = 2)
-curve(logistic(MVN_zero_clines$mu[which.max(MVN_zero_clines$mu)] + 
-                 x*MVN_zero_clines$b_lat[which.max(MVN_zero_clines$mu)]), 
-      from = -4, to = 4, add = T, col = "orange", lwd = 3, lty = 3)
-curve(logistic(MVN_zero_clines$mu[which.min(MVN_zero_clines$mu)] + 
-                 x*MVN_zero_clines$b_lat[which.min(MVN_zero_clines$mu)]), 
-      from = -4, to = 4, add = T, col = "orange", lwd = 3, lty = 4)
-mean(MVN_zero_clines$mu)
-var(MVN_zero_clines$mu)
-mean(MVN_zero_clines$b_lat)
-var(MVN_zero_clines$b_lat)
+curve(logistic3(x = x, mu = MVN_zero_clines$mu[which.max(MVN_zero_clines$b)], 
+                b = MVN_zero_clines$b[which.max(MVN_zero_clines$b)]), 
+      from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2],
+      add = T, col = "orange", lwd = 3)
+curve(logistic3(x = x, mu = MVN_zero_clines$mu[which.min(MVN_zero_clines$b)], 
+                b = MVN_zero_clines$b[which.min(MVN_zero_clines$b)]), 
+      from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2],
+      add = T, col = "orange", lwd = 3, lty = 2)
+curve(logistic3(x = x, mu = MVN_zero_clines$mu[which.max(MVN_zero_clines$mu)], 
+                b = MVN_zero_clines$b[which.max(MVN_zero_clines$mu)]), 
+      from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2],
+      add = T, col = "orange", lwd = 3, lty = 3)
+curve(logistic3(x = x, mu = MVN_zero_clines$mu[which.min(MVN_zero_clines$mu)], 
+                b = MVN_zero_clines$b[which.min(MVN_zero_clines$mu)]), 
+      from = range(meta.AR.order.by.lat$lat)[1], to = range(meta.AR.order.by.lat$lat)[2], 
+      add = T, col = "orange", lwd = 3, lty = 4)
+mean(MVN_zero_clines$mu, na.rm = T)
+var(MVN_zero_clines$mu, na.rm = T)
+mean(MVN_zero_clines$b, na.rm = T)
+var(MVN_zero_clines$b, na.rm = T)
 
 # Q. do low recombination regions have steeper clines than high recombination regions?
 # do loci with steep clines have low A in N. America? or average A?
 # plot: maybe the mean trend and then a few example clines. possibly main text or possibly just supplement.
 # how coupled would be expect these clines to be under neutrality?
 # maybe ask if steep clines are more likely found in pollen vs. nectar qtls
-shallow_cline <- which.max(A_clines1$b_lat)
-steep_cline <- which.min(A_clines1$b_lat)
+shallow_cline <- which.max(A_clines1$b)
+steep_cline <- which.min(A_clines1$b)
 more_A <- which.max(A_clines1$mu)
 less_A <- which.min(A_clines1$mu)
 A[shallow_cline, ] %>%
@@ -217,19 +233,18 @@ A[more_A, ] %>%
 # conclusion: We see an excess of both shallow and steep clines compared to MVN simulations, but mostly an excess of shallow clines
 # these clines don't look dramatic to me though, especially the steep ones. And I'm not sure what to make of the shallow ones.
 # tbd once I have all the data
-blat_range = seq(from = range(A_clines1$b_lat)[1], 
-                 to = range(A_clines1$b_lat)[2],
-                 by = .1)
+blat_range = seq(from = range(A_clines1$b, na.rm = T)[1], 
+                 to = range(A_clines1$b, na.rm = T)[2],
+                 by = .01)
 test_fdr_steep_clines <- sapply(blat_range, function(x) 
-  fdr_1pop_low(a = x, pop = A_clines1$b_lat, 
-                sims = MVN_zero_clines$b_lat))
-FDRs_steep_clines_low <- sapply(FDR_values, function(p) 
+  fdr_1pop_high(a = x, pop = A_clines1$b[!is.na(A_clines1$b)], 
+                sims = MVN_zero_clines$b[!is.na(MVN_zero_clines)]))
+sum(A_clines1$b[!is.na(A_clines1$b)]>.78)/length(A_clines1$b[!is.na(A_clines1$b)])
+sum(MVN_clines$b[!is.na(MVN_clines$b)]>.78)/length(MVN_clines$b[!is.na(MVN_clines$b)])
+sum(MVN_zero_clines$b[!is.na(MVN_zero_clines$b)]>.78)/length(MVN_zero_clines$b[!is.na(MVN_zero_clines$b)])
+FDRs_steep_clines_high <- sapply(FDR_values, function(p) 
   max(blat_range[test_fdr_steep_clines<p], na.rm = T))
-fdr_1pop_low <- function(a, pop, sims){# takes in an ancestry, test for low ancestry in 1 zone
-  obs <- sum(pop <= a)
-  null <- sum(sims <= a)/length(sims)*length(pop)
-  null/obs
-}
+
 obs <- sum(A_clines1$b_lat < -0.8)
 null <- sum(MVN_zero_clines$b_lat <= -0.8)/length(MVN_zero_clines$b_lat)*length(A_clines1$b_lat)
 head(A_clines1)
@@ -245,7 +260,9 @@ quantile(MVN_zero_clines$center, probs = c(.01, .025, .05, .1, .5, .9, .95, .975
 table(cbind(sites_r, A_clines1)[A_clines1$center > quantile(A_clines1$center, .01), "r_bin5"])
 
 # steep clines are possibly enriched in regions of the genome with low r:
-table(sites_r$r_bin5[A_clines1$b_lat <= quantile(A_clines1$b_lat, .01)])/table(sites_r$r_bin5)
+load("../local_ancestry/results/sites_r.RData") # load recombination rate data by sites
+table(sites_r$r_bin5[!is.na(A_clines1$b) & A_clines1$b >= quantile(A_clines1$b[!is.na(A_clines1$b)], .99)])/
+  table(sites_r$r_bin5[!is.na(A_clines1$b)])
 sapply(1:16, function(i) sum(sites_r$chr_n[A_clines1$b_lat <= quantile(A_clines1$b_lat, .01)] == i)/sum(sites_r$chr_n == i))
 #table(sites_r$chr[A_clines1$b_lat <= quantile(A_clines1$b_lat, .01)])/table(sites_r$chr)
 # maybe chr6 has an excess. looks like low recombining region Group11 may be driving the effect
@@ -253,24 +270,47 @@ cbind(sites_r, A_clines1)[A_clines1$b_lat <= quantile(A_clines1$b_lat, .01), ] %
   ggplot(.) +
   geom_point(aes(x = pos, y = b_lat, color = r_bin5_factor)) +
   facet_wrap(~chr)
+cbind(sites_r, A_clines1) %>%
+  filter(!is.na(A_clines1$b)) %>%
+  filter(b >= quantile(.$b, .99)) %>%
+  ggplot(.) +
+  geom_point(aes(x = pos, y = b, color = r_bin5_factor)) +
+  facet_wrap(~chr)
 cbind(sites_r, A_clines1, AR = meanA_AR)[A_clines1$b_lat <= quantile(A_clines1$b_lat, .01), ] %>%
   ggplot(.) +
   geom_point(aes(x = pos, y = AR, color = r_bin5_factor)) +
   facet_wrap(~chr)
+cbind(sites_r, A_clines1, AR = meanA_AR) %>%
+  filter(!is.na(A_clines1$b)) %>%
+  filter(b >= quantile(.$b, .99)) %>%
+  ggplot(.) +
+  geom_point(aes(x = pos, y = AR, color = r_bin5_factor)) +
+  facet_wrap(~chr)
+# do things with steep slopes have lower than avg. A ancestry in CA?
+cbind(A_clines1, CA = meanA_CA) %>%
+  filter(!is.na(A_clines1$b)) %>%
+  ggplot(.) +
+  geom_point(aes(x = b, y = CA)) # maybe
+summary(meanA_CA[!is.na(A_clines1$b) & A_clines1$b >= quantile(A_clines1$b[!is.na(A_clines1$b)], .99)])
+summary(meanA_CA[!is.na(A_clines1$b)]) # only slightly lower & probably not significant
+
+
 # Group11 possibly has some large inversion or something, not the largest peak, but the widest.
-# also not colocalized with the other region of high M
+# also not colocalized with the region of high M
 cbind(sites_r, A_clines1, AR = meanA_AR)[A_clines1$b_lat <= quantile(A_clines1$b_lat, .01), ] %>%
   ggplot(.) +
   geom_point(aes(x = pos, y = AR, color = r_bin5_factor)) +
   facet_wrap(~chr)
 
 qqplot(MVN_clines$b_lat, A_clines1$b_lat)
+qqplot(MVN_clines$b, A_clines1$b)
 abline(0, 1, col = "blue")
 qqplot(MVN_clines$mu, A_clines1$mu)
 abline(0, 1, col = "blue")
 
 # taking out near zero (but neg.) covariances has barely any effect
 qqplot(MVN_clines$b_lat, MVN_zero_clines$b_lat)
+qqplot(MVN_clines$b, MVN_zero_clines$b)
 abline(0, 1, col = "blue")
 qqplot(MVN_clines$mu, MVN_zero_clines$mu)
 abline(0, 1, col = "blue")

@@ -40,14 +40,19 @@ if (INDEX_END > nrow(A_snp_all)) print(paste("! Warning end index", INDEX_END,
                                              ". This script will do calculations to the end of the rows"))
 INDEX_END <- min(INDEX_END, nrow(A_snp_all))
 
+# define logistic curve
+logistic3 <- function(x, mu, b){
+  1/(1 + exp(-b*(x - mu)))
+}
+
 # make function to repeatedly run nls on many snps:
 fit_cline0 <- function(snp){
   start0 <- getInitial(A ~ SSlogis(lat, Asym, 
                                    xmid, scal), 
                        d = snp)
   fit0 <- nls(A ~ logistic3(x = lat, b = b, mu = mu),
-              start = list(b = 1/unname(start1["scal"]),
-                           mu = unname(start1["xmid"])),
+              start = list(b = 1/unname(start0["scal"]),
+                           mu = unname(start0["xmid"])),
               data = snp,
               trace = F)
   sum0 <- summary(fit0)

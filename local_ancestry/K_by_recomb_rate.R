@@ -55,6 +55,8 @@ cor(A_clines1$b_lat[sites_r$chr != "Group11"] <= quantile(A_clines1$b_lat, .01),
 str(sites_r)
 table(sites_r$r_bin5)
 
+save(sites_r, file = "results/sites_r.RData")
+
 # look at mean A ancestry across recombination bins:
 cbind(sites_r, meanA) %>%
   group_by(r_bin5) %>%

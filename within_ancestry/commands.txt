@@ -252,7 +252,23 @@ within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq
 [1] 30364 - RUNNING 10.6.19. hmm..possibly getting killed due to memory issues..I'll have to check on it.
 within_ancestry$ grep 'Killed' -A 20 logs/*.out # many results
 
+# Instead, I'm going to just focus on outlier regions:
+functional_analysis/results/outlier_regions/all.bed
+# sites file, regions file, A C M combined, all ind's genotype likelihoods for PCA, 
+# SA NA and A C M for allele frequencies
+# if you can't get genomewide to run,
+# alternatively identify 1Mb randomly throughout genome (excluding outlier loci), 
+# spread across 100 10 kb chunks.
+# redo PCA with original PCA snps, but within ancestry comparisons in the pca.
 
+# 1st I need to make lists of bams to include for within-ancestry:
+bee_samples_listed/byPop$ parallel '(for i in $(cat combined_sept19_pops.{2}.IDs); do echo ../within_ancestry/results/combined_sept19/{1}/bams/$i.sort.dedup.baq.bam; done) > combined_sept19_pops.{2}.{1}.bams' ::: A C M ::: SA NA
+bee_samples_listed/byPop$ parallel '(for i in $(cat combined_sept19_pops.IDs); do echo ../within_ancestry/results/combined_sept19/{1}/bams/$i.sort.dedup.baq.bam; done) > combined_sept19_pops.{1}.bams' ::: A C M
+# and make symlinks for ACM reference bees to each of the A/ C/ and M/ ancestry directories so they're included
+within_ancestry$ parallel 'for i in $(cat ../bee_samples_listed/byPop/{1}.list); do ln -s /media/erin/8TB/Documents/gitErin/bees/filtered_bams/results/$i.sort.dedup.baq.bam results/combined_sept19/{2}/bams/$i.sort.dedup.baq.bam; done' ::: A C M ::: A C M
+within_ancestry$ parallel 'for i in $(cat ../bee_samples_listed/byPop/{1}.list); do ln -s /media/erin/8TB/Documents/gitErin/bees/filtered_bams/results/$i.sort.dedup.baq.bam.bai results/combined_sept19/{2}/bams/$i.sort.dedup.baq.bam.bai; done' ::: A C M ::: A C M
+
+# now I need to call those bams with allele freqs and genotype likelihoods at known snp sites
 
 # NOTE: I also want to get allele freqs for NA and SA as groups within each ancestry and I guess also for all reads, regardless of ancestry, but only for regions of interest (have to ask will sites file of whole chromosome + rf with just a segment do the whole chr or just that segment?)
 

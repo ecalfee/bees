@@ -54,7 +54,9 @@ clines$ nohup parallel --noswap --jobs 1 --joblog logs/calc_betareg_ind_snpsA5.l
 
 # trying a different approach: I just fit the nonlinear least squares logistic to the population ancestries for each snp
 clines$ nohup parallel --noswap --jobs 7 --joblog logs/calc_nls_logistic_ind_snps.log 'Rscript nls_logistic_clines_ind_loci.R {1} {2} {3} {4} ' ::: MVNsim_zero_bounded MVNsim_bounded A A A A A :::+ 1 1 1 100001 200001 300001 400001 :::+ 100000 100000 100000 200000 300000 400000 542655 :::+ MVNsim_zero_bounded MVNsim_bounded A1 A2 A3 A4 A5 &> logs/calc_nls_logistic_ind_snps.out &
-[1] 23762 - RUNNING 10.6.19. COMPLETED.
+[1] 23762 - RUNNING 10.6.19. OOPS errors. Fixed typos and rerunning with --jobs 4:
+[1] 29923 - RUNNING 10.8.19
+
 
 # source for other methods of fitted clines: https://onlinelibrary.wiley.com/doi/full/10.1111/jeb.13524
 Silu Wang 2019 Evolutionary Biology. Has a b = 4/w in her cline parameterization
