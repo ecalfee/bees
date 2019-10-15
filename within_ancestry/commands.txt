@@ -243,6 +243,19 @@ I modified the script to accommodate no snps in .mafs.gz files and reran these f
 within_ancestry$ parallel 'Rscript ./combine_pop_allele_freqs.R {1} combined_sept19 {2} {3}' ::: Davis_2014 AR27 AR29 :::+ A C C :::+ Group3 Group10 Group8
 # ran no problem. all done!
 
+# put allele freqs together and reduce to every nth snp:
+# every 100th snp
+bees/within_ancestry$ for anc in A C M combined; do for j in {1..16}; do paste $(for i in $(cat ../bee_samples_listed/byPop/combined_sept19_pops.list); do echo results/combined_sept19/$anc/allele_freq/Group$j/$i.freqs.txt; done) | awk 'NR == 1 || NR % 100 == 0' > results/combined_sept19/$anc/allele_freq/Group$j/pops_included_every100th_SNP.freqs.txt; done; done
+bees/within_ancestry$ for anc in A C M combined; do for j in {1..16}; do paste $(for i in $(cat ../bee_samples_listed/byPop/combined_sept19_pops.list); do echo results/combined_sept19/$anc/allele_freq/Group$j/$i.nInd; done) | awk 'NR == 1 || NR % 100 == 0' > results/combined_sept19/$anc/allele_freq/Group$j/pops_included_every100th_SNP.nInd; done; done
+# every 10th snp
+bees/within_ancestry$ for anc in A C M combined; do for j in {1..16}; do paste $(for i in $(cat ../bee_samples_listed/byPop/combined_sept19_pops.list); do echo results/combined_sept19/$anc/allele_freq/Group$j/$i.freqs.txt; done) | awk 'NR == 1 || NR % 10 == 0' > results/combined_sept19/$anc/allele_freq/Group$j/pops_included_every10th_SNP.freqs.txt; done; done
+bees/within_ancestry$ for anc in A C M combined; do for j in {1..16}; do paste $(for i in $(cat ../bee_samples_listed/byPop/combined_sept19_pops.list); do echo results/combined_sept19/$anc/allele_freq/Group$j/$i.nInd; done) | awk 'NR == 1 || NR % 10 == 0' > results/combined_sept19/$anc/allele_freq/Group$j/pops_included_every10th_SNP.nInd; done; done
+# ACM reference individuals:
+bees/within_ancestry$ for type in nInd freqs.txt; do for j in {1..16}; do paste $(for i in A C M; do echo results/combined_sept19/combined/allele_freq/Group$j/$i.$type; done) | awk 'NR == 1 || NR % 100 == 0' > results/combined_sept19/combined/allele_freq/Group$j/ACM_every100th_SNP.$type; done; done
+bees/within_ancestry$ for type in nInd freqs.txt; do for j in {1..16}; do paste $(for i in A C M; do echo results/combined_sept19/combined/allele_freq/Group$j/$i.$type; done) | awk 'NR == 1 || NR % 10 == 0' > results/combined_sept19/combined/allele_freq/Group$j/ACM_every10th_SNP.$type; done; done
+# I will combine across chromosomes in the R script plot_pi_fst_from_allele_freqs.R
+
+
 # Now also calculate allele freqs for NA and SA as groups within each ancestry, and also for all reads, regardless of ancestry:
 within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq_within_ancestry_NA_CA_HAv3.1_1thread.log './allele_freq_within_ancestry.sh {1} {2} combined_sept19 ../bee_samples_listed/byPop/{1}.list {3}; Rscript ./combine_pop_allele_freqs.R {1} combined_sept19 {2} {3}' ::: NA SA ::: A C M combined :::: ../data/honeybee_genome/chr.names &> logs/calc_allele_freq_within_ancestry_NA_CA_HAv3.1_1thread.out &
 [1] 767 - RUNNING 10.5.19. COMPLETED BUT SOME ERRORS:

@@ -132,6 +132,12 @@ anc <- data.frame(ancestry = colnames(admix),
   mutate(ancestry_label = factor(ancestry_label, levels = c("C", "M", "A")))
 # NOTE: now above code is specific to 3 ancestries because I wanted to order them A/M/C
 # for plotting
+d_admix_ACM_labelled <- d_admix %>% 
+  tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+  left_join(., anc, by = "ancestry") %>%
+  dplyr::select(-ancestry) %>%
+  tidyr::spread(., ancestry_label, p)
+save(d_admix_ACM_labelled, file = paste0("results/NGSAdmix/ACM_", name, ".rData"))
 
 
 # ggplot2 need 'tidy' formatted data

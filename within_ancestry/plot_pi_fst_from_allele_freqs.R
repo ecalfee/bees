@@ -7,12 +7,11 @@ source("../colors.R") # get color palette
 # this script takes the population allele frequencies
 # from combine_pop_allele_freqs.R
 # and calculates pi and Fst between all populations
-
-pops <- read.table("../bee_samples_listed/byPop/pops_included.list",
+pops <- read.table("../bee_samples_listed/byPop/combined_sept19_pops.list",
                    stringsAsFactors = F)$V1
 ACM <- c("A", "C", "M")
 ACM_pops <- c(ACM, pops)
-ancestries <- c("AA", "CC", "MM")
+ancestries <- ACM
 ancestries_combined <- c(ancestries, "combined")
 
 # get bee population meta data
@@ -32,7 +31,7 @@ meta.pop <- meta.ind %>%
             ., by = "population") %>%
   mutate(lat = ifelse(population == "Riverside_1999", .[.$population == "Riverside_2014", "lat"], lat))
 
-
+###---old SFS----####
 # read in the SFS's that were successfully calculated (for comparison):
 path_sfs_folded <- "results/folded_SFS_incorrect/non-outlier_regions/"
 SFS <- lapply(pops, function(x) 
@@ -85,15 +84,26 @@ ggsave("plots/pi_by_latitude_from_folded_SFS.png", device = "png",
 ggsave("../../bee_manuscript/figures/pi_by_latitude_from_folded_SFS.png", device = "png",
        width = 10, height = 5)
   
-
+####--END old SFS---##########################333
 
 # read in 1/10th of the allele freq data:
 n_snp = 10
 genome_size <- 236*10^6 # genome size
 # I sampled fraction n_snp of all SNPs, so the total fraction of the genome that are SNPs is:
+
+#freqs <- 1 - read.table(paste0("results/allele_freq_all/pops_included_plus_ACM_every", n_snp, "th_SNP.freqs.txt"),
+#                    stringsAsFactors = F, header = T)
+
+freqs_pops <- do.call(rbind, 
+                 lapply(1:16, function(i) read.table(paste0("results/combined_sept19/combined/allele_freq/Group", i, 
+                                                                   "/pops_included_every", n_snp, "th_SNP.freqs.txt"),
+                                                            header = T, stringsAsFactors = F)))
+freqs_ACM <- do.call(rbind, 
+                 lapply(1:16, function(i) read.table(paste0("results/combined_sept19/combined/allele_freq/Group", i, 
+                                                            "/ACM_every", n_snp, "th_SNP.freqs.txt"),
+                                                     header = T, stringsAsFactors = F)))
+freqs <- cbind(freqs_ACM, freqs_pops)
 frac_snps <- n_snp*nrow(freqs)/genome_size 
-freqs <- 1 - read.table(paste0("results/allele_freq_all/pops_included_plus_ACM_every", n_snp, "th_SNP.freqs.txt"),
-                    stringsAsFactors = F, header = T)
 # Q for later -- if these are all sites with SNPs (MAF > .05), why do about one third not have MAF > .05 in any of the included pops?
 # these are the SNPs from Julie's set; I'll get a fresh set of SNP calls on HAv3.1 and redo this plot
 table(apply(freqs, 1, max, na.rm = T) >= .05)
@@ -102,37 +112,47 @@ hets <- 2*freqs*(1-freqs)
 het_mean <- apply(hets, 2, function(x) mean(x, na.rm = T))*frac_snps
 table(complete.cases(hets)) # mostly no NAs
 # how many alleles sampled at a site?
-ns <- read.table(paste0("results/allele_freq_all/pops_included_plus_ACM_every", n_snp, "th_SNP.nInd"),
-                 stringsAsFactors = F, header = T)*2 # x2 because diploid
+ns_pops <- do.call(rbind, 
+                      lapply(1:16, function(i) read.table(paste0("results/combined_sept19/combined/allele_freq/Group", i, 
+                                                                 "/pops_included_every", n_snp, "th_SNP.nInd"),
+                                                          header = T, stringsAsFactors = F)))*2
+ns_ACM <- do.call(rbind, 
+                     lapply(1:16, function(i) read.table(paste0("results/combined_sept19/combined/allele_freq/Group", i, 
+                                                                "/ACM_every", n_snp, "th_SNP.nInd"),
+                                                         header = T, stringsAsFactors = F)))*2
+ns <- cbind(ns_ACM, ns_pops) # x2 because diploid
 
 # freqs and heterozygosity within AA CC MM ancestry
 freqs_by_ancestry <- lapply(ancestries, function(a) 
-  cbind(freqs[ , ACM], 
-        1 - read.table(paste0("results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/", 
-                              a, "/allele_freq/pops_included_every", n_snp, "th_SNP.freqs.txt"),
-             stringsAsFactors = F, header = T)))
+  cbind(freqs_ACM, 
+        do.call(rbind, 
+                lapply(1:16, function(i) read.table(paste0("results/combined_sept19/", a, "/allele_freq/Group", i, 
+                                                           "/pops_included_every", n_snp, "th_SNP.freqs.txt"),
+                                                    header = T, stringsAsFactors = F)))))
 hets_by_ancestry <- lapply(freqs_by_ancestry, function(f) 2*f*(1-f))
-het_mean_by_ancestry <- lapply(hets_by_ancestry, function(h)  # filter for MAF >= .05 for at least one population
-  apply(h, 2, function(x) mean(x, na.rm = T)))
+het_mean_by_ancestry <- lapply(hets_by_ancestry, function(h)
+  apply(h, 2, function(x) mean(x, na.rm = T)*frac_snps))
 
 # all AA heterozygosities are below ref bee pop A (makes sense):
-hist(het_mean_by_ancestry[[1]][pops], xlim = c(0, 0.1),
+hist(het_mean_by_ancestry[[1]][pops], xlim = c(0, .005),
      main = "histogram of pi within AA homozygous ancestry regions",
-     xlab = "population pi for AA ancestry")
+     xlab = "population pi for A ancestry")
 abline(v = het_mean["A"], col = "blue")
 
 
 # how many alleles were sampled at each site?
 ns_by_ancestry <- lapply(ancestries, function(a) 
-  cbind(ns[ , ACM], read.table(paste0("results/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/", 
-                                      a, "/allele_freq/pops_included_every", n_snp, "th_SNP.nInd"),
-                                      stringsAsFactors = F, header = T)*2)) # x 2 because diploid
+  cbind(ns_ACM, 
+        do.call(rbind, 
+                lapply(1:16, function(i) read.table(paste0("results/combined_sept19/", a, "/allele_freq/Group", i, 
+                                                           "/pops_included_every", n_snp, "th_SNP.nInd"),
+                                                    header = T, stringsAsFactors = F)*2)))) # x2 for diploid
 
 
 d_het <- data.frame(population = ACM_pops,
-                    AA = het_mean_by_ancestry[[1]],
-                    CC = het_mean_by_ancestry[[2]],
-                    MM = het_mean_by_ancestry[[3]],
+                    A = het_mean_by_ancestry[[1]],
+                    C = het_mean_by_ancestry[[2]],
+                    M = het_mean_by_ancestry[[3]],
                     combined = het_mean,
                     ref_pop = c(rep(T, 3), rep(F, length(pops)))) %>%
   left_join(., meta.pop, by = "population")
@@ -141,7 +161,7 @@ ACM_het <- data.frame(ancestry = ancestries,
                       ref_pop = T)
 
 # plot heterozygosity overall and within ancestry as you move across the hybrid zone:
-d_het %>%
+d_het %>% # (!) no small pop correction yet!
   filter(!ref_pop) %>%
   tidyr::gather(., "ancestry", "pi", c(ancestries, "combined")) %>%
   ggplot(., aes(x = abs(lat), y = pi, color = ancestry, shape = factor(year))) +
@@ -160,7 +180,7 @@ hets_small_sample <- do.call(cbind, lapply(1:ncol(freqs),
 colnames(hets_small_sample) <- ACM_pops
 
 het_small_sample_mean <- apply(hets_small_sample, 2, function(x) mean(x, na.rm = T))*frac_snps
-
+# use small sample size correction and filter sites with < 2 individuals with data
 hets_small_sample_by_ancestry <- lapply(1:3, function(a) do.call(cbind, 
                                                                  lapply(1:ncol(freqs_by_ancestry[[a]]), 
                                                                         function(i) het_small_sample_correction(p = freqs_by_ancestry[[a]][ , i], 
@@ -172,6 +192,8 @@ hets_small_sample_by_ancestry2 <- lapply(1:3, function(a) do.call(cbind,
                                                                                                                 filter_under_2 = F)))) 
 
 het_small_sample_mean_by_ancestry <- lapply(hets_small_sample_by_ancestry, function(h) 
+  apply(h, 2, function(x) mean(x, na.rm = T)*frac_snps))
+het_small_sample_mean_by_ancestry2 <- lapply(hets_small_sample_by_ancestry2, function(h) 
   apply(h, 2, function(x) mean(x, na.rm = T)*frac_snps))
 d_het_small_sample <- data.frame(population = ACM_pops,
                                  A = het_small_sample_mean_by_ancestry[[1]],
@@ -188,33 +210,9 @@ ACM_het_small_sample <- data.frame(ancestry = ACM,
 # what do we expect pi to be for these admixed populations?
 # first I need admixture data for each population:
 # get admixture data
-prefix <- "CA_AR_MX_harpur_sheppard_kohn_wallberg"
-# get ID's for PCA data (CAUTION - bam list order and admix results MUST MATCH!)
-IDs <- read.table(paste0("../bee_samples_listed/", prefix, ".list"), stringsAsFactors = F,
-                  header = F)
-colnames(IDs) <- c("Bee_ID")
-K = 3 # 3 admixing populations
-n = 250 # snps thinned to 1 every nth
-prefix1 = paste0("ordered_scaffolds_", prefix, "_prunedBy", n)
-name = paste0("K", K, "_", prefix1)
-file = paste0("../global_ancestry/results/NGSAdmix/", name, ".qopt")
-admix <- read.table(file)
-colnames(admix) <- paste0("anc", 1:K) #c("anc1", "anc2", "anc3)
-# get meta data for all individuals included in NGSadmix analysis (plus extras)
-ids.pops <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F, 
-                       header = T, sep = "\t") %>%
-  dplyr::select(Bee_ID, population)
-admix1 <- bind_cols(IDs, admix) %>%
-  left_join(ids.pops, by = "Bee_ID")
-# label ancestries
-anc_labels <- data.frame(ancestry = colnames(admix),
-                         ancestry_label = sapply(colnames(admix), 
-                                                 function(x) names(which.max(tapply(admix1[ , x], admix1$population, sum)))),
-                         stringsAsFactors = F)
-admix2 <- admix1 %>%
-  data.table::setnames(c("Bee_ID", anc_labels$ancestry_label, "population")) %>%
-  filter(population %in% pops) # only included populations
-admix.pops <- group_by(admix2, population) %>%
+load("../global_ancestry/results/NGSAdmix/ACM_K3_combined_sept19_chr_prunedBy250.rData")
+
+admix.pops <- group_by(d_admix_ACM_labelled, population) %>%
   summarise(A = mean(A), M = mean(M), C = mean(C), n = n())
 # why should the allele freqs be based on the reference pop allele freqs?
 # I need to fix code below, and use AA, MM, CC freqs:
@@ -226,6 +224,7 @@ freqs_anc <- do.call(cbind, lapply(1:3, function(i) # combine across N and S Ame
                                                                 function(r) sum(r, na.rm = T))))
 freqs_anc <- data.frame(freqs_anc) %>%
   data.table::setnames(ACM)
+ns_anc <- do.call(cbind, lapply(1:3, function(i) apply(ns_by_ancestry[[i]], 1, sum)))
 # just Argentina
 freqs_anc_SA <- data.frame(do.call(cbind, lapply(1:3, function(i) # just SA
   apply((freqs_by_ancestry[[i]]*ns_by_ancestry[[i]])[ , meta.pop$population[meta.pop$zone == "S. America"]], 
@@ -233,6 +232,7 @@ freqs_anc_SA <- data.frame(do.call(cbind, lapply(1:3, function(i) # just SA
         function(r) sum(r, na.rm = T))/apply(ns_by_ancestry[[i]][ , meta.pop$population[meta.pop$zone == "S. America"]], 1, 
                                              function(r) sum(r, na.rm = T))))) %>%
   data.table::setnames(ACM)
+ns_anc_SA <- do.call(cbind, lapply(1:3, function(i) apply(ns_by_ancestry[[i]][ , meta.pop$population[meta.pop$zone == "S. America"]], 1, sum)))
 # just CA
 freqs_anc_NA <- data.frame(do.call(cbind, lapply(1:3, function(i) # just SA
   apply((freqs_by_ancestry[[i]]*ns_by_ancestry[[i]])[ , meta.pop$population[meta.pop$zone == "N. America"]], 
@@ -240,15 +240,42 @@ freqs_anc_NA <- data.frame(do.call(cbind, lapply(1:3, function(i) # just SA
         function(r) sum(r, na.rm = T))/apply(ns_by_ancestry[[i]][ , meta.pop$population[meta.pop$zone == "N. America"]], 1, 
                                              function(r) sum(r, na.rm = T))))) %>%
   data.table::setnames(ACM)
+ns_anc_NA <- do.call(cbind, lapply(1:3, function(i) apply(ns_by_ancestry[[i]][ , meta.pop$population[meta.pop$zone == "N. America"]], 1, sum)))
 
 # what is mean Fst A in admixed zone vs. ref. panel A?
 freqs_tot = (freqs_anc + freqs[ , ACM])/2 # 'total' allele freq (avg.)
 fst_A <- 1 - (mean(2*freqs$A*(1 - freqs$A)) + mean(2*freqs_anc$A*(1 - freqs_anc$A)))/2 / mean(2*freqs_tot$A*(1 - freqs_tot$A))
 # hmm.. the frequency of A within Africanized honeybees has higher heterozygosity than A from the reference panel
-het_anc_mean <- apply(freqs_anc, 2, function(p) mean(2*p*(1-p))) # too high
-het_anc_mean_SA <- apply(freqs_anc_SA[complete.cases(freqs_anc_SA), ], 2, function(p) mean(2*p*(1-p))) # too high
-het_anc_mean_NA <- apply(freqs_anc_NA[complete.cases(freqs_anc_NA), ], 2, function(p) mean(2*p*(1-p))) # too high
-het_ACM_mean <- apply(freqs[ , ACM], 2, function(p) mean(2*p*(1-p)))
+het_anc_mean <- apply(na.omit(freqs_anc), 2, function(p) mean(2*p*(1-p))*frac_snps) # too high
+# when combining across NA and SA observered het within ancestry is too high
+# but it looks good within each continent -- better not to pool them
+het_anc_mean_SA <- apply(na.omit(freqs_anc_SA), 2, function(p) mean(2*p*(1-p))*frac_snps) # too high
+het_anc_mean_NA <- apply(na.omit(freqs_anc_NA), 2, function(p) mean(2*p*(1-p))*frac_snps) # too high
+het_ACM_mean <- apply(na.omit(freqs_ACM), 2, function(p) mean(2*p*(1-p))*frac_snps)
+
+pi_ACM_estimates  <- data.frame(ancestry = ACM, pi_SA = het_anc_mean_SA, pi_NA = het_anc_mean_NA, pi_ref = het_ACM_mean, pi_combined_NA_SA = het_anc_mean)
+write.table(pi_ACM_estimates, "results/pi_ACM_estimates.txt", col.names = T, row.names = F, quote = F, sep = "\t")
+# sample size corrections don't seem very necessary when pooling across a whole continent of samples
+het_anc_mean_small_sample <- sapply(1:3, function(i) mean(het_small_sample_correction(p = freqs_anc[ , i], 
+                                                                                 n = ns_anc[ , i]),
+                                                          na.rm = T)*frac_snps)
+het_anc_mean_SA_small_sample <- sapply(1:3, function(i) mean(het_small_sample_correction(p = freqs_anc_SA[ , i], 
+                                                                                         n = ns_anc_SA[ , i]),
+                                                             na.rm = T)*frac_snps)
+het_anc_mean_NA_small_sample <- sapply(1:3, function(i) mean(het_small_sample_correction(p = freqs_anc_NA[ , i], 
+                                                                                         n = ns_anc_NA[ , i]),
+                                                             na.rm = T)*frac_snps)
+het_ACM_mean_small_sample <- sapply(1:3, function(i) mean(het_small_sample_correction(p = freqs_ACM[ , i],
+                                                                                    n = ns_ACM[ , i]),
+                                                                                    na.rm = T)*frac_snps)
+pi_ACM_estimates_small_sample  <- data.frame(ancestry = ACM, pi_SA = het_anc_mean_SA_small_sample, 
+                                             pi_NA = het_anc_mean_NA_small_sample, 
+                                             pi_ref = het_ACM_mean_small_sample, 
+                                             pi_combined_NA_SA = het_anc_mean_small_sample)
+write.table(pi_ACM_estimates_small_sample, "results/pi_ACM_estimates_with_small_sample_correction.txt", col.names = T, row.names = F, quote = F, sep = "\t")
+
+
+
 
 # predict frequencies from within-ancestry allele frequencies for N and S America separately
 freqs_predicted_SA <- do.call(cbind, 
@@ -266,6 +293,15 @@ colnames(freqs_predicted_NA) <- meta.pop$population[meta.pop$zone == "N. America
 freqs_predicted <- cbind(freqs_predicted_SA, freqs_predicted_NA) %>%
   data.frame() %>%
   dplyr::select(., pops) # put back in order of pops
+# freqs predicted from combined allele freqs within ancestry across both zones won't be as good
+freqs_predicted_combined <- do.call(cbind, 
+                               lapply(pops, function(p) 
+                                 as.matrix(freqs_anc) %*% 
+                                   t(as.matrix(admix.pops[admix.pops$population == p, 
+                                                          ACM])))) 
+colnames(freqs_predicted_combined) <- pops
+
+
 
 # what are expected pi?
 hets_predicted <- 2*freqs_predicted*(1-freqs_predicted)
@@ -308,8 +344,9 @@ d_het_small_sample %>%
   theme_classic() +
   scale_color_manual(values = col_ACM_all) +
   geom_abline(data = ACM_het_small_sample, aes(intercept = combined, slope = 0, color = ancestry))
-ggsave("plots/pi_by_latitude_including_mexico.png", device = "png",
-       width = 10, height = 5)
+#ggsave("plots/pi_by_latitude_including_mexico.png", device = "png",
+#       width = 10, height = 5)
+
 d_het_small_sample %>%
   filter(!ref_pop) %>%
   left_join(., data.frame(population = pops, 
@@ -327,6 +364,8 @@ d_het_small_sample %>%
   scale_color_manual(values = dark2[c(2,8,7)], name = NULL)
 ggsave("plots/pi_observed_and_predicted_from_admixture.png", device = "png",
        width = 10, height = 5)
+ggsave("../../bee_manuscript/figures/pi_observed_and_predicted_from_admixture.pdf", device = "pdf",
+       width = 6, height = 4)
 
 d_het_small_sample %>%
   filter(population != "MX10") %>%
@@ -348,9 +387,9 @@ d_het_small_sample %>%
   scale_color_manual(values = c(col_ACM_all, "Predicted"=dark2[8])) +
   theme(legend.title = element_blank())
 ggsave("plots/pi_by_latitude.png", device = "png",
-       width = 8, height = 4)
+       width = 6, height = 4)
 ggsave("../../bee_manuscript/figures/pi_by_latitude.pdf", device = "pdf",
-       width = 8, height = 4)
+       width = 6, height = 4)
 
 # no real relationship with pop coverage = good sign
 plot(lapply(SFS, sum), het_small_sample_mean[4:length(het_small_sample_mean)], main = "neg. relationship ANGSD estimated pi and number of sites in SFS",
