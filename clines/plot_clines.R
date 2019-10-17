@@ -6,6 +6,7 @@ library(rethinking)
 library(dplyr)
 library(ggplot2)
 library(betareg) # alternative ML fitting
+source("../colors.R") # get color palette
 
 #retrieve_data_new <- T
 retrieve_data_new <- F
@@ -13,15 +14,17 @@ retrieve_data_new <- F
 res_bioclim <- 0.5 # res 2.5 is about 4.5 km^2 at the equator; 0.5 is < 1 km^2
 
 # get admixture data
-prefix <- "CA_AR_MX_harpur_sheppard_kohn_wallberg"
+#prefix <- "CA_AR_MX_harpur_sheppard_kohn_wallberg"
+
 # get ID's for PCA data (CAUTION - bam list order and admix results MUST MATCH!)
-IDs <- read.table(paste0("../bee_samples_listed/", prefix, ".list"), stringsAsFactors = F,
+IDs <- read.table(paste0("../bee_samples_listed/combined_sept19.list"), stringsAsFactors = F,
                   header = F)
 colnames(IDs) <- c("Bee_ID")
 K = 3 # 3 admixing populations
 n = 250 # snps thinned to 1 every nth
-prefix1 = paste0("ordered_scaffolds_", prefix, "_prunedBy", n)
-name = paste0("K", K, "_", prefix1)
+#prefix1 = paste0("ordered_scaffolds_", prefix, "_prunedBy", n)
+#name = paste0("K", K, "_", prefix1)
+name = "K3_combined_sept19_chr_prunedBy250"
 file = paste0("../global_ancestry/results/NGSAdmix/", name, ".qopt")
 admix <- read.table(file)
 colnames(admix) <- paste0("anc", 1:K) #c("anc1", "anc2", "anc3)
@@ -153,11 +156,14 @@ d_A %>%
   tidyr::gather(., "climate_var", "value", c("AnnualMeanTemp", "MeanTempColdestQuarter", "AnnualPrecip")) %>%
   ggplot(., aes(x = abs(lat), y = value, color = continent, shape = year)) +  
                 #color = geographic_location_short)) + 
-  geom_point(size = .5) + 
+  geom_point(size = 1, alpha = .75) + 
   facet_wrap(~climate_var, scales = "free_y", ncol = 1) +
   xlab("Degrees latitude from the equator") + 
   theme(legend.position="bottom") + 
-  labs(color = "")
+  labs(color = "") +
+  scale_shape_manual(values = c(17, 19)) +
+  scale_color_manual(values = col_NA_SA_both) +
+  theme_classic()
 ggsave("plots/climate_variables_across_latitude.png", 
        height = 5, width = 5, units = "in")
 # save in figures for manuscript:
@@ -167,7 +173,8 @@ ggsave("../../bee_manuscript/figures/climate_variables_across_latitude.png",
 # A ancestry vs. latitude:
 d_A %>%
   ggplot(., aes(x = abs(lat), y = alpha, color = continent)) +
-  geom_point()
+  geom_point() +
+  scale_color_manual(values = col_NA_SA_both)
 
 # do linear models using latitude, temp, and distance from sao paulo brazil as variables.
 m <- map( # quadratic approximation of the posterior MAP
@@ -254,7 +261,7 @@ pairs(m_lat)
 m_lat_betareg <- betareg(alpha ~ abs_lat_c,
                      link = "logit",
                      data = d_A) # basically gives the same result
-
+summary(m_lat_betareg)
 
 # latitude and continent:
 m_lat_SA <- map( # quadratic approximation of the posterior MAP
@@ -776,8 +783,6 @@ m1 <- map( # quadratic approximation of the posterior MAP
 precis(m1)
 pairs(m1) # predictions for distance and latitude are negatively correlated
 
-
-
 m1_SA <- map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
@@ -810,7 +815,8 @@ d_A %>%
 d_A %>%
   mutate(m1 = m1.post.mu) %>%
   ggplot(., aes(x = alpha, y = m1, color = continent)) +
-  geom_point()
+  geom_point() +
+  scale_color_manual(values = col_NA_SA_both)
 
 
 # compare fit using latitude with fit using other environmental predictors (e.g. temp)
@@ -863,7 +869,8 @@ d_A %>%
 d_A %>%
   mutate(m1_cold = m1_cold.post.mu) %>%
   ggplot(., aes(x = alpha, y = m1_cold, color = continent)) +
-  geom_point()
+  geom_point() +
+  scale_color_manual(values = col_NA_SA_both)
 
 # mean temperature:
 m1_temp <- map( # quadratic approximation of the posterior MAP
@@ -914,7 +921,8 @@ d_A %>%
 d_A %>%
   mutate(m1_temp = m1_temp.post.mu) %>%
   ggplot(., aes(x = alpha, y = m1_temp, color = continent)) +
-  geom_point()
+  geom_point() +
+  scale_color_manual(values = col_NA_SA_both)
 
 # mean precipitation
 m1_precip <- map( # quadratic approximation of the posterior MAP
@@ -1078,7 +1086,8 @@ d_A %>%
 d_A %>%
   mutate(m1_precip = m1_precip.post.mu) %>%
   ggplot(., aes(x = alpha, y = m1_precip, color = continent)) +
-  geom_point()
+  geom_point() +
+  scale_color_manual(values = col_NA_SA_both)
 
 # plot instead with shading
 # plot raw data
@@ -1586,12 +1595,17 @@ m_lat.post.HDPI <- apply(m_lat.post, 2, HPDI, prob=0.95)
 
 # plot model prediction for m_lat:
 png("plots/m_lat_model_prediction.png", height = 6, width = 8, units = "in", res = 300)
-plot(alpha ~ abs(lat), data = d_A, col = ifelse(d_A$continent == "S. America", rangi2, "skyblue"),
+plot(alpha ~ abs(lat), data = d_A, 
+     col = NULL,
+     #col = ifelse(d_A$continent == "S. America", rangi2, "skyblue"),
      ylim = c(0, 1), main = "African ancestry predicted by latitude", xlab = "Degrees latitude from equator",
      ylab = "A ancestry proportion")
 # plot the mean mu for each observation as a line
 #lines(abs(d_A$lat)[order(abs(d_A$lat))], m_lat.post.mu[order(abs(d_A$lat))])
+shade(m_lat.post.HDPI, full_range_data$abs_lat, col = alpha(col_blind[1], .25)) # plot a shaded region for 95% HPDI
 
+points(alpha ~ abs(lat), data = d_A, # plot points again on top
+     col = ifelse(d_A$continent == "S. America", col_NA_SA_both["S. America"], col_NA_SA_both["N. America"]), add = T)
 # plot MAP line from model coefficients:
 curve(logistic(coef(m_lat)["mu"] + (x - mean(abs(d_A$lat)))*coef(m_lat)["b_lat"]), range(abs(d_A$lat)), n = 1000, add = T)
 # plot MAP line from ML fit -- fits the same 
@@ -1601,22 +1615,23 @@ curve(logistic(coef(m_lat)["mu"] + (x - mean(abs(d_A$lat)))*coef(m_lat)["b_lat"]
 #                 (x - mean(abs(d_A$lat)))*coef(m_lat_betareg)["abs_lat_c"]), 
 #      range(abs(d_A$lat)), n = 1000, col = "red", add = T)
 
-# plot a shaded region for 95% HPDI
-shade(m_lat.post.HDPI, full_range_data$abs_lat)
 legend("topright", c("S. America", "N. America", "model prediction (MAP)", "95% confidence (HPDI)"),
-        pch = c(1, 1, NA, 15), lty = c(NA, NA, 1, NA), col = c(rangi2, "skyblue", "black", "grey"))
+        pch = c(1, 1, NA, 15), lty = c(NA, NA, 1, NA), col = c(col_NA_SA_both[1:2], "black", col_blind[1]))
 dev.off()
 # make figure again for manuscript folder:
 png("../../bee_manuscript/figures/m_lat_model_prediction.png", height = 6, width = 8, units = "in", res = 300)
-plot(alpha ~ abs(lat), data = d_A, col = ifelse(d_A$continent == "S. America", rangi2, "skyblue"),
+plot(alpha ~ abs(lat), data = d_A, 
+     col = NULL,
      ylim = c(0, 1), main = "African ancestry predicted by latitude", xlab = "Degrees latitude from equator",
      ylab = "A ancestry proportion")
+shade(m_lat.post.HDPI, full_range_data$abs_lat, col = alpha(col_blind[1], .25)) # plot a shaded region for 95% HPDI
+
+points(alpha ~ abs(lat), data = d_A, # plot points again on top
+       col = ifelse(d_A$continent == "S. America", col_NA_SA_both["S. America"], col_NA_SA_both["N. America"]), add - T)
 # plot MAP line from model coefficients:
 curve(logistic(coef(m_lat)["mu"] + (x - mean(abs(d_A$lat)))*coef(m_lat)["b_lat"]), range(abs(d_A$lat)), n = 1000, add = T)
-# plot a shaded region for 95% HPDI
-shade(m_lat.post.HDPI, full_range_data$abs_lat)
 legend("topright", c("S. America", "N. America", "model prediction (MAP)", "95% confidence (HPDI)"),
-       pch = c(1, 1, NA, 15), lty = c(NA, NA, 1, NA), col = c(rangi2, "skyblue", "black", "grey"))
+       pch = c(1, 1, NA, 15), lty = c(NA, NA, 1, NA), col = c(col_NA_SA_both[1:2], "black", col_blind[1]))
 dev.off()
 
 

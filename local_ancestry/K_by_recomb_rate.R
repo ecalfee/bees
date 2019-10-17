@@ -21,7 +21,7 @@ rmap <- read.table("../data/recomb_map/Wallberg_HAv3.1/map_rates_extended_10kb.b
 
 # get genomewide r quintiles:
 rmap$r_bin5 <- cut(rmap$cM_Mb,
-                   breaks = unique(quantile(c(0, rmap$cM_Mb, 100),
+                   breaks = unique(quantile(c(0, rmap$cM_Mb, max(rmap$cM_Mb)),
                                             p = seq(0, 1, by = .2))),
                    right = T,
                    include.lowest = T)
@@ -48,18 +48,20 @@ sites_r$cum_pos <- as.numeric(sites_r$cum_pos)
 sites_r$chr_start <- as.numeric(sites_r$chr_start)
 sites_r$r_bin5_factor <- factor(sites_r$r_bin5, levels = levels(rmap$r_bin5),
                                 ordered = T)
+sites_r$r_bin5 <- as.numeric(sites_r$r_bin5_factor) # translate to 1-5 numbers
 # negative correlation between being a tight snp and high recombination rate, even when we exclude Group11
 cor(A_clines1$b_lat[sites_r$chr] <= quantile(A_clines1$b_lat, .01), sites_r$cM_Mb)
 cor(A_clines1$b_lat[sites_r$chr != "Group11"] <= quantile(A_clines1$b_lat, .01), sites_r$cM_Mb[sites_r$chr != "Group11"])
 
 str(sites_r)
-table(sites_r$r_bin5)
-
+table(sites_r$r_bin5_factor)
+table(is.na(sites_r$r_bin5_factor))
+levels(sites_r$r_bin5_factor)
 save(sites_r, file = "results/sites_r.RData")
 
 # look at mean A ancestry across recombination bins:
 cbind(sites_r, meanA) %>%
-  group_by(r_bin5) %>%
+  group_by(r_bin5_factor) %>%
   summarise(mean = mean(meanA))
 
 # get mean A ancestry for each population for the 5 recombination bins
@@ -75,8 +77,8 @@ A_r$r_bin5_number_c = A_r$r_bin5_number - mean(A_r$r_bin5_number)
 unique(A_r[ , c("r_bin5", "r_bin5_number")]) # in order low to high, good
 str(A_r)
 A_r %>%
-  filter(r_bin5 %in% c("[0,2.92]", "(38.6,100]")) %>%
-  ggplot(., aes(x = abs(lat), y = A, color = r_bin5)) +
+  filter(r_bin5_factor %in% c("[0,2.92]", "(38.6,100]")) %>%
+  ggplot(., aes(x = abs(lat), y = A, color = r_bin5_factor)) +
   geom_point() +
   facet_wrap(~zone)
 
@@ -140,8 +142,8 @@ pairs(m_lat_r_bypop)
 
 
 # make K matrix for each recombination rate bin
-K_byr <- lapply(levels(rmap$r_bin5), function(r)
-  make_K_calcs(t(A[ sites_r$r_bin5 == r, pops_by_lat])))
+K_byr <- lapply(1:5, function(r)
+  make_K_calcs(t(A[sites_r$r_bin5 == r, pops_by_lat])))
 
 # plot K for each recombination rate bin
 for (a in 1:5){
@@ -177,7 +179,7 @@ for (a in 1:5){
 # try plotting these again but using the genomewide alpha rather than alpha
 # for that recombination rate bin
 pop_alpha_genomewide <- apply(A[ , pops_by_lat], 2, mean)
-K_byr2 <- lapply(levels(rmap$r_bin5), function(r)
+K_byr2 <- lapply(1:5, function(r)
   calcK(ancFreqMatrix = t(A[sites_r$r_bin5 == r, pops_by_lat]),
         alpha = pop_alpha_genomewide))
 # make new plots:
@@ -216,3 +218,36 @@ for (a in 1:5){
 # on how the slopes don't appear to get steeper from low to high recombination.
 # also try excluding + outliers again. And if you have it, your steepest sloped loci, to see if that's driving
 # the effect -- mean slope doesn't get steeper, but top 1% are in low r regions
+
+# calculate mean correlations for different recombination rate bins:
+# function from plotLocalAncestryTracts.R:
+pair_types <- data.frame(label = c("Warm SA", "Cold SA vs. Warm SA", "Cold SA", "Cold NA vs. Warm SA", "Cold NA vs. Cold SA", "Cold NA"),
+                         type = unique(mean_corrs$type)[order(unique(mean_corrs$type))],
+                         stringsAsFactors = F) %>%
+  mutate(label = factor(label, levels = c("Warm SA", "Cold SA", "Cold NA", "Cold NA vs. Cold SA", "Cold SA vs. Warm SA", "Cold NA vs. Warm SA"),
+                        ordered = T))
+mean_corrs <- do.call(rbind,
+                      lapply(1:5, function(k) get_mean_corr_from_K(K_byr[[k]]$K) %>%
+                       mutate(r_bin5 = k))) %>%
+  left_join(., distinct(dplyr::select(sites_r, c("r_bin5", "r_bin5_factor"))), by = "r_bin5") %>%
+  left_join(., pair_types, by = "type")
+mean_corrs %>%
+  write.table(., "results/mean_anc_corr_grouped_by_r.txt",
+              col.names = T, row.names = F, quote = F, sep = "\t")
+mean_corrs %>%
+  ggplot(., aes(x = label, y = mean_anc_corr, color = r_bin5_factor)) +
+  geom_point(alpha = .75) +
+  geom_point(data = left_join(mean_corr_k, pair_types, by = "type"), 
+             aes(x = label, y = mean_anc_corr), color = "black", pch = 4) +
+  ylab("Mean Ancestry Correlation") +
+  theme_classic() +
+  xlab("") +
+  scale_color_viridis_d(name = "Recombination bin (cM/Mb)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggsave(paste0("plots/mean_k_corr_by_groups_and_r.png"), 
+       height = 4, width = 6, 
+       units = "in", device = "png")
+ggsave(paste0("../../bee_manuscript/figures/mean_k_corr_by_groups_and_r.pdf"), 
+       height = 4, width = 6, 
+       units = "in", device = "pdf")
+

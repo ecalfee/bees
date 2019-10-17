@@ -701,6 +701,55 @@ ggsave("plots/mean_A_ancestry_CA_and_AR_Group1_scaffolds_20-23.png",
 # plot K matrix (! order by latitude!)
 zAnc_bees = make_K_calcs(t(A[ , pops_by_lat]))
 
+# what are mean correlations?
+# within CA
+# within AR S
+# within AR N
+# CA -> AR S
+# CA -> AR N
+# AR S -> AR N
+AR_pops_S <- names(zAnc_bees$alpha[zAnc_bees$alpha < .5 & names(zAnc_bees$alpha) %in% AR_pops_included$population])
+AR_pops_N <- names(zAnc_bees$alpha[zAnc_bees$alpha >= .5 & names(zAnc_bees$alpha) %in% AR_pops_included$population])
+CA_pops <- CA_pops_included$population
+#melt(cov2cor(zAnc_bees$K)[lower.tri(zAnc_bees$K, diag = F)]) %>%
+get_mean_corr_from_K <- function(K){
+  lower_tri <- cov2cor(K)
+  lower_tri[lower.tri(lower_tri, diag = T)] <- NA # ignore variances and repeats
+  k_lower_tri <- melt(lower_tri) %>%
+    mutate(CA_CA = Var1 %in% CA_pops & Var2 %in% CA_pops) %>%
+    mutate(ARS_ARS = Var1 %in% AR_pops_S & Var2 %in% AR_pops_S) %>%
+    mutate(ARN_ARN = Var1 %in% AR_pops_N & Var2 %in% AR_pops_N) %>%  
+    mutate(ARN_ARS = (Var1 %in% AR_pops_N & Var2 %in% AR_pops_S) | (Var1 %in% AR_pops_S & Var2 %in% AR_pops_N)) %>%  
+    mutate(CA_ARS = (Var1 %in% AR_pops_S & Var2 %in% CA_pops) | (Var1 %in% CA_pops & Var2 %in% AR_pops_S)) %>%
+    mutate(CA_ARN = (Var1 %in% AR_pops_N & Var2 %in% CA_pops) | (Var1 %in% CA_pops & Var2 %in% AR_pops_N)) %>%
+    mutate(check = CA_CA + ARS_ARS + ARN_ARN + CA_ARS + CA_ARN + ARN_ARS)
+  k_lower_tri <- melt(lower_tri) %>%
+    filter(!is.na(value)) %>%
+    mutate(type = ifelse(Var1 %in% CA_pops & Var2 %in% CA_pops, "CA_CA",
+                         ifelse(Var1 %in% AR_pops_S & Var2 %in% AR_pops_S, "ARS_ARS",
+                                ifelse(Var1 %in% AR_pops_N & Var2 %in% AR_pops_N, "ARN_ARN",
+                                       ifelse((Var1 %in% AR_pops_N & Var2 %in% AR_pops_S) | (Var1 %in% AR_pops_S & Var2 %in% AR_pops_N), "ARN_ARS",
+                                              ifelse((Var1 %in% AR_pops_S & Var2 %in% CA_pops) | (Var1 %in% CA_pops & Var2 %in% AR_pops_S), "CA_ARS",
+                                                     ifelse((Var1 %in% AR_pops_N & Var2 %in% CA_pops) | (Var1 %in% CA_pops & Var2 %in% AR_pops_N), "CA_ARN", 
+                                                            NA)))))))
+  mean_corr <- k_lower_tri %>%
+    group_by(type) %>%
+    summarise(mean_anc_corr = mean(value))
+  return(mean_corr)
+}
+mean_corr_k <- get_mean_corr_from_K(zAnc_bees$K)
+mean_corr_k
+mean_corr_k %>%
+  write.table(., "results/mean_anc_corr_grouped.txt",
+              col.names = T, row.names = F, quote = F, sep = "\t")
+
+
+melt(lower_tri) %>% 
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()
+
+
+
 
 melt(zAnc_bees$K) %>%
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
@@ -727,7 +776,7 @@ melt(zAnc_bees$K) %>%
 ggsave("plots/k_matrix_all_pops_no_var.png", 
        height = 6, width = 8, 
        units = "in", device = "png")
-melt(cov2cor(zAnc_bees$K)) %>%
+k_plot_all <- melt(cov2cor(zAnc_bees$K)) %>%
   filter(Var1 != Var2) %>% # omit diagonal
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
@@ -735,14 +784,18 @@ melt(cov2cor(zAnc_bees$K)) %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   scale_fill_viridis(begin = 0, end = 1, direction = 1,
                      #limits = c(-.35, .55)) +
-                     limits = c(-.12, .32)) +
+                     limits = c(-.12, .32),
+                     name = "") +
   xlab("") +
   ylab("") +
   ggtitle("K correlation matrix - bees")
+k_plot_all
 ggsave("plots/k_correlation_matrix_all_pops.png", 
+       plot = k_plot_all,
        height = 6, width = 8, 
        units = "in", device = "png")
 ggsave("../../bee_manuscript/figures/k_correlation_matrix_all_pops.pdf", 
+       plot = k_plot_all + theme(axis.text.x = NULL, axis.text.y = NULL) + ggtitle(""),
        height = 7, width = 8, 
        units = "in", device = "pdf")
 
@@ -1223,14 +1276,15 @@ p_sim_compare
 p_sim_compare2 <- sim_compare %>%
   ggplot(., aes(x = A, color = distribution)) +
   #geom_density_line(lwd = 1) +
-  geom_line(stat = "density", alpha = .75) +
+  geom_line(stat = "density", alpha = .75, lwd = 1) +
   theme_classic() +
-  xlab("Combined sample mean African ancestry") +
+  xlab("Mean African ancestry") +
   ylab("Density") +
   scale_color_viridis_d(option = "viridis", name = NULL, 
                         limits = c("observed_data", "MVN_with_covariance", "MVN_no_covariance", "poisson_binomial"),
                         labels = c("observed_data"="Observed data", "poisson_binomial"="Poisson Binomial", "MVN_no_covariance"="MVN variance only", "MVN_with_covariance"="MVN"))
 # use alpha instead of different line types
+p_sim_compare2
 
 ggsave("plots/distribution_data_vs_poibin_vs_MVN_sim.png",
        plot = p_sim_compare2,
@@ -1240,6 +1294,20 @@ ggsave("../../bee_manuscript/figures/distribution_data_vs_poibin_vs_MVN_sim.pdf"
        plot = p_sim_compare2,
        device = "pdf",
        width = 6, height = 4, units = "in")
+
+# make joint plot of kinship matrix and these distribution comparisons:
+dist_k_plots_combined <- arrangeGrob(k_plot_all + theme(axis.text = element_blank(), 
+                                                         axis.ticks = element_blank()) + 
+                                        ggtitle("A") +
+                                        xlab("Ancestry correlation matrix"),
+                                      p_sim_compare2 + ggtitle("B"),
+                                      ncol = 2,
+                                      widths = c(3, 5))
+ggsave("../../bee_manuscript/figures/k_matrix_and_poi_bin_mvn_dist_comparison.pdf",
+       plot = dist_k_plots_combined,
+       device = "pdf",
+       width = 8, 
+       height = 3, units = "in")
 
 for (path in c("plots/", 
                "../../bee_manuscript/figures/")){
