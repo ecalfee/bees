@@ -81,7 +81,9 @@ if (retrieve_data_new){
               paste0("results/BioclimVar_bees_", res_bioclim, "min.txt"), sep = "\t",
               quote = F, col.names = T, row.names = F)
 } else{ # read in data already processed
-  # read in data
+  # read in admixture data
+  #load("../global_ancestry/results/NGSAdmix/ACM_K3_combined_sept19_chr_prunedBy250.rData")
+  # read in climate data
   bees.clim <- read.table(paste0("results/BioclimVar_bees_", res_bioclim, "min.txt"), 
                           sep = "\t",
                           header = T, stringsAsFactors = F)
@@ -114,26 +116,6 @@ d_A <- d %>%
   mutate(from2014 = year - 2014) %>% # any evidence the hybrid zone has moved 2014 to 2018?
   mutate(from2014_c = from2014 - mean(from2014)) %>%
   mutate(year = factor(year))
-
-d_A_hx <- d %>%
-  filter(geographic_location != "Mexico") %>% # filter out mexico
-  # limit to A ancestry
-  filter(ancestry_label == "A") %>%
-  # absolute latitude
-  mutate(abs_lat = abs(lat)) %>%
-  # mean absolute latitude, centered
-  mutate(abs_lat_c = abs(lat) - mean(abs(lat))) %>%
-  # distance from sao paulo, centered, and in units of 1000km
-  mutate(dist_c = (km_from_sao_paulo - mean(km_from_sao_paulo))/1000) %>%
-  mutate(S_America = ifelse(continent == "S. America", 1, 0)) %>%
-  mutate(S_America_c = S_America - mean(S_America)) %>% # center for better fit and reduce correlation with mu estimates
-  mutate(temp_c = AnnualMeanTemp - mean(AnnualMeanTemp)) %>%
-  mutate(cold_c = MeanTempColdestQuarter - mean(MeanTempColdestQuarter)) %>%
-  mutate(precip_c = AnnualPrecip - mean(AnnualPrecip)) %>%
-  mutate(from2014 = year - 2014) %>% # any evidence the hybrid zone has moved 2014 to 2018?
-  mutate(from2014_c = from2014 - mean(from2014)) %>%
-  mutate(year = factor(year))
-
 
 
 
@@ -1835,3 +1817,58 @@ pairs(m_pc1)
 
 # using pc's instead of selected environmental variables doesn't improve the model fit.
 rethinking::compare(m, m_lat, m1, m2, m_pc6_lat, m_pc6_dist_lat, m_pc4_lat, m_pc6, m_pc4, m_pc1)
+
+############-----logistic clines w/ nls()------#########
+# define logistic curve
+logistic3 <- function(x, mu, b){
+  1/(1 + exp(-b*(x - mu)))
+}
+
+# fit_d just has distance brazil
+# fit_lat just has latitude
+start_lat <- getInitial(alpha ~ SSlogis(abs_lat, Asym, 
+                                   xmid, scal), 
+                       d = d_A)
+fit_lat <- nls(alpha ~ logistic3(x = abs_lat, b = b, mu = mu),
+              start = list(b = 1/unname(start_lat["scal"]),
+                           mu = unname(start_lat["xmid"])),
+              data = d_A,
+              trace = F)
+sum_lat <- summary(fit_lat)
+info_lat <- c(converged = sum_lat$convInfo$isConv,
+              mu = sum_lat$coefficients["mu", "Estimate"],
+              b = sum_lat$coefficients["b", "Estimate"],
+              residual_error = sum_lat$sigma)
+# how well does the model fit?
+cor(d_A$alpha, predict(fit_lat)) # very high correlation!
+# high correlation for S. America
+cor(d_A$alpha[d_A$S_America == 1], 
+    sapply(d_A$abs_lat[d_A$S_America == 1], function(x)
+           logistic3(x, b = info_lat["b"], 
+                     mu = info_lat["mu"])))
+# pure lat. model has lower correlation for N. America
+cor(d_A$alpha[d_A$S_America == 0], 
+    sapply(d_A$abs_lat[d_A$S_America == 0], function(x)
+      logistic3(x, b = info_lat["b"], 
+                mu = info_lat["mu"]))) 
+#plot
+with(d_A, plot(abs_lat, alpha))
+curve(logistic3(x, b = info_lat["b"], mu = info_lat["mu"]), 
+      from = min(d_A$abs_lat), to = max(d_A$abs_lat), add = T,
+      col = "blue", lwd = 3)
+lines(d_A$abs_lat, predict(fit_lat), lty=2, col="red", lwd=3)
+
+# distance from brazil
+start_lat_dist <- getInitial(alpha ~ SSlogis(km_from_sao_paulo, Asym, 
+                                        xmid, scal), 
+                        d = d_A)
+fit_lat <- nls(alpha ~ logistic3(x = abs_lat, b = b, mu = mu),
+               start = list(b = 1/unname(start_lat["scal"]),
+                            mu = unname(start_lat["xmid"])),
+               data = d_A,
+               trace = F)
+sum_lat <- summary(fit_lat)
+
+
+
+
