@@ -470,7 +470,7 @@ grep 'optimum' -B 1 -A 4 logs/ancestry_hmm_combined_sept19.out
 local_ancestry$ grep 'optimum' -B 1 -A 4 logs/ancestry_hmm_combined_sept19.out > results/ancestry_hmm/combined_sept19/posterior/time_estimates_extracted_from_log.txt
 COMPLETED
 # extracting times in a more usable format from the log of ancestry_hmm:
-local_ancestry$ cd results/ancestry_hmm/combined_sept19/posterior 
+local_ancestry$ cd results/ancestry_hmm/combined_sept19/posterior
 $ grep 'pop' time_estimates_extracted_from_log.txt | cut -f2 -d" " > time_pops.txt
 $ grep 'type' -A3 time_estimates_extracted_from_log.txt | awk 'NR%5 == 2 {print $0}' > time_C.txt
 $ grep 'type' -A3 time_estimates_extracted_from_log.txt | awk 'NR%5 == 3 {print $0}' > time_M.txt
@@ -490,7 +490,7 @@ WAITING 2 RUN
 
 # getting high-confidence homozygous tracts:
 # first translate variant sites to a bed file so I can get ancestry calls at SNPs -> ancestry tracts
-local_ancestry$ Rscript ./ancestry_sites_to_tracts.R results/SNPs/combined_sept19/chr 
+local_ancestry$ Rscript ./ancestry_sites_to_tracts.R results/SNPs/combined_sept19/chr
 # created results/SNPs/combined_sept19/chr.var.sites.bed
 
 
@@ -499,6 +499,11 @@ local_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/get_AA_CC_MM_ance
 [1] 29575 - RUNNING 9.27.19
 
 
-
-
-
+### Get higheset posterior probability ancestry state as an allele count for each ind:
+# test
+local_ancestry$ Rscript ./getHighestPostAncState.R AR01 results/ancestry_hmm/combined_sept19/posterior
+# run all
+local_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/get_highest_post_anc_combined_sept19.log \
+'Rscript ./getHighestPostAncState.R {1} results/ancestry_hmm/combined_sept19/posterior' \
+:::: ../bee_samples_listed/byPop/combined_sept19_pops.list \
+&> logs/get_highest_post_anc_combined_sept19.out &
