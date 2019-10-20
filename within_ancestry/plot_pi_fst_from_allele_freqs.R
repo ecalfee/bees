@@ -7,6 +7,14 @@ source("../colors.R") # get color palette
 # this script takes the population allele frequencies
 # from combine_pop_allele_freqs.R
 # and calculates pi and Fst between all populations
+# some functions:
+# heterozygosity corrected for small sample size:
+# by default also drop any snps with fewer than 2 individuals with data (<= 2 alleles observed, i.e. 1 ind.)
+het_small_sample_correction <- function(p, n, filter_under_2 = T){
+  ifelse(filter_under_2 & n <= 2, NA, 2*(p - p^2*(n/(n-1)) + p*(1/(n-1))))}
+genome_size <- 236*10^6 # genome size
+
+# get data
 pops <- read.table("../bee_samples_listed/byPop/combined_sept19_pops.list",
                    stringsAsFactors = F)$V1
 ACM <- c("A", "C", "M")
@@ -88,7 +96,7 @@ ggsave("../../bee_manuscript/figures/pi_by_latitude_from_folded_SFS.png", device
 
 # read in 1/10th of the allele freq data:
 n_snp = 10
-genome_size <- 236*10^6 # genome size
+
 # I sampled fraction n_snp of all SNPs, so the total fraction of the genome that are SNPs is:
 
 #freqs <- 1 - read.table(paste0("results/allele_freq_all/pops_included_plus_ACM_every", n_snp, "th_SNP.freqs.txt"),
@@ -172,8 +180,6 @@ table(is.na(freqs_AA[, "AR01"]))
 
 # heterozygosity corrected for small sample size:
 # by default also drop any snps with fewer than 2 individuals with data (<= 2 alleles observed, i.e. 1 ind.)
-het_small_sample_correction <- function(p, n, filter_under_2 = T){
-  ifelse(filter_under_2 & n <= 2, NA, 2*(p - p^2*(n/(n-1)) + p*(1/(n-1))))}
 hets_small_sample <- do.call(cbind, lapply(1:ncol(freqs), 
                                     function(i) het_small_sample_correction(p = freqs[, i],
                                                                                            n = ns[, i])))

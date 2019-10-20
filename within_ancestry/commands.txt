@@ -264,7 +264,7 @@ within_ancestry$ awk '$7 > 0 {print $0}' logs/calc_allele_freq_within_ancestry_N
 within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq_within_ancestry_NA_CA_HAv3.1_1thread_take2.log './allele_freq_within_ancestry.sh {1} {2} combined_sept19 ../bee_samples_listed/byPop/{1}.list {3}; Rscript ./combine_pop_allele_freqs.R {1} combined_sept19 {2} {3}' :::+ SA :::+ A A M :::+ Group13 Group16 Group2 &> logs/calc_allele_freq_within_ancestry_NA_CA_HAv3.1_1thread_take2.out &
 [1] 30364 - RUNNING 10.6.19. hmm..possibly getting killed due to memory issues..I'll have to check on it.
 within_ancestry$ grep 'Killed' -A 20 logs/*.out # many results
-
+NC_037648.1:12500000-17500000
 # Instead, I'm going to just focus on outlier regions:
 functional_analysis/results/outlier_regions/all.bed
 # sites file, regions file, A C M combined, all ind's genotype likelihoods for PCA, 
@@ -280,6 +280,26 @@ bee_samples_listed/byPop$ parallel '(for i in $(cat combined_sept19_pops.IDs); d
 # and make symlinks for ACM reference bees to each of the A/ C/ and M/ ancestry directories so they're included
 within_ancestry$ parallel 'for i in $(cat ../bee_samples_listed/byPop/{1}.list); do ln -s /media/erin/8TB/Documents/gitErin/bees/filtered_bams/results/$i.sort.dedup.baq.bam results/combined_sept19/{2}/bams/$i.sort.dedup.baq.bam; done' ::: A C M ::: A C M
 within_ancestry$ parallel 'for i in $(cat ../bee_samples_listed/byPop/{1}.list); do ln -s /media/erin/8TB/Documents/gitErin/bees/filtered_bams/results/$i.sort.dedup.baq.bam.bai results/combined_sept19/{2}/bams/$i.sort.dedup.baq.bam.bai; done' ::: A C M ::: A C M
+
+# 2 MAIN OUTLIERS:
+within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_allele_freq_within_ancestry_2OUTLIERS.log './allele_freq_within_ancestry_outliers.sh {1} {4} {2} combined_sept19 {3}' ::: outlier1_chr1 outlier2_chr11 :::+ NC_037638.1:5000000-15000000 NC_037648.1:12500000-17500000 :::+ Group1 Group11 ::: A C M NA.A NA.C NA.M SA.A SA.C SA.M &> logs/calc_allele_freq_within_ancestry_2OUTLIERS.out &
+[1] 19691 - RUNNING 10.19.19. ARGH. Many jobs killed randomly -- not in error log but they were maybe < half-way through
+grep 'Killed' logs/calc_allele_freq_within_ancestry_2OUTLIERS.out
+TRY AGAIN. P = 4 threads, running only 1 job at a time:
+within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq_within_ancestry_2OUTLIERS.log './allele_freq_within_ancestry_outliers.sh {1} {4} {2} combined_sept19 {3}' ::: outlier1_chr1 outlier2_chr11 :::+ NC_037638.1:5000000-15000000 NC_037648.1:12500000-17500000 :::+ Group1 Group11 ::: NA.A NA.C NA.M SA.A SA.C SA.M &> logs/calc_allele_freq_within_ancestry_2OUTLIERS.out &
+[1] 20700. STILL ISSUES :(. DIVIDING TASK INTO SMALLER PARTS BELOW FOR LARGER SA SAMPLE SET:
+within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq_within_ancestry_2OUTLIERS_redo_NAoutlier2.log './allele_freq_within_ancestry_outliers.sh {1} {4} {2} combined_sept19 {3}' ::: outlier2_chr11 :::+ NC_037648.1:12500000-17500000 :::+ Group11 ::: NA.A NA.C NA.M &> logs/calc_allele_freq_within_ancestry_2OUTLIERS_redo_NAoutlier2.out &
+[1] 3017 - COMPLETED, NO PROBLEMS
+within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_allele_freq_within_ancestry_2OUTLIERS_redo_SA_ABCDE.out.log './allele_freq_within_ancestry_outliers.sh {1} {4} {2} combined_sept19 {3}' ::: outlier1_chr1_A outlier1_chr1_B outlier1_chr1_C outlier1_chr1_D outlier1_chr1_E outlier2_chr11_A outlier2_chr11_B outlier2_chr11_C outlier2_chr11_D outlier2_chr11_E :::+ NC_037638.1:5000000-7000000 NC_037638.1:7000001-9000000 NC_037638.1:9000001-11000000 NC_037638.1:11000001-13000000 NC_037638.1:13000001-15000000 NC_037648.1:12500000-13500000 NC_037648.1:13500001-14000000 NC_037648.1:14500001-15500000 NC_037648.1:15500001-17500000 :::+ Group1 Group1 Group1 Group1 Group1 Group11 Group11 Group11 Group11 Group11 ::: SA.A SA.C SA.M &> logs/calc_allele_freq_within_ancestry_2OUTLIERS_redo_SA_ABCDE.out &
+[1] 23407 - RUNNING. I WILL HAVE TO CONCATENATE RESULTS INTO 1 FILE AT THE END. OOPS File D still didn't run for outlier 1, re-doing just that one:
+within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_allele_freq_within_ancestry_2OUTLIERS_redo2_SA_D.out.log './allele_freq_within_ancestry_outliers.sh {1} {4} {2} combined_sept19 {3}' ::: outlier1_chr1_D1 outlier1_chr1_D2 :::+ NC_037638.1:11000001-12000000 NC_037638.1:12000001-13000000 :::+ Group1 Group1 ::: SA.A SA.C SA.M &> logs/calc_allele_freq_within_ancestry_2OUTLIERS_redo2_SA_D.out &
+[1] 18880 - RUNNING 10.19.19
+
+I CONCATENATE TOGETHER D1D2 -> D and ABCDE:
+
+I LOAD THE RESULTING FILES AND ALLELE FREQ FILES FOR REFERENCE PANELS INTO R SCRIPT:  
+
+
 
 # now I need to call those bams with allele freqs and genotype likelihoods at known snp sites
 
