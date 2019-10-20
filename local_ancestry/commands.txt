@@ -507,3 +507,4 @@ local_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/get_highest_post_
 'Rscript ./getHighestPostAncState.R {1} results/ancestry_hmm/combined_sept19/posterior' \
 :::: ../bee_samples_listed/byPop/combined_sept19_pops.list \
 &> logs/get_highest_post_anc_combined_sept19.out &
+[1] 25995 - RUNNING 10.20.19

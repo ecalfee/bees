@@ -53,7 +53,7 @@ extract_anc_from_post <- function(post, genos = genotypes){
   anc2 <- c(0, 1, 0, 2, 1, 0)
   anc3 <- c(0, 0, 1, 0, 1, 2)
   # break ties for maximum posterior at random
-  which_state = max.col(t(post[ , genos]))
+  which_state = max.col(post[ , genos])
   anc <- data.frame(C = sapply(which_state, function(s) anc1[s]),
                     M = sapply(which_state, function(s) anc2[s]), 
                     A = sapply(which_state, function(s) anc3[s]),
@@ -63,7 +63,7 @@ extract_anc_from_post <- function(post, genos = genotypes){
 
 # get ancestry proportions across the genome
 anc <- lapply(pop_ids, function(id)
-  calc_anc_from_post(post = read_post(id = id, dir = dir_input)))
+  extract_anc_from_post(post = read_post(id = id, dir = dir_input)))
 
 # helper function to write individual ancestry files
 write_anc <- function(anc, label){
