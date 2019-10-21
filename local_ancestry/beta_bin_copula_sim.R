@@ -34,6 +34,6 @@ sim3 <- genCorGen(100,
           nvars = 3, 
           params1 = alpha, 
           params2 = 2, # 2 binary draws
-          dist = "binary", 
+          dist = "binomial", 
           corMatrix = cov2cor(K))
 

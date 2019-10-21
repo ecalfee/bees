@@ -1824,12 +1824,18 @@ logistic3 <- function(x, mu, b){
   1/(1 + exp(-b*(x - mu)))
 }
 
+# because bees in brazil have ~ 84% A ancestry, the true
+# asymptote is 84% A not 100% A for the cline, so
+# I can optionally use this to rescale the inferred logistic curves
+rescale = .84
+rescale = 1
+
 # fit_d just has distance brazil
 # fit_lat just has latitude
-start_lat <- getInitial(alpha ~ SSlogis(abs_lat, Asym, 
+start_lat <- getInitial(alpha/rescale ~ SSlogis(abs_lat, Asym, 
                                    xmid, scal), 
                        d = d_A)
-fit_lat <- nls(alpha ~ logistic3(x = abs_lat, b = b, mu = mu),
+fit_lat <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, mu = mu),
               start = list(b = 1/unname(start_lat["scal"]),
                            mu = unname(start_lat["xmid"])),
               data = d_A,
@@ -1838,7 +1844,9 @@ sum_lat <- summary(fit_lat)
 info_lat <- c(converged = sum_lat$convInfo$isConv,
               mu = sum_lat$coefficients["mu", "Estimate"],
               b = sum_lat$coefficients["b", "Estimate"],
-              residual_error = sum_lat$sigma)
+              residual_error = sum_lat$sigma,
+              AIC = AIC(fit_lat),
+              w = sum_lat$coefficients["b", "Estimate"])
 # how well does the model fit?
 cor(d_A$alpha, predict(fit_lat)) # very high correlation!
 # high correlation for S. America
@@ -1857,6 +1865,74 @@ curve(logistic3(x, b = info_lat["b"], mu = info_lat["mu"]),
       from = min(d_A$abs_lat), to = max(d_A$abs_lat), add = T,
       col = "blue", lwd = 3)
 lines(d_A$abs_lat, predict(fit_lat), lty=2, col="red", lwd=3)
+# what width would be expect for neutral diffusion?
+km_per_degree_lat = 110.567 # estimate from the equator
+curve((info_lat["w"]*km_per_degree_lat)^2/(2*pi*x), from = 20, to = 90,
+      xlab = "generations since admixture",
+      ylab = "neutral s.d. parent-offspring dispersal")
+#1957 to 2018 is approx 30 to 60 generations depending on whether you believe 1 gen every year or every other year
+(2018-1970)/2 # ~24 generations if you think of time since reaching current cline center
+# how do I add other predictors to an nls() model?
+# start by just fitting separate clines for NA and SA based on lat.
+start_lat_NA <- getInitial(alpha/rescale ~ SSlogis(abs_lat, Asym, 
+                                        xmid, scal), 
+                        d = d_A[d_A$S_America == 0, ])
+fit_lat_NA <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, mu = mu),
+               start = list(b = 1/unname(start_lat_NA["scal"]),
+                            mu = unname(start_lat_NA["xmid"])),
+               data = d_A[d_A$S_America == 0, ],
+               trace = F)
+start_lat_SA <- getInitial(alpha/rescale ~ SSlogis(abs_lat, Asym, 
+                                           xmid, scal), 
+                           d = d_A[d_A$S_America == 1, ])
+fit_lat_SA <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, mu = mu),
+                  start = list(b = 1/unname(start_lat_SA["scal"]),
+                               mu = unname(start_lat_SA["xmid"])),
+                  data = d_A[d_A$S_America == 1, ],
+                  trace = F)
+summary(fit_lat)
+summary(fit_lat_NA)
+summary(fit_lat_SA)
+
+# plot the two clines:
+#plot
+with(d_A, plot(abs_lat, alpha))
+curve(logistic3(x, b = info_lat["b"], mu = info_lat["mu"]), 
+      from = min(d_A$abs_lat), to = max(d_A$abs_lat), add = T,
+      col = "blue", lwd = 3)
+
+#png("../../bee_manuscript/figures/m_lat_model_prediction.png", height = 6, width = 8, units = "in", res = 300)
+plot(alpha ~ abs_lat, data = d_A, 
+     col = NULL,
+     ylim = c(0, 1), 
+     main = "African ancestry predicted by latitude", 
+     xlab = "Degrees latitude from equator",
+     ylab = "A ancestry proportion")
+points(alpha ~ abs_lat, data = d_A, # plot points again on top
+       col = ifelse(d_A$continent == "S. America", 
+                    col_NA_SA_both["S. America"], 
+                    col_NA_SA_both["N. America"]))
+# plot MAP line from model coefficients:
+curve(rescale*logistic3(x, b = summary(fit_lat_NA)$coefficients["b", "Estimate"], 
+                mu = summary(fit_lat_NA)$coefficients["mu", "Estimate"]), 
+      range(d_A$abs_lat), n = 1000,
+      col = col_NA_SA_both["N. America"], 
+      lwd = 2, add = T)
+curve(rescale*logistic3(x, b = summary(fit_lat_SA)$coefficients["b", "Estimate"], 
+                mu = summary(fit_lat_SA)$coefficients["mu", "Estimate"]), 
+      range(d_A$abs_lat), n = 1000,
+      col = col_NA_SA_both["S. America"], 
+      lwd = 2, add = T)
+curve(rescale*logistic3(x, b = info_lat["b"], mu = info_lat["mu"]), 
+      range(d_A$abs_lat), n = 1000,
+      col = "black", lwd = 2, add = T, lty = 2)
+
+legend("topright", c("S. America", "N. America", "model prediction (MAP)", "95% confidence (HPDI)"),
+       pch = c(1, 1, NA, 15), lty = c(NA, NA, 1, NA), col = c(col_NA_SA_both[1:2], "black", col_blind[1]))
+#dev.off()
+
+
+
 
 # distance from brazil
 start_lat_dist <- getInitial(alpha ~ SSlogis(km_from_sao_paulo, Asym, 
