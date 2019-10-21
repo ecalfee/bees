@@ -12,7 +12,15 @@ source("../colors.R") # get color palette
 # by default also drop any snps with fewer than 2 individuals with data (<= 2 alleles observed, i.e. 1 ind.)
 het_small_sample_correction <- function(p, n, filter_under_2 = T){
   ifelse(filter_under_2 & n <= 2, NA, 2*(p - p^2*(n/(n-1)) + p*(1/(n-1))))}
-genome_size <- 236*10^6 # genome size
+chr_length_tot <- sum(read.table("../data/honeybee_genome/chr.lengths")$V2)
+gaps_tot <- read.table("../data/honeybee_genome/gaps.bed") %>%
+  mutate(length = V3 - V2) %>%
+  summarise(tot = sum(length)) %>%
+  unlist(.)
+genome_size <- chr_length_tot - gaps_tot #236*10^6 # genome size
+n_snps <- 3510834 # from wc -l chr.var.sites
+frac_snps <- n_snps/genome_size # multiplier for any snp-based heterozygosity estimate
+# fraction of the genome that is variable, i.e. snps
 
 # get data
 pops <- read.table("../bee_samples_listed/byPop/combined_sept19_pops.list",
@@ -111,7 +119,7 @@ freqs_ACM <- do.call(rbind,
                                                             "/ACM_every", n_snp, "th_SNP.freqs.txt"),
                                                      header = T, stringsAsFactors = F)))
 freqs <- cbind(freqs_ACM, freqs_pops)
-frac_snps <- n_snp*nrow(freqs)/genome_size 
+
 # Q for later -- if these are all sites with SNPs (MAF > .05), why do about one third not have MAF > .05 in any of the included pops?
 # these are the SNPs from Julie's set; I'll get a fresh set of SNP calls on HAv3.1 and redo this plot
 table(apply(freqs, 1, max, na.rm = T) >= .05)
@@ -353,6 +361,21 @@ d_het_small_sample %>%
 #ggsave("plots/pi_by_latitude_including_mexico.png", device = "png",
 #       width = 10, height = 5)
 
+#d_het_small_sample %>%
+#  filter(!ref_pop) %>%
+#  left_join(., data.frame(population = pops, 
+#                       predicted_admix = het_small_sample_mean_predicted,
+#                       predicted_ref = het_small_sample_mean_predicted_ACM), 
+#                       by = "population") %>%
+#  rename(observed = Combined) %>%
+#  tidyr::gather(., "diversity", "pi", c("observed", "predicted_admix", "predicted_ref")) %>%
+#  mutate(year = factor(year)) %>%
+#  ggplot(., aes(x = abs(lat), y = pi, color = diversity, shape = year)) +
+#  geom_point() +
+#  xlab("Degrees latitude from the equator") +
+#  facet_grid(zone ~ ., scales = "free_x") + 
+#  theme_classic() +
+#  scale_color_manual(values = dark2[c(2,8,7)], name = NULL)
 d_het_small_sample %>%
   filter(!ref_pop) %>%
   left_join(., data.frame(population = pops, 
@@ -360,14 +383,14 @@ d_het_small_sample %>%
                        predicted_ref = het_small_sample_mean_predicted_ACM), 
                        by = "population") %>%
   rename(observed = Combined) %>%
-  tidyr::gather(., "diversity", "pi", c("observed", "predicted_admix", "predicted_ref")) %>%
-  mutate(year = factor(year)) %>%
-  ggplot(., aes(x = abs(lat), y = pi, color = diversity, shape = year)) +
+  ggplot(., aes(x = predicted_admix, y = observed, color = zone, shape = population=="Avalon_2014")) +
   geom_point() +
-  xlab("Degrees latitude from the equator") +
-  facet_grid(zone ~ ., scales = "free_x") + 
+  xlab("Predicted pi") +
+  ylab("Observed pi") +
   theme_classic() +
-  scale_color_manual(values = dark2[c(2,8,7)], name = NULL)
+  geom_abline(intercept = 0, slope = 1)+
+  scale_color_manual(values = col_NA_SA_both, name = NULL) +
+  guides(shape = F)
 ggsave("plots/pi_observed_and_predicted_from_admixture.png", device = "png",
        width = 10, height = 5)
 ggsave("../../bee_manuscript/figures/pi_observed_and_predicted_from_admixture.pdf", device = "pdf",
@@ -382,6 +405,7 @@ d_het_small_sample %>%
             by = "population") %>%
   tidyr::gather(., "ancestry", "pi", c(ACM, "Combined", "Predicted")) %>%
   mutate(ancestry = factor(ancestry, levels = c(ACM, "Combined", "Predicted"))) %>%
+  filter(ancestry != "Predicted") %>%
   ggplot(., aes(x = abs(lat), y = pi, color = ancestry, shape = year)) +
   geom_point(alpha = 0) + # has to come before abline to get legend correct
   # but want to draw points after so that they show up over the lines

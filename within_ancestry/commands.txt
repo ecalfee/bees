@@ -293,16 +293,54 @@ within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_allele_freq
 within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_allele_freq_within_ancestry_2OUTLIERS_redo_SA_ABCDE.out.log './allele_freq_within_ancestry_outliers.sh {1} {4} {2} combined_sept19 {3}' ::: outlier1_chr1_A outlier1_chr1_B outlier1_chr1_C outlier1_chr1_D outlier1_chr1_E outlier2_chr11_A outlier2_chr11_B outlier2_chr11_C outlier2_chr11_D outlier2_chr11_E :::+ NC_037638.1:5000000-7000000 NC_037638.1:7000001-9000000 NC_037638.1:9000001-11000000 NC_037638.1:11000001-13000000 NC_037638.1:13000001-15000000 NC_037648.1:12500000-13500000 NC_037648.1:13500001-14000000 NC_037648.1:14500001-15500000 NC_037648.1:15500001-17500000 :::+ Group1 Group1 Group1 Group1 Group1 Group11 Group11 Group11 Group11 Group11 ::: SA.A SA.C SA.M &> logs/calc_allele_freq_within_ancestry_2OUTLIERS_redo_SA_ABCDE.out &
 [1] 23407 - RUNNING. I WILL HAVE TO CONCATENATE RESULTS INTO 1 FILE AT THE END. OOPS File D still didn't run for outlier 1, re-doing just that one:
 within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/calc_allele_freq_within_ancestry_2OUTLIERS_redo2_SA_D.out.log './allele_freq_within_ancestry_outliers.sh {1} {4} {2} combined_sept19 {3}' ::: outlier1_chr1_D1 outlier1_chr1_D2 :::+ NC_037638.1:11000001-12000000 NC_037638.1:12000001-13000000 :::+ Group1 Group1 ::: SA.A SA.C SA.M &> logs/calc_allele_freq_within_ancestry_2OUTLIERS_redo2_SA_D.out &
-[1] 18880 - RUNNING 10.19.19
-
+[1] 18880 - RAN 10.19.19. REDOING A FEW OF THE EARLIER ONES -- MESSED UP RANGES, redo chr11 outlier2:
+within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_allele_freq_within_ancestry_2OUTLIERS_redo_SA_chr11ABCD.out.log './allele_freq_within_ancestry_outliers.sh {1} {4} {2} combined_sept19 {3}' ::: outlier2_chr11_A outlier2_chr11_B outlier2_chr11_C outlier2_chr11_D :::+ NC_037648.1:12500000-13500000 NC_037648.1:13500001-14500000 NC_037648.1:14500001-15500000 NC_037648.1:15500001-17500000 :::+ Group11 Group11 Group11 Group11 ::: SA.A SA.C SA.M &> logs/calc_allele_freq_within_ancestry_2OUTLIERS_redo_SA_chr11ABCD.out &
+[1] 24470
 I CONCATENATE TOGETHER D1D2 -> D and ABCDE:
+within_ancestry$ for i in SA.A SA.C SA.M; do (zcat results/combined_sept19/outliers/outlier1_chr1_A/$i.mafs.gz; for j in B C D1 D2 E; do zcat results/combined_sept19/outliers/outlier1_chr1_$j/$i.mafs.gz | tail -n +2; done) | bgzip > results/combined_sept19/outliers/outlier1_chr1/$i.mafs.gz; done
+within_ancestry$ for i in SA.A SA.C SA.M; do (zcat results/combined_sept19/outliers/outlier2_chr11_A/$i.mafs.gz; for j in B C D; do zcat results/combined_sept19/outliers/outlier2_chr11_$j/$i.mafs.gz | tail -n +2; done) | bgzip > results/combined_sept19/outliers/outlier2_chr11/$i.mafs.gz; done
 
-I LOAD THE RESULTING FILES AND ALLELE FREQ FILES FOR REFERENCE PANELS INTO R SCRIPT:  
+I LOAD THE RESULTING FILES AND ALLELE FREQ FILES FOR REFERENCE PANELS INTO R SCRIPT:  plot_pi_fst_outliers
+
+# TO COMPLEMENT THIS ANALYSIS, go back to calculating pi the angsd way. chr3 has no outliers. So I'll start by making pi priors from 1Mb within chr3 and known sites:
+# Get random regions: 1000 regions, each 1kb long = 1Mb
+# first write bed file with regions to exclude because they're in genome gaps or outlier regions; sort by genome order
+within_ancestry$ (cut -f1-3 ../data/honeybee_genome/gaps.bed; cut -f1-3 ../functional_analysis/results/outlier_regions/all.plus20kb.noHeader.bed) | bedtools sort -faidx ../data/honeybee_genome/chr.lengths -i stdin > results/exclude_gaps_outliers.bed
+# then select random regions using bedtools
+within_ancestry$ bedtools random -g ../data/honeybee_genome/chr.lengths -n 1000 -l 1000 | bedtools shuffle -i stdin -g ../data/honeybee_genome/chr.lengths -noOverlapping -excl results/exclude_gaps_outliers.bed | bedtools sort -faidx ../data/honeybee_genome/chr.lengths -i stdin | cut -f1-3 > results/chr.1Mb.noOutliers.bed
+# make regions file
+within_ancestry$ awk '{print $1":"$2"-"$3}' results/chr.1Mb.noOutliers.bed > results/chr.1Mb.noOutliers.regions
+# now make and index variant sites within those regions ~15K sites
+within_ancestry$ (for i in {1..16}; do cat ../geno_lik_and_SNPs/results/combined_sept19/variant_sites/Group$i.var.sites | awk '{print $1"\t"$2-1"\t"$2"\t"$3"\t"$4}'; done) | bedtools intersect -a stdin -b results/chr.1Mb.noOutliers.bed -sorted -g ../data/honeybee_genome/chr.lengths | cut -f1,3,4,5 > results/chr.1Mb.noOutliers.var.sites
+# index
+within_ancestry$ angsd sites index results/chr.1Mb.noOutliers.var.sites
+
+# calculate background pi
+# quick test (starts up ok): worked great, pretty fast too!
+within_ancestry$ ./calc_sfs_1MB_background.sh A ../bee_samples_listed/byPop/A.bams
+# running all (A finished above):
+within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/calc_sfs_1MB_background.log './calc_sfs_1MB_background.sh {1} ../bee_samples_listed/byPop/combined_sept19_pops.{1}.bams' ::: SA.A SA.M NA.A NA.M SA.C NA.C &> logs/calc_sfs_1MB_background.out &
+[1] 17817 - RUNNING 10.20.19
+within_ancestry$ nohup parallel --noswap --jobs 1 --joblog logs/calc_sfs_1MB_background_CM.log './calc_sfs_1MB_background.sh {1} ../bee_samples_listed/byPop/{1}.bams' ::: C M &> logs/calc_sfs_1MB_background_CM.out &
+[2] 29588 - RUNNING 10.20.19
+# now calculate thetas across the outlier regions of interest using above SFS as priors:
+# try ancestry A first, ran great:
+within_ancestry$ ./calc_thetas_from_sfs_outliers.sh A ../bee_samples_listed/byPop/A.bams outlier1_chr1 NC_037638.1:5000000-15000000 Group1
+# now larger groups (if overwhelms memory, I'll have to block it into smaller pieces): wait ~ 1 hr (4000 seconds) before start:
+within_ancestry$ sleep 4000; nohup parallel --noswap --jobs 4 --joblog logs/calc_thetas_outlier_regions.log './calc_thetas_from_sfs_outliers.sh {1} ../bee_samples_listed/byPop/combined_sept19_pops.{1}.bams {2} {3} {4}' ::: SA.A SA.M NA.A NA.M SA.C NA.C ::: outlier1_chr1 outlier2_chr11 :::+ NC_037638.1:5000000-15000000 NC_037648.1:12500000-17500000 :::+ Group1 Group11 &> logs/calc_thetas_outlier_regions.out &
+# will start in an hour 10.20.19
+# and run C/M too
+within_ancestry$ sleep 2000; nohup parallel --noswap --jobs 1 --joblog logs/calc_thetas_outlier_regions_CM.log './calc_thetas_from_sfs_outliers.sh {1} ../bee_samples_listed/byPop/{1}.bams {2} {3} {4}' ::: C M ::: outlier1_chr1 outlier2_chr11 :::+ NC_037638.1:5000000-15000000 NC_037648.1:12500000-17500000 :::+ Group1 Group11 &> logs/calc_thetas_outlier_regions_CM.out &
+# will start in half and hour 10.20.19
+
+## (!) NOTE: By breaking the task up into pieces, I may indeed be able to get whole genome SFS estimates for each population,
+# within ancestry and across all ancestries. I can create diff saf.idx sites separately for diff regions. I can 
+# also estimate SFS separately for large # sites, e.g. 1-10Mb using -nSites. Here I'd still want to use called SNPs.
+# http://www.popgen.dk/angsd/index.php/RealSFS
 
 
 
-# now I need to call those bams with allele freqs and genotype likelihoods at known snp sites
 
-# NOTE: I also want to get allele freqs for NA and SA as groups within each ancestry and I guess also for all reads, regardless of ancestry, but only for regions of interest (have to ask will sites file of whole chromosome + rf with just a segment do the whole chr or just that segment?)
+
 
 # I could alternative, or in addition, visualize within-ancestry associations by PCA

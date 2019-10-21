@@ -43,12 +43,17 @@ outlier_ACM_ns <- lapply(1:nrow(outlier_regions), function(r)
 head(outlier_ACM_freqs[[2]])
 head(outlier_ACM_ns[[1]])
 
+k = 1000 # window size 1kb
+smoother = .1
+k = 5000 
+smoother = .5 # larger = more smooth
 # now read in allele freqs from hybid zones:
 hybrid_freqs <- lapply(1:nrow(outlier_regions), function(r)
   cbind(outlier_ACM_freqs[[r]], 
         do.call(cbind,
                 lapply(hybrid_pops, function(p)
-                  read.table(paste0("results/combined_sept19/outliers/", outlier_regions$outlier_names[r], "/", p, ".mafs.gz"),                               header = T, stringsAsFactors = F) %>%
+                  read.table(paste0("results/combined_sept19/outliers/", outlier_regions$outlier_names[r], "/", p, ".mafs.gz"),
+                             header = T, stringsAsFactors = F) %>%
                     left_join(outlier_ACM_freqs[[r]], ., by = c("scaffold" = "chromo", "pos" = "position")) %>%
                     dplyr::select(phat) %>%
                     data.table::setnames(p)))))
@@ -66,12 +71,12 @@ head(hybrid_ns[[2]])
 dim(hybrid_ns[[1]]) == dim(hybrid_freqs[[1]])
 dim(hybrid_ns[[2]]) == dim(hybrid_freqs[[2]])
 # calculate heterozygosity at each site, with small sample size correction
-# het_small_sample_correction() and var genome_size are loaded from plot_pi_fst_from_allele_freqs
+# het_small_sample_correction() and frac_snps are loaded from plot_pi_fst_from_allele_freqs
 hets_small_sample <- lapply(1:nrow(outlier_regions), function(r)
   do.call(cbind, lapply(4:ncol(hybrid_freqs[[r]]), 
                         function(i) het_small_sample_correction(p = hybrid_freqs[[r]][ , i],
-                                                                n = hybrid_ns[[r]][ , i]))))
-k = 1000 # window size 1kb
+                                                                n = hybrid_ns[[r]][ , i])*frac_snps)))
+
 #meanA <- zoo::rollmean(na.pad = T, hets_small_sample[ , "A"], k = 1000)
 for (r in 1:nrow(outlier_regions)){
   colnames(hets_small_sample[[r]]) <- colnames(hybrid_freqs[[r]])[4:ncol(hybrid_freqs[[r]])]
@@ -81,40 +86,89 @@ for (r in 1:nrow(outlier_regions)){
 }
 length(unique(hybrid_freqs[[1]]$round_pos))
 # plot heterozygosity with a smooth-over after takign mean in 100 snp intervals    
-#a = 1
-a = 2
-smoother = .01 # larger = more smooth
-hets_small_sample[[a]] %>%
-  cbind(hybrid_freqs[[a]][ , c("group_snp", "round_pos")], .) %>%
+
+
+for (a in 1:2){
+  hets_small_sample[[a]] %>%
+    cbind(hybrid_freqs[[a]][ , c("group_snp", "round_pos")], .) %>%
+    group_by(round_pos) %>%
+    summarise(A = mean(SA.A, na.rm = T), M = mean(SA.M, na.rm = T),
+              C = mean(SA.C, na.rm = T)) %>%
+    tidyr::gather(., "ancestry", "het", ACM) %>%
+    ggplot(., aes(x = round_pos, y = het, color = ancestry)) +
+    geom_point(size = .5) +
+    xlab("Position (bp)") +
+    ylab("pi") +
+    scale_color_manual(values = col_ACM) +
+    geom_smooth(span = smoother, method = "loess", fill = "black") +
+    theme_classic() +
+    ggtitle(paste0(outlier_regions$outlier_names[a], " - S. America pi within ancestries"))
+  ggsave(paste0("../../bee_manuscript/figures/outlier_", outlier_regions$outlier_names[a], "_SA_meanOver", k, "bp.png"),
+         height = 4, width = 8, device = "png")
+  hets_small_sample[[a]] %>%
+    cbind(hybrid_freqs[[a]][ , c("group_snp", "round_pos")], .) %>%
+    group_by(round_pos) %>%
+    summarise(A = mean(NA.A, na.rm = T), M = mean(NA.M, na.rm = T),
+              C = mean(NA.C, na.rm = T)) %>%
+    tidyr::gather(., "ancestry", "het", ACM) %>%
+    ggplot(., aes(x = round_pos, y = het, color = ancestry)) +
+    geom_point(size = .5) +
+    xlab("Position (bp)") +
+    ylab("pi") +
+    scale_color_manual(values = col_ACM) +
+    geom_smooth(span = smoother, method = "loess", fill = "black") +
+    theme_classic() +
+    ggtitle(paste0(outlier_regions$outlier_names[a], " - N. America pi within ancestries"))
+  ggsave(paste0("../../bee_manuscript/figures/outlier_", outlier_regions$outlier_names[a], "_NA_meanOver", k, "bp.png"),
+         height = 4, width = 8, device = "png")
+  hets_small_sample[[a]] %>%
+    cbind(hybrid_freqs[[a]][ , c("group_snp", "round_pos")], .) %>%
+    group_by(round_pos) %>%
+    summarise(A = mean(A, na.rm = T), M = mean(M, na.rm = T),
+              C = mean(C, na.rm = T)) %>%
+    tidyr::gather(., "ancestry", "het", ACM) %>%
+    ggplot(., aes(x = round_pos, y = het, color = ancestry)) +
+    geom_point(size = .5) +
+    xlab("Position (bp)") +
+    ylab("pi") +
+    scale_color_manual(values = col_ACM) +
+    geom_smooth(span = smoother, method = "loess", fill = "black") +
+    theme_classic() +
+    ggtitle(paste0(outlier_regions$outlier_names[a], " - pi within ancestries ref. panel"))
+  ggsave(paste0("../../bee_manuscript/figures/outlier_", outlier_regions$outlier_names[a], "_ACM_meanOver", k, "bp.png"),
+         height = 4, width = 8, device = "png")
+}
+hets_small_sample[[1]] %>%
+  cbind(hybrid_freqs[[1]][ , c("group_snp", "round_pos")], .) %>%
   group_by(round_pos) %>%
-  summarise(A = mean(SA.A, na.rm = T), M = mean(SA.M, na.rm = T),
-            C = mean(SA.C, na.rm = T)) %>%
-  tidyr::gather(., "ancestry", "het", ACM) %>%
-  ggplot(., aes(x = round_pos, y = het, color = ancestry)) +
-  geom_point() +
+  summarise(A = mean(A, na.rm = T), SA.A = mean(SA.A, na.rm = T),
+            NA.A = mean(NA.A, na.rm = T)) %>%
+  tidyr::gather(., "group", "het", c("A", "SA.A", "NA.A")) %>%
+  mutate(group = ifelse(group=="SA.A", "S. America", ifelse(group=="NA.A", "N. America", group))) %>%
+  ggplot(., aes(x = round_pos, y = het, color = group)) +
+  geom_point(size = .5) +
   xlab("Position (bp)") +
-  #xlim(c(1.25^7/k, 2*10^7/k)) +
-  geom_smooth(span = smoother) +
-  ggtitle(paste0(outlier_regions$outlier_names[a], " - S. America pi within ancestries"))
-hets_small_sample[[a]] %>%
-  cbind(hybrid_freqs[[a]][ , c("group_snp", "round_pos")], .) %>%
+  ylab("pi") +
+  scale_color_manual(values = c(col_NA_SA_both, col_ACM), name = "Population") +
+  geom_smooth(span = smoother, method = "loess", fill = "black") +
+  theme_classic()
+ggsave(paste0("../../bee_manuscript/figures/outlier_", outlier_regions$outlier_names[1], "_Api_meanOver", k, "bp.png"),
+       height = 4, width = 8, device = "png")
+hets_small_sample[[2]] %>%
+  cbind(hybrid_freqs[[2]][ , c("group_snp", "round_pos")], .) %>%
   group_by(round_pos) %>%
-  summarise(A = mean(NA.A, na.rm = T), M = mean(NA.M, na.rm = T),
-            C = mean(NA.C, na.rm = T)) %>%
-  tidyr::gather(., "ancestry", "het", ACM) %>%
-  ggplot(., aes(x = round_pos, y = het, color = ancestry)) +
-  geom_point() +
-  geom_smooth(span = smoother) +
-  ggtitle(paste0(outlier_regions$outlier_names[a], " - N. America pi within ancestries"))
-hets_small_sample[[a]] %>%
-  cbind(hybrid_freqs[[a]][ , c("group_snp", "round_pos")], .) %>%
-  group_by(round_pos) %>%
-  summarise(A = mean(A, na.rm = T), M = mean(M, na.rm = T),
-            C = mean(C, na.rm = T)) %>%
-  tidyr::gather(., "ancestry", "het", ACM) %>%
-  ggplot(., aes(x = round_pos, y = het, color = ancestry)) +
-  geom_point() +
-  geom_smooth() +
-  ggtitle(paste0(outlier_regions$outlier_names[a], " - pi within ancestries ref. panel"))
-  geom_smooth(method = "loess", span = smoother)
+  summarise(M = mean(M, na.rm = T), SA.M = mean(SA.M, na.rm = T),
+            NA.M = mean(NA.M, na.rm = T)) %>%
+  tidyr::gather(., "group", "het", c("M", "SA.M", "NA.M")) %>%
+  mutate(group = ifelse(group=="SA.M", "S. America", ifelse(group=="NA.M", "N. America", group))) %>%
+  ggplot(., aes(x = round_pos, y = het, color = group)) +
+  geom_point(size = .5) +
+  xlab("Position (bp)") +
+  ylab("pi") +
+  scale_color_manual(values = c(col_NA_SA_both, col_ACM), name = "Population") +
+  geom_smooth(span = smoother, method = "loess", fill = "black") +
+  theme_classic()
+ggsave(paste0("../../bee_manuscript/figures/outlier_", outlier_regions$outlier_names[2], "_Mpi_meanOver", k, "bp.png"),
+       height = 4, width = 8, device = "png")
+
 
