@@ -1818,6 +1818,12 @@ pairs(m_pc1)
 # using pc's instead of selected environmental variables doesn't improve the model fit.
 rethinking::compare(m, m_lat, m1, m2, m_pc6_lat, m_pc6_dist_lat, m_pc4_lat, m_pc6, m_pc4, m_pc1)
 
+
+
+
+
+
+
 ############-----logistic clines w/ nls()------#########
 # define logistic curve
 logistic3 <- function(x, mu, b){
@@ -1827,7 +1833,7 @@ logistic3 <- function(x, mu, b){
 # because bees in brazil have ~ 84% A ancestry, the true
 # asymptote is 84% A not 100% A for the cline, so
 # I can optionally use this to rescale the inferred logistic curves
-rescale = .84
+#rescale = .84
 rescale = 1
 
 # fit_d just has distance brazil
@@ -1864,7 +1870,8 @@ with(d_A, plot(abs_lat, alpha))
 curve(logistic3(x, b = info_lat["b"], mu = info_lat["mu"]), 
       from = min(d_A$abs_lat), to = max(d_A$abs_lat), add = T,
       col = "blue", lwd = 3)
-lines(d_A$abs_lat, predict(fit_lat), lty=2, col="red", lwd=3)
+# can do the same w/ 'predict()' but need to sort data
+lines(d_A$abs_lat[order(d_A$abs_lat)], predict(fit_lat)[order(d_A$abs_lat)], lty=2, col="red", lwd=3)
 # what width would be expect for neutral diffusion?
 km_per_degree_lat = 110.567 # estimate from the equator
 curve((info_lat["w"]*km_per_degree_lat)^2/(2*pi*x), from = 20, to = 90,
@@ -1935,16 +1942,126 @@ legend("topright", c("S. America", "N. America", "model prediction (MAP)", "95% 
 
 
 # distance from brazil
-start_lat_dist <- getInitial(alpha ~ SSlogis(km_from_sao_paulo, Asym, 
+start_dist <- getInitial(alpha ~ SSlogis(km_from_sao_paulo, 
+                                             Asym, 
                                         xmid, scal), 
-                        d = d_A)
-fit_lat <- nls(alpha ~ logistic3(x = abs_lat, b = b, mu = mu),
-               start = list(b = 1/unname(start_lat["scal"]),
-                            mu = unname(start_lat["xmid"])),
+                        d = d_A[d_A$S_America == 1, ])
+fit_dist <- nls(alpha ~ logistic3(x = km_from_sao_paulo, b = b, mu = mu),
+               start = list(b = 1/unname(start_dist["scal"]),
+                            mu = unname(start_dist["xmid"])),
                data = d_A,
                trace = F)
-sum_lat <- summary(fit_lat)
+sum_dist <- summary(fit_dist)
+plot(alpha ~ km_from_sao_paulo, data = d_A, 
+     col = NULL,
+     ylim = c(0, 1), 
+     main = "African ancestry predicted by latitude", 
+     xlab = "Distance from Sao Paulo (km)",
+     ylab = "A ancestry proportion")
+points(alpha ~ km_from_sao_paulo, data = d_A, # plot points again on top
+       col = ifelse(d_A$continent == "S. America", 
+                    col_NA_SA_both["S. America"], 
+                    col_NA_SA_both["N. America"]))
+# plot MAP line from model coefficients:
+curve(rescale*logistic3(x, b = summary(fit_dist)$coefficients["b", "Estimate"], 
+                        mu = summary(fit_dist)$coefficients["mu", "Estimate"]), 
+      range(d_A$km_from_sao_paulo), n = 1000,
+      col = "black", lwd = 2, add = T, lty = 2)
+# clearly this is a silly exercise
+
+# ok what about fitting 1 model with a SA variable?
+#start_lat_zone <- getInitial(alpha/rescale ~ SSlogis(abs_lat, Asym, 
+#                                                   xmid, scal), 
+#                           d = d_A) # this is the same as the pure latitude fit
+fit_lat_zone_mu_and_b <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b + b_SA*S_America, 
+                                            mu = mu + mu_SA*S_America),
+                  start = list(b = 1/unname(start_lat["scal"]),
+                               mu = unname(start_lat["xmid"]),
+                               mu_SA = 0,
+                               b_SA = 0),
+                  data = d_A,
+                  trace = F)
+summary(fit_lat_zone_mu_and_b) # b_SA is not significant, drop:
+# only fit different centers
+fit_lat_zone <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, 
+                                                       mu = mu + mu_SA*S_America),
+                             start = list(b = 1/unname(start_lat["scal"]),
+                                          mu = unname(start_lat["xmid"]),
+                                          mu_SA = 0),
+                             data = d_A,
+                             trace = F)
+summary(fit_lat_zone)
+
+# also add in 2014 (vs. 2018) as something to fit
+# I removed Avalon_2014 because it's such an outlier for ancestry
+# and there's no 2018 sampling. I should explore if other outliers are driving this effect
+# also to compare to other models I need to use same data (also excluding Avalon).
+# This suggests hybrid zone advanced a little in the past 4 years.
+fit_lat_zone_2014 <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, 
+                                              mu = mu + mu_SA*S_America + mu_2014*from2014),
+                    start = list(b = 1/unname(start_lat["scal"]),
+                                 mu = unname(start_lat["xmid"]),
+                                 mu_SA = 0,
+                                 mu_2014 = 0),
+                    data = d_A[d_A$population != "Avalon_2014", ],
+                    trace = F)
+summary(fit_lat_zone_2014)
+
+# what if I fit on mean temp. instead of latitude?
+start_temp <- getInitial(alpha/rescale ~ SSlogis(AnnualMeanTemp, Asym, 
+                                                     xmid, scal), 
+                             d = d_A)
+fit_temp <- nls(alpha ~ rescale*logistic3(x = AnnualMeanTemp, b = b, 
+                                              mu = mu),
+                    start = list(b = 1/unname(start_temp["scal"]),
+                                 mu = unname(start_temp["xmid"])),
+                    data = d_A,
+                    trace = F)
+summary(fit_temp)
+
+# split up temp by zone (I'm not sure if this makes sense..)
+# only fit different centers
+fit_temp_zone <- nls(alpha ~ rescale*logistic3(x = AnnualMeanTemp, b = b, 
+                                              mu = mu + mu_SA*S_America),
+                    start = list(b = 1/unname(start_temp["scal"]),
+                                 mu = unname(start_temp["xmid"]),
+                                 mu_SA = 0),
+                    data = d_A,
+                    trace = F)
+summary(fit_temp_zone)
 
 
+start_winter <- getInitial(alpha/rescale ~ SSlogis(MeanTempColdestQuarter, Asym, 
+                                                 xmid, scal), 
+                         d = d_A)
+fit_winter <- nls(alpha ~ rescale*logistic3(x = MeanTempColdestQuarter, b = b, 
+                                          mu = mu),
+                start = list(b = 1/unname(start_winter["scal"]),
+                             mu = unname(start_winter["xmid"])),
+                data = d_A,
+                trace = F)
+summary(fit_winter)
 
+start_coldest <- getInitial(alpha/rescale ~ SSlogis(MinTempColdestMonth, Asym, 
+                                                   xmid, scal), 
+                           d = d_A)
+fit_coldest <- nls(alpha ~ rescale*logistic3(x = MinTempColdestMonth, b = b, 
+                                            mu = mu),
+                  start = list(b = 1/unname(start_coldest["scal"]),
+                               mu = unname(start_coldest["xmid"])),
+                  data = d_A,
+                  trace = F)
+summary(fit_coldest)
 
+# compare LL: 
+all_models <- list(fit_lat, fit_lat_zone, fit_lat_zone_mu_and_b, fit_lat_zone_2014,
+                   fit_temp, fit_temp_zone, fit_winter, fit_coldest)
+sapply(all_models, AIC)
+str(fit_lat)
+
+# TO DO: draw predictions for 2014, CA vs. AR zone, all together.
+# how diff. are these?
+# also plot predictions for mean temp and min annual temp
+
+# look up how to use tails vs. center of hybrid zone to estimate dispersal/strength of sel.
+# try to fit all snps to clines -- id which ones don't fit..
