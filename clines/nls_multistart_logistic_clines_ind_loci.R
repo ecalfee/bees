@@ -13,7 +13,7 @@ library(nlstools)
 
 # to run first 100 snps from observed A ancestry data, creates output results/ind_snp_clines/A_1_100.txt:
 # Rscript nls_multistart_logistic_clines_ind_loci.R A 1 100 A_1_100
-
+# args = c("A", "1", "100", "A_1_10")
 # arguments
 args = commandArgs(trailingOnly=TRUE)
 # population number
@@ -79,7 +79,7 @@ write.table(info,
 params <- fits %>%
   mutate(., p = purrr::map(fit, tidy)) %>%
   unnest(p) %>%
-  dplyr::select(-fit)
+  dplyr::select(., c("snp_index", "term", "estimate", "std.error", "statistic", "p.value"))
 
 # calculate confidence intervals
 CI <- fits %>%
@@ -90,7 +90,7 @@ CI <- fits %>%
   group_by(., snp_index) %>%
   mutate(., term = c('mu', 'b')) %>%
   ungroup() %>%
-  dplyr::select(., -fit)
+  dplyr::select(., c("snp_index", "conf.low", "conf.high", "term"))
 
 # merge parameters and CI estimates
 params_CI <- left_join(params, CI, by = intersect(names(params), names(CI)))
