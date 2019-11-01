@@ -90,7 +90,7 @@ CI <- fits %>%
   group_by(., snp_index) %>%
   mutate(., term = c('mu', 'b')) %>%
   ungroup() %>%
-  select(., -fit)
+  dplyr::select(., -fit)
 
 # merge parameters and CI estimates
 params_CI <- left_join(params, CI, by = intersect(names(params), names(CI)))
