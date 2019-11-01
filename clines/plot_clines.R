@@ -7,6 +7,9 @@ library(dplyr)
 library(ggplot2)
 library(betareg) # alternative ML fitting
 source("../colors.R") # get color palette
+#devtools::install_github("padpadpadpad/nls.multstart")
+install.packages("nls.multstart")
+library(nls.multstart)
 
 #retrieve_data_new <- T
 retrieve_data_new <- F
@@ -2065,3 +2068,148 @@ str(fit_lat)
 
 # look up how to use tails vs. center of hybrid zone to estimate dispersal/strength of sel.
 # try to fit all snps to clines -- id which ones don't fit..
+
+
+# load in individual snp clines
+a0 <- a
+a <- read.table("results/ind_snp_nls_clines/A1.txt", # data subset
+           header = T,
+           stringsAsFactors = F)
+str(a)
+table(is.na(a$mu))
+no_fit <- which(is.na(a$mu))
+plot(a0$mu + mean(d_A$abs_lat[d_A$group == "AR_2018"]) ~ a$mu)
+# plot a 'good' cline estimate
+load(paste0("../local_ancestry/results/A.RData"))
+load(paste0("../local_ancestry/results/pops_by_lat.RData"))
+i = sample(no_fit, 1)
+i = sample(1:nrow(a)[-no_fit], 1)
+plot_a_cline(sample(1:nrow(a)[-no_fit], 1))
+plot_a_cline(i = sample(no_fit, 1))
+plot_a_cline <- function(i){
+  plot(meta.AR.order.by.lat$lat, 
+     A[i, meta.AR.order.by.lat$population],
+     ylim = c(0, 1),
+     xlim = range(d_A$lat[d_A$group == "AR_2018"]),
+     ylab = "A ancestry - logistic",
+     xlab = "latitude",
+     main = paste("snp", i))
+curve(logistic3(mu = a$mu[i], b = a$b[i], x), 
+      from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+      to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+      n = 100,
+      ylab = "A ancestry - logistic",
+      xlab = "latitude",
+      col = "black", 
+      ylim = c(0, 1),
+      add = T,
+      lwd = 2, 
+      lty = 2)
+curve(logistic(a0$mu[i] + a0$b[i]*
+                 (abs(x) - mean(d_A$abs_lat[d_A$group == "AR_2018"]))), 
+      from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+      to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+      n = 100,
+      ylab = "A ancestry - logistic",
+      xlab = "latitude",
+      col = "blue", 
+      ylim = c(0, 1),
+      add = T,
+      lwd = 2, 
+      lty = 2)
+}
+
+i0 <- 31104
+d0 <- data.frame(A = unname(t(A[i0, meta.AR.order.by.lat$population])),
+                 lat = meta.AR.order.by.lat$lat)
+start0 <- getInitial(A ~ SSlogis(lat, Asym, 
+                                 xmid, scal),
+                     control = nls.control(#tol
+                       minFactor = .00001),
+                     d = d0)
+fit0 <- nls(A ~ logistic3(x = lat, b = b, mu = mu),
+            start = list(b = 1/unname(start0["scal"]),
+                         mu = unname(start0["xmid"])),
+            data = snp,
+            trace = F)
+fit0cc <- nls(A ~ logistic3(x = lat, b = b, mu = mu),
+            start = list(b = 1/unname(cc["b"]),
+                         mu = unname(cc["a"])),
+            data = d0,
+            trace = F)
+fit0cc
+sum0 <- summary(fit0)
+
+
+x <- d0$lat
+z <- d0$A
+z <- z/(1.05 * max(z))  ## scale to max=1/(1.05)
+zlogit <- log(z/(1-z))
+cc <- setNames(coef(lm(x~zlogit)),c("a","b"))
+#This is the linear function that SSlogis() fits (!!)
+qplot(zlogit, x) + 
+  geom_smooth(method="lm", se=FALSE, colour="red")
+plot(zlogit, x)
+predfun <- function(x) {
+  with(as.list(cc),
+       plogis((x - a)/b)*1.05*max(z))
+}
+ggplot(d0, aes(x = lat, y = A)) + 
+  geom_point() +
+  stat_function(fun = predfun, colour="red")
+ggplot(d0, aes(x = lat, y = A)) + 
+  geom_point() +
+  stat_function(fun = logistic3(x = d0$lat, 
+                                b = coef(fit0cc)["b"],
+                                mu = coef(fit0cc)["mu"]), colour="red")
+plot(meta.AR.order.by.lat$lat, 
+     A[i0, meta.AR.order.by.lat$population],
+     ylim = c(0, 1),
+     xlim = range(d_A$lat[d_A$group == "AR_2018"]),
+     ylab = "A ancestry - logistic",
+     xlab = "latitude",
+     main = paste("snp", i0))
+curve(logistic3(mu = coef(fit0cc)["mu"], 
+                b = coef(fit0cc)["b"], 
+                x), 
+      from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+      to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+      n = 100,
+      ylab = "A ancestry - logistic",
+      xlab = "latitude",
+      col = "orange", 
+      ylim = c(0, 1),
+      add = T,
+      lwd = 2, 
+      lty = 2)
+# maybe for tricky loci I should start with many initial values and then pick the one with lowest error
+
+a_mvn <- read.table("results/ind_snp_nls_clines/MVNsim_zero_bounded.txt", # data subset
+                header = T,
+                stringsAsFactors = F)
+table(is.na(a_mvn$mu))
+no_fit_mvn <- which(is.na(a_mvn$mu))
+plot_a_cline_mvn(sample(1:nrow(a_mvn)[-no_fit_mvn], 1))
+plot_a_cline_mvn(i = sample(no_fit_mvn, 1))
+
+plot_a_cline_mvn <- function(i){
+  plot(meta.AR.order.by.lat$lat, 
+       A[i, meta.AR.order.by.lat$population],
+       ylim = c(0, 1),
+       xlim = range(d_A$lat[d_A$group == "AR_2018"]),
+       ylab = "A ancestry - logistic",
+       xlab = "latitude",
+       main = paste("snp", i))
+  curve(logistic3(mu = a_mvn$mu[i], b = a_mvn$b[i], x), 
+        from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+        to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+        n = 100,
+        ylab = "A ancestry - logistic",
+        xlab = "latitude",
+        col = "orange", 
+        ylim = c(0, 1),
+        add = T,
+        lwd = 2, 
+        lty = 2)
+}
+
