@@ -66,7 +66,7 @@ fits <- data.frame(snp_index = INDEX_START:INDEX_END) %>%
 
 # get model fit info
 info <- fits %>%
-  mutate(summary = map(fit, glance)) %>%
+  mutate(summary = purrr::map(fit, glance)) %>%
   unnest(summary) %>%
   dplyr::select(-fit) # don't leave in the model fit itself
 
@@ -77,14 +77,14 @@ write.table(info,
 
 # get model fit parameters
 params <- fits %>%
-  mutate(., p = map(fit, tidy)) %>%
+  mutate(., p = purrr::map(fit, tidy)) %>%
   unnest(p) %>%
   dplyr::select(-fit)
 
 # calculate confidence intervals
 CI <- fits %>%
-  mutate(., cis = map(fit, confint2),
-         cis = map(cis, data.frame)) %>%
+  mutate(., cis = purrr::map(fit, confint2),
+         cis = purrr::map(cis, data.frame)) %>%
   unnest(cis) %>%
   rename(., conf.low = X2.5.., conf.high = X97.5..) %>%
   group_by(., snp_index) %>%
