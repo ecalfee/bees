@@ -1844,11 +1844,25 @@ rescale = 1
 start_lat <- getInitial(alpha/rescale ~ SSlogis(abs_lat, Asym, 
                                    xmid, scal), 
                        d = d_A)
-fit_lat <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, mu = mu),
+fit_lat0 <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, mu = mu),
               start = list(b = 1/unname(start_lat["scal"]),
                            mu = unname(start_lat["xmid"])),
               data = d_A,
               trace = F)
+fit_lat <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
+                                              b = b, mu = mu),
+                            start_lower = list(b = -1, mu = 25),
+                            start_upper = list(b = 1, mu = 40),
+                            supp_errors = 'Y',
+                            iter = 250,
+                            convergence_count = 100,
+                            data = d_A %>%
+                           mutate(rescale = rescale))
+glance(fit_lat)
+summary(fit_lat)
+
+
+
 sum_lat <- summary(fit_lat)
 info_lat <- c(converged = sum_lat$convInfo$isConv,
               mu = sum_lat$coefficients["mu", "Estimate"],
@@ -1887,19 +1901,40 @@ curve((info_lat["w"]*km_per_degree_lat)^2/(2*pi*x), from = 20, to = 90,
 start_lat_NA <- getInitial(alpha/rescale ~ SSlogis(abs_lat, Asym, 
                                         xmid, scal), 
                         d = d_A[d_A$S_America == 0, ])
-fit_lat_NA <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, mu = mu),
+fit_lat_NA0 <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, mu = mu),
                start = list(b = 1/unname(start_lat_NA["scal"]),
                             mu = unname(start_lat_NA["xmid"])),
-               data = d_A[d_A$S_America == 0, ],
-               trace = F)
+              trace = F,
+              data = d_A[d_A$S_America == 0, ])
+# can alternatively fit w/ multstart
+fit_lat_NA <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
+                              b = b, mu = mu),
+                start_lower = list(b = -1, mu = 25),
+                start_upper = list(b = 1, mu = 40),
+                supp_errors = 'Y',
+                iter = 250,
+                convergence_count = 100,
+                data = d_A[d_A$S_America == 0, ] %>%
+                  mutate(rescale = rescale))
+glance(fit_lat_NA)
+summary(fit_lat_NA)
+coef(fit_lat_NA0)
+
 start_lat_SA <- getInitial(alpha/rescale ~ SSlogis(abs_lat, Asym, 
                                            xmid, scal), 
                            d = d_A[d_A$S_America == 1, ])
-fit_lat_SA <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, mu = mu),
-                  start = list(b = 1/unname(start_lat_SA["scal"]),
-                               mu = unname(start_lat_SA["xmid"])),
-                  data = d_A[d_A$S_America == 1, ],
-                  trace = F)
+fit_lat_SA <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
+                                                            b = b, mu = mu),
+                                          start_lower = list(b = -1, mu = 25),
+                                          start_upper = list(b = 1, mu = 40),
+                                          supp_errors = 'Y',
+                                          iter = 250,
+                                          convergence_count = 100,
+                                          data = d_A[d_A$S_America == 1, ] %>%
+                              mutate(rescale = rescale))
+
+glance(fit_lat_SA)
+summary(fit_lat_SA)
 summary(fit_lat)
 summary(fit_lat_NA)
 summary(fit_lat_SA)
@@ -1933,7 +1968,8 @@ curve(rescale*logistic3(x, b = summary(fit_lat_SA)$coefficients["b", "Estimate"]
       range(d_A$abs_lat), n = 1000,
       col = col_NA_SA_both["S. America"], 
       lwd = 2, add = T)
-curve(rescale*logistic3(x, b = info_lat["b"], mu = info_lat["mu"]), 
+curve(rescale*logistic3(x, b = tidy(fit_lat)$estimate[tidy(fit_lat)$term == "b"], 
+                        mu = tidy(fit_lat)$estimate[tidy(fit_lat)$term == "mu"]), 
       range(d_A$abs_lat), n = 1000,
       col = "black", lwd = 2, add = T, lty = 2)
 
@@ -1949,11 +1985,21 @@ start_dist <- getInitial(alpha ~ SSlogis(km_from_sao_paulo,
                                              Asym, 
                                         xmid, scal), 
                         d = d_A[d_A$S_America == 1, ])
-fit_dist <- nls(alpha ~ logistic3(x = km_from_sao_paulo, b = b, mu = mu),
+fit_dist0 <- nls(alpha ~ logistic3(x = km_from_sao_paulo, b = b, mu = mu),
                start = list(b = 1/unname(start_dist["scal"]),
                             mu = unname(start_dist["xmid"])),
                data = d_A,
                trace = F)
+fit_dist <- nls_multstart(alpha ~ rescale*logistic3(x = km_from_sao_paulo, 
+                                        b = b, mu = mu),
+              start_lower = list(b = -5, mu = 1000),
+              start_upper = list(b = 5, mu = 10000),
+              supp_errors = 'Y',
+              iter = 250,
+              convergence_count = 100,
+              data = d_A %>%
+                mutate(rescale = rescale))
+glance(fit_dist)
 sum_dist <- summary(fit_dist)
 plot(alpha ~ km_from_sao_paulo, data = d_A, 
      col = NULL,

@@ -138,5 +138,5 @@ some_clines <- lapply(1:10, function(i){
 })
 system.time(fit_cline(snp = snp1))
 
-  
+
 
