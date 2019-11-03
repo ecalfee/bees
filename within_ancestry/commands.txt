@@ -332,6 +332,8 @@ within_ancestry$ sleep 4000; nohup parallel --noswap --jobs 4 --joblog logs/calc
 # and run C/M too
 within_ancestry$ sleep 2000; nohup parallel --noswap --jobs 1 --joblog logs/calc_thetas_outlier_regions_CM.log './calc_thetas_from_sfs_outliers.sh {1} ../bee_samples_listed/byPop/{1}.bams {2} {3} {4}' ::: C M ::: outlier1_chr1 outlier2_chr11 :::+ NC_037638.1:5000000-15000000 NC_037648.1:12500000-17500000 :::+ Group1 Group11 &> logs/calc_thetas_outlier_regions_CM.out &
 # will start in half and hour 10.20.19
+[1] 29536
+
 
 ## (!) NOTE: By breaking the task up into pieces, I may indeed be able to get whole genome SFS estimates for each population,
 # within ancestry and across all ancestries. I can create diff saf.idx sites separately for diff regions. I can 

@@ -5,11 +5,15 @@ library(geosphere)
 library(rethinking)
 library(dplyr)
 library(ggplot2)
+library(tidyr)
+library(broom)
+library(purrr)
+library(nlstools)
 library(betareg) # alternative ML fitting
 source("../colors.R") # get color palette
-#devtools::install_github("padpadpadpad/nls.multstart")
-install.packages("nls.multstart")
+#install.packages("nls.multstart")
 library(nls.multstart)
+source("../local_ancestry/calc_FDRs.R")
 
 #retrieve_data_new <- T
 retrieve_data_new <- F
@@ -61,15 +65,45 @@ if (retrieve_data_new){
   meta.ind.included <- meta.ind[meta.ind$population %in% c("Avalon_2014", "Placerita_2014", "Riverside_2014",
                                                            "Stanislaus_2014", "Stebbins_2014", "MX10") |
                                   meta.ind$group %in% c("CA_2018", "AR_2018"), ]
-  
+  # load and merge rasters (merging is slow!)
+  # rasters for argentina:
+  ar1 = getData('worldclim', var = "bio", res = res_bioclim, 
+                lon = -70, 
+                lat = -50)
+  ar2 = getData('worldclim', var = "bio", res = res_bioclim, 
+                lon = -50, 
+                lat = -20)
+  ar3 = getData('worldclim', var = "bio", res = res_bioclim, 
+                lon = -50, 
+                lat = -50)
+  ar4 = getData('worldclim', var = "bio", res = res_bioclim, 
+                lon = -70, 
+                lat = -20)
+  # rasters for ca:
+  ca1 = getData('worldclim', var = "bio", res = res_bioclim, 
+                lon = -120, 
+                lat = 30)
+  ca2 = getData('worldclim', var = "bio", res = res_bioclim, 
+                lon = -120, 
+                lat = 50)
+  ca3 = getData('worldclim', var = "bio", res = res_bioclim, 
+                lon = -150, 
+                lat = 50)
+  #sapply(list(ca1, ca2, ca3), function(x) names(x)[1])
+  #plot(merge(ca1[[1]], ca2[[1]], ca3[[1]]))
+  #plot(merge(ar1[[1]], ar2[[1]], ar3[[1]], ar4[[1]]))
+  keep_bioclim <- c(1,6,11,12) # variables of interest
+  raster_SA = merge(ar1[[keep_bioclim]], ar2[[keep_bioclim]], ar3[[keep_bioclim]], ar4[[keep_bioclim]])
+  raster_NA = merge(ca1[[keep_bioclim]], ca2[[keep_bioclim]], ca3[[keep_bioclim]])
   bees.clim <- do.call(rbind,
-          lapply(1:nrow(meta.ind.included), function(i) raster::extract(getData('worldclim', var = "bio", res = res_bioclim, 
-                                                                                lon = meta.ind.included$long[i], 
-                                                                                lat = meta.ind.included$lat[i]),
-                                                         SpatialPoints(meta.ind.included[i, c("long", "lat")]))/10)) %>%
+          lapply(1:nrow(meta.ind.included), function(i) {if (meta.ind.included$group[i] == "AR_2018") {
+            # avg. within 5km buffer radius. divide output by 10 for more intuitive units
+            raster::extract(raster_SA, SpatialPoints(meta.ind.included[i, c("long", "lat")]), buffer = 5000, fun = mean)/10}
+            else{ # north america raster
+              raster::extract(raster_NA, SpatialPoints(meta.ind.included[i, c("long", "lat")]), buffer = 5000, fun = mean)/10
+            }})) %>%
     data.frame(., stringsAsFactors = F) %>%
-    #data.table::setnames(., paste0("bio", 1:19)) %>%
-    data.table::setnames(., bioclim19_names) %>%
+    data.table::setnames(., bioclim19_names[keep_bioclim]) %>%
     bind_cols(meta.ind.included, .)
   
   # add distance to sao paulo, Brazil
@@ -120,7 +154,11 @@ d_A <- d %>%
   mutate(from2014_c = from2014 - mean(from2014)) %>%
   mutate(year = factor(year))
 
-
+iHot <- which.max(d_A$AnnualMeanTemp)
+iCold <- which.min(d_A$AnnualMeanTemp)
+bees.clim[c(iHot, iCold), ]
+distm(d_A[iHot, c("long", "lat")], d_A[iCold, c("long", "lat")], 
+      fun = distGeo)/1000 # distance in km between hottest and coldest site (CA mountains and desert)
 
 # plots
 d_A %>%
@@ -138,7 +176,7 @@ d_A %>%
 
 # plot some climate variables:
 d_A %>%
-  tidyr::gather(., "climate_var", "value", c("AnnualMeanTemp", "MeanTempColdestQuarter", "AnnualPrecip")) %>%
+  tidyr::gather(., "climate_var", "value", c("AnnualMeanTemp", "MeanTempColdestQuarter", "MinTempColdestMonth", "AnnualPrecip")) %>%
   ggplot(., aes(x = abs(lat), y = value, color = continent, shape = year)) +  
                 #color = geographic_location_short)) + 
   geom_point(size = 1, alpha = .75) + 
@@ -152,7 +190,7 @@ d_A %>%
 ggsave("plots/climate_variables_across_latitude.png", 
        height = 5, width = 5, units = "in")
 # save in figures for manuscript:
-ggsave("../../bee_manuscript/figures/climate_variables_across_latitude.png", 
+ggsave("../../bee_manuscript/figures/climate_variables_across_latitude.pdf", 
        height = 5, width = 5, units = "in")
 
 # A ancestry vs. latitude:
@@ -162,7 +200,7 @@ d_A %>%
   scale_color_manual(values = col_NA_SA_both)
 
 # do linear models using latitude, temp, and distance from sao paulo brazil as variables.
-m <- map( # quadratic approximation of the posterior MAP
+m <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -177,7 +215,7 @@ m <- map( # quadratic approximation of the posterior MAP
 precis(m)
 pairs(m)
 
-m_cold <- map( # quadratic approximation of the posterior MAP
+m_cold <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -193,7 +231,7 @@ m_cold <- map( # quadratic approximation of the posterior MAP
 precis(m_cold)
 pairs(m_cold)
 
-m_temp <- map( # quadratic approximation of the posterior MAP
+m_temp <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -209,7 +247,7 @@ m_temp <- map( # quadratic approximation of the posterior MAP
 precis(m_temp)
 pairs(m_temp)
 
-m_precip <- map( # quadratic approximation of the posterior MAP
+m_precip <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -227,7 +265,7 @@ pairs(m_precip)
 
 
 # just latitude
-m_lat <- map( # quadratic approximation of the posterior MAP
+m_lat <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -249,7 +287,7 @@ m_lat_betareg <- betareg(alpha ~ abs_lat_c,
 summary(m_lat_betareg)
 
 # latitude and continent:
-m_lat_SA <- map( # quadratic approximation of the posterior MAP
+m_lat_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -267,7 +305,7 @@ precis(m_lat_SA)
 pairs(m_lat_SA)
 
 # all individual variables with SA
-m_cold_SA <- map(
+m_cold_SA <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_cold*cold_c + b_SA*S_America_c,
@@ -279,7 +317,7 @@ m_cold_SA <- map(
   data = d_A,
   start = list(mu = -1, theta = 2, b_cold = 0, b_SA = 0))
 
-m_temp_SA <- map(
+m_temp_SA <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_temp*temp_c + b_SA*S_America_c,
@@ -291,7 +329,7 @@ m_temp_SA <- map(
   data = d_A,
   start = list(mu = -1, theta = 2, b_temp = 0, b_SA = 0))
 
-m_precip_SA <- map(
+m_precip_SA <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_precip*precip_c + b_SA*S_America_c,
@@ -303,7 +341,7 @@ m_precip_SA <- map(
   data = d_A,
   start = list(mu = -1, theta = 2, b_precip = 0, b_SA = 0))
 
-m_dist_SA <- map(
+m_dist_SA <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_dist*dist_c + b_SA*S_America_c,
@@ -315,7 +353,7 @@ m_dist_SA <- map(
   data = d_A,
   start = list(mu = -1, theta = 2, b_dist = 0, b_SA = 0))
 
-m_lat_precip <- map( # quadratic approximation of the posterior MAP
+m_lat_precip <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -332,7 +370,7 @@ m_lat_precip <- map( # quadratic approximation of the posterior MAP
 precis(m_lat_precip)
 pairs(m_lat_precip)
 
-m_lat_precip_SA <- map( # quadratic approximation of the posterior MAP
+m_lat_precip_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -348,7 +386,7 @@ m_lat_precip_SA <- map( # quadratic approximation of the posterior MAP
   data = d_A,
   start = list(mu = -1, theta = 2, b_precip = 0, b_lat = 0, b_SA = 0))
 
-m_lat_cold <- map( # quadratic approximation of the posterior MAP
+m_lat_cold <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -365,7 +403,7 @@ m_lat_cold <- map( # quadratic approximation of the posterior MAP
 precis(m_lat_cold)
 pairs(m_lat_cold)
 
-m_lat_cold_SA <- map( # quadratic approximation of the posterior MAP
+m_lat_cold_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -381,7 +419,7 @@ m_lat_cold_SA <- map( # quadratic approximation of the posterior MAP
   data = d_A,
   start = list(mu = -1, theta = 2, b_cold = 0, b_lat = 0, b_SA = 0))
 
-m_lat_dist_SA <- map( # quadratic approximation of the posterior MAP
+m_lat_dist_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -398,7 +436,7 @@ m_lat_dist_SA <- map( # quadratic approximation of the posterior MAP
   start = list(mu = -1, theta = 2, b_dist = 0, b_lat = 0, b_SA = 0))
 
 # also add in different variance for S. America vs. N. America (doesn't work):
-m_lat_varSA <- map( # quadratic approximation of the posterior MAP
+m_lat_varSA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = (1 - S_America)*theta_NA + S_America*theta_SA), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -417,7 +455,7 @@ precis(m_lat_varSA)
 pairs(m_lat_varSA)
 
 
-m_lat_temp <- map( # quadratic approximation of the posterior MAP
+m_lat_temp <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -434,7 +472,7 @@ m_lat_temp <- map( # quadratic approximation of the posterior MAP
 precis(m_lat_temp)
 pairs(m_lat_temp)
 
-m_lat_temp_SA <- map( # quadratic approximation of the posterior MAP
+m_lat_temp_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -450,7 +488,7 @@ m_lat_temp_SA <- map( # quadratic approximation of the posterior MAP
   data = d_A,
   start = list(mu = -1, theta = 2, b_temp = 0, b_lat = 0, b_SA = 0))
 
-m_lat_temp_cold <- map( # quadratic approximation of the posterior MAP
+m_lat_temp_cold <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -468,7 +506,7 @@ m_lat_temp_cold <- map( # quadratic approximation of the posterior MAP
 precis(m_lat_temp_cold)
 pairs(m_lat_temp_cold)
 
-m_lat_temp_cold_SA <- map( # quadratic approximation of the posterior MAP
+m_lat_temp_cold_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -487,7 +525,7 @@ m_lat_temp_cold_SA <- map( # quadratic approximation of the posterior MAP
 precis(m_lat_temp_cold)
 pairs(m_lat_temp_cold)
 
-m_lat_temp_cold_precip <- map( # quadratic approximation of the posterior MAP
+m_lat_temp_cold_precip <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -506,7 +544,7 @@ m_lat_temp_cold_precip <- map( # quadratic approximation of the posterior MAP
 precis(m_lat_temp_cold_precip)
 pairs(m_lat_temp_cold_precip)
 
-m_lat_temp_cold_precip_SA <- map( # quadratic approximation of the posterior MAP
+m_lat_temp_cold_precip_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -525,7 +563,7 @@ m_lat_temp_cold_precip_SA <- map( # quadratic approximation of the posterior MAP
   start = list(mu = -1, theta = 2, b_temp = 0, b_lat = 0, b_cold = 0, b_precip = 0, b_SA = 0))
 
 
-m_lat_temp_precip <- map( # quadratic approximation of the posterior MAP
+m_lat_temp_precip <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -543,7 +581,7 @@ m_lat_temp_precip <- map( # quadratic approximation of the posterior MAP
 precis(m_lat_temp_precip)
 pairs(m_lat_temp_precip)
 
-m_lat_temp_precip_SA <- map( # quadratic approximation of the posterior MAP
+m_lat_temp_precip_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -561,7 +599,7 @@ m_lat_temp_precip_SA <- map( # quadratic approximation of the posterior MAP
   start = list(mu = -1, theta = 2, b_temp = 0, b_lat = 0, b_precip = 0, b_SA = 0))
 
 
-m_lat_cold_precip <- map( # quadratic approximation of the posterior MAP
+m_lat_cold_precip <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -579,7 +617,7 @@ m_lat_cold_precip <- map( # quadratic approximation of the posterior MAP
 precis(m_lat_cold_precip)
 pairs(m_lat_cold_precip)
 
-m_lat_cold_precip_SA <- map( # quadratic approximation of the posterior MAP
+m_lat_cold_precip_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -596,7 +634,7 @@ m_lat_cold_precip_SA <- map( # quadratic approximation of the posterior MAP
   data = d_A,
   start = list(mu = -1, theta = 2, b_lat = 0, b_cold = 0, b_precip = 0, b_SA = 0))
 
-m_lat_temp <- map( # quadratic approximation of the posterior MAP
+m_lat_temp <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -613,7 +651,7 @@ m_lat_temp <- map( # quadratic approximation of the posterior MAP
 precis(m_lat_temp)
 pairs(m_lat_temp)
 
-m_lat_temp_SA <- map(
+m_lat_temp_SA <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_temp*temp_c + b_lat*abs_lat_c + b_SA*S_America_c,
@@ -630,7 +668,7 @@ m_lat_temp_SA <- map(
 # alpha ~ logit(a) # to constrain from 0 to 1 
 # a ~ mu + b_dist*km_from_sao_paulo + b_lat*lat # linear model
 # should I center lat or dist?
-m0 <- map( # quadratic approximation of the posterior MAP
+m0 <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -647,7 +685,7 @@ precis(m0)
 pairs(m0)
 
 # add in latitude as a predictor:
-m0_SA <- map( # quadratic approximation of the posterior MAP
+m0_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -662,7 +700,7 @@ m0_SA <- map( # quadratic approximation of the posterior MAP
   data = d_A,
   start = list(mu = -1, theta = 2, b_dist = 0, b_SA = 0))
 
-m0_cold <- map( # quadratic approximation of the posterior MAP
+m0_cold <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -679,7 +717,7 @@ m0_cold <- map( # quadratic approximation of the posterior MAP
 precis(m0_cold)
 pairs(m0_cold)
 
-m0_cold_SA <- map(
+m0_cold_SA <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_dist*dist_c + b_cold*cold_c + b_SA*S_America_c,
@@ -692,7 +730,7 @@ m0_cold_SA <- map(
   data = d_A,
   start = list(mu = -1, theta = 2, b_dist = 0, b_cold = 0, b_SA = 0))
 
-m0_temp <- map( # quadratic approximation of the posterior MAP
+m0_temp <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -708,7 +746,7 @@ m0_temp <- map( # quadratic approximation of the posterior MAP
   start = list(mu = -1, theta = 2, b_dist = 0, b_temp = 0))
 precis(m0_temp)
 pairs(m0_temp)
-m0_temp_SA <- map(
+m0_temp_SA <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_dist*dist_c + b_temp*temp_c + b_SA*S_America_c,
@@ -721,7 +759,7 @@ m0_temp_SA <- map(
   data = d_A,
   start = list(mu = -1, theta = 2, b_dist = 0, b_temp = 0, b_SA = 0))
 
-m0_precip <- map( # quadratic approximation of the posterior MAP
+m0_precip <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -737,7 +775,7 @@ m0_precip <- map( # quadratic approximation of the posterior MAP
   start = list(mu = -1, theta = 2, b_dist = 0, b_precip = 0))
 precis(m0_precip)
 pairs(m0_precip)
-m0_precip_SA <- map(
+m0_precip_SA <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_dist*dist_c + b_precip*precip_c + b_SA*S_America_c,
@@ -751,7 +789,7 @@ m0_precip_SA <- map(
   start = list(mu = -1, theta = 2, b_dist = 0, b_precip = 0, b_SA = 0))
 
 # add in latitude as a predictor:
-m1 <- map( # quadratic approximation of the posterior MAP
+m1 <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -768,7 +806,7 @@ m1 <- map( # quadratic approximation of the posterior MAP
 precis(m1)
 pairs(m1) # predictions for distance and latitude are negatively correlated
 
-m1_SA <- map( # quadratic approximation of the posterior MAP
+m1_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -806,7 +844,7 @@ d_A %>%
 
 # compare fit using latitude with fit using other environmental predictors (e.g. temp)
 # add in latitude as a predictor:
-m1_cold <- map( # quadratic approximation of the posterior MAP
+m1_cold <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -826,7 +864,7 @@ pairs(m1_cold)
 m1_cold.post <- sim(m1_cold, d_A, n = 100)
 m1_cold.post.mu <- apply(m1_cold.post, 2, mean)
 
-m1_cold_SA <- map( # quadratic approximation of the posterior MAP
+m1_cold_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -858,7 +896,7 @@ d_A %>%
   scale_color_manual(values = col_NA_SA_both)
 
 # mean temperature:
-m1_temp <- map( # quadratic approximation of the posterior MAP
+m1_temp <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -878,7 +916,7 @@ pairs(m1_temp)
 m1_temp.post <- sim(m1_temp, d_A, n = 100)
 m1_temp.post.mu <- apply(m1_temp.post, 2, mean)
 
-m1_temp_SA <- map( # quadratic approximation of the posterior MAP
+m1_temp_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -910,7 +948,7 @@ d_A %>%
   scale_color_manual(values = col_NA_SA_both)
 
 # mean precipitation
-m1_precip <- map( # quadratic approximation of the posterior MAP
+m1_precip <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -930,7 +968,7 @@ pairs(m1_precip)
 m1_precip.post <- sim(m1_precip, d_A, n = 100)
 m1_precip.post.mu <- apply(m1_precip.post, 2, mean)
 
-m1_precip_SA <- map( # quadratic approximation of the posterior MAP
+m1_precip_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -948,7 +986,7 @@ m1_precip_SA <- map( # quadratic approximation of the posterior MAP
   start = list(mu = -1, theta = 2, b_dist = 0, b_lat = 0, b_precip = 0, b_SA = 0))
 
 
-m1_temp_precip <- map( # quadratic approximation of the posterior MAP
+m1_temp_precip <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -967,7 +1005,7 @@ m1_temp_precip <- map( # quadratic approximation of the posterior MAP
 precis(m1_temp_precip)
 pairs(m1_temp_precip)
 
-m1_temp_precip_SA <- map( # quadratic approximation of the posterior MAP
+m1_temp_precip_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -987,7 +1025,7 @@ m1_temp_precip_SA <- map( # quadratic approximation of the posterior MAP
 
 
 
-m1_cold_precip <- map( # quadratic approximation of the posterior MAP
+m1_cold_precip <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1006,7 +1044,7 @@ m1_cold_precip <- map( # quadratic approximation of the posterior MAP
 precis(m1_cold_precip)
 pairs(m1_cold_precip)
 
-m1_cold_precip_SA <- map( # quadratic approximation of the posterior MAP
+m1_cold_precip_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1024,7 +1062,7 @@ m1_cold_precip_SA <- map( # quadratic approximation of the posterior MAP
   data = d_A,
   start = list(mu = -1, theta = 2, b_dist = 0, b_lat = 0, b_cold = 0, b_precip = 0, b_SA = 0))
 
-m1_cold_temp <- map( # quadratic approximation of the posterior MAP
+m1_cold_temp <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1043,7 +1081,7 @@ m1_cold_temp <- map( # quadratic approximation of the posterior MAP
 precis(m1_cold_temp)
 pairs(m1_cold_temp)
 
-m1_cold_temp_SA <- map( # quadratic approximation of the posterior MAP
+m1_cold_temp_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1084,7 +1122,7 @@ lines(abs(d_A$lat)[order(abs(d_A$lat))], m1.postmu[order(abs(d_A$lat))])
 shade(m1.post.HPDI[ , order(abs(d_A$lat))], abs(d_A$lat)[order(abs(d_A$lat))])
 
 
-m2 <- map( # quadratic approximation of the posterior MAP
+m2 <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1104,7 +1142,7 @@ m2 <- map( # quadratic approximation of the posterior MAP
 precis(m2)
 coef(m2)
 # with separate SA variable
-m2_SA <- map( # quadratic approximation of the posterior MAP
+m2_SA <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1125,7 +1163,7 @@ m2_SA <- map( # quadratic approximation of the posterior MAP
 
 # filling in missing combinations:
 #m_cold_temp_precip_SA
-m_cold_temp_precip_SA <- map(
+m_cold_temp_precip_SA <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), 
     logit(p) <- mu + b_cold*cold_c + b_temp*temp_c + b_precip*precip_c + b_SA*S_America_c,
@@ -1140,7 +1178,7 @@ m_cold_temp_precip_SA <- map(
   start = list(mu = -1, theta = 2, b_cold = 0, b_temp = 0, b_precip = 0, b_SA = 0))
 
 # m_lat_temp_precip_SA
-m_lat_temp_precip_SA <- map(
+m_lat_temp_precip_SA <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), 
     logit(p) <- mu + b_lat*abs_lat_c + b_temp*temp_c + b_precip*precip_c + b_SA*S_America_c,
@@ -1155,7 +1193,7 @@ m_lat_temp_precip_SA <- map(
   start = list(mu = -1, theta = 2, b_lat = 0, b_temp = 0, b_precip = 0, b_SA = 0))
 
 # m_temp_precip_SA 
-m_temp_precip_SA <- map(
+m_temp_precip_SA <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), 
     logit(p) <- mu + b_temp*temp_c + b_precip*precip_c + b_SA*S_America_c,
@@ -1169,7 +1207,7 @@ m_temp_precip_SA <- map(
   start = list(mu = -1, theta = 2, b_temp = 0, b_precip = 0, b_SA = 0))
 
 #m_cold_precip_SA
-m_cold_precip_SA <- map(
+m_cold_precip_SA <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), 
     logit(p) <- mu + b_cold*cold_c + b_precip*precip_c + b_SA*S_America_c,
@@ -1183,7 +1221,7 @@ m_cold_precip_SA <- map(
   start = list(mu = -1, theta = 2, b_cold = 0, b_precip = 0, b_SA = 0))
 
 #m0_temp_cold_precip_SA 
-m0_temp_cold_precip_SA <- map( 
+m0_temp_cold_precip_SA <- rethinking::map( 
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_dist*dist_c + b_cold*cold_c + b_temp*temp_c + b_precip*precip_c + b_SA*S_America_c,
@@ -1199,7 +1237,7 @@ m0_temp_cold_precip_SA <- map(
   start = list(mu = -1, theta = 2, b_dist = 0, b_cold = 0, b_temp = 0, b_precip = 0, b_SA = 0))
 
 #m0_temp_cold_SA
-m0_temp_cold_SA <- map( 
+m0_temp_cold_SA <- rethinking::map( 
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_dist*dist_c + b_cold*cold_c + b_temp*temp_c + b_SA*S_America_c,
@@ -1213,7 +1251,7 @@ m0_temp_cold_SA <- map(
   data = d_A,
   start = list(mu = -1, theta = 2, b_dist = 0, b_cold = 0, b_temp = 0, b_SA = 0))
 #m0_temp_precip_SA 
-m0_temp_precip_SA <- map( 
+m0_temp_precip_SA <- rethinking::map( 
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_dist*dist_c + b_temp*temp_c + b_precip*precip_c + b_SA*S_America_c,
@@ -1227,7 +1265,7 @@ m0_temp_precip_SA <- map(
   data = d_A,
   start = list(mu = -1, theta = 2, b_dist = 0, b_temp = 0, b_precip = 0, b_SA = 0))
 #m0_cold_precip_SA
-m0_cold_precip_SA <- map( 
+m0_cold_precip_SA <- rethinking::map( 
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_dist*dist_c + b_cold*cold_c + b_precip*precip_c + b_SA*S_America_c,
@@ -1243,7 +1281,7 @@ m0_cold_precip_SA <- map(
 
 #--without SA--:
 #m_cold_temp_precip
-m_cold_temp_precip <- map(
+m_cold_temp_precip <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), 
     logit(p) <- mu + b_cold*cold_c + b_temp*temp_c + b_precip*precip_c,
@@ -1257,7 +1295,7 @@ m_cold_temp_precip <- map(
   start = list(mu = -1, theta = 2, b_cold = 0, b_temp = 0, b_precip = 0))
 
 # m_lat_temp_precip
-m_lat_temp_precip <- map(
+m_lat_temp_precip <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), 
     logit(p) <- mu + b_lat*abs_lat_c + b_temp*temp_c + b_precip*precip_c,
@@ -1271,7 +1309,7 @@ m_lat_temp_precip <- map(
   start = list(mu = -1, theta = 2, b_lat = 0, b_temp = 0, b_precip = 0))
 
 # m_temp_precip
-m_temp_precip <- map(
+m_temp_precip <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), 
     logit(p) <- mu + b_temp*temp_c + b_precip*precip_c,
@@ -1284,7 +1322,7 @@ m_temp_precip <- map(
   start = list(mu = -1, theta = 2, b_temp = 0, b_precip = 0))
 
 #m_cold_precip
-m_cold_precip <- map(
+m_cold_precip <- rethinking::map(
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), 
     logit(p) <- mu + b_cold*cold_c + b_precip*precip_c,
@@ -1297,7 +1335,7 @@ m_cold_precip <- map(
   start = list(mu = -1, theta = 2, b_cold = 0, b_precip = 0))
 
 #m0_temp_cold_precip
-m0_temp_cold_precip <- map( 
+m0_temp_cold_precip <- rethinking::map( 
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_dist*dist_c + b_cold*cold_c + b_temp*temp_c + b_precip*precip_c,
@@ -1312,7 +1350,7 @@ m0_temp_cold_precip <- map(
   start = list(mu = -1, theta = 2, b_dist = 0, b_cold = 0, b_temp = 0, b_precip = 0))
 
 #m0_temp_cold
-m0_temp_cold <- map( 
+m0_temp_cold <- rethinking::map( 
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_dist*dist_c + b_cold*cold_c + b_temp*temp_c,
@@ -1325,7 +1363,7 @@ m0_temp_cold <- map(
   data = d_A,
   start = list(mu = -1, theta = 2, b_dist = 0, b_cold = 0, b_temp = 0))
 #m0_temp_precip 
-m0_temp_precip <- map( 
+m0_temp_precip <- rethinking::map( 
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_dist*dist_c + b_temp*temp_c + b_precip*precip_c,
@@ -1338,7 +1376,7 @@ m0_temp_precip <- map(
   data = d_A,
   start = list(mu = -1, theta = 2, b_dist = 0, b_temp = 0, b_precip = 0))
 #m0_cold_precip
-m0_cold_precip <- map( 
+m0_cold_precip <- rethinking::map( 
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_dist*dist_c + b_cold*cold_c + b_precip*precip_c,
@@ -1351,7 +1389,7 @@ m0_cold_precip <- map(
   data = d_A,
   start = list(mu = -1, theta = 2, b_dist = 0, b_cold = 0, b_precip = 0))
 
-m_cold_temp <- map( 
+m_cold_temp <- rethinking::map( 
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_cold*cold_c + b_temp*temp_c,
@@ -1363,7 +1401,7 @@ m_cold_temp <- map(
   data = d_A,
   start = list(mu = -1, theta = 2, b_cold = 0, b_temp = 0))
 
-m_cold_temp_SA <- map( 
+m_cold_temp_SA <- rethinking::map( 
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_cold*cold_c + b_temp*temp_c + b_SA*S_America_c,
@@ -1378,7 +1416,7 @@ m_cold_temp_SA <- map(
 
 # is there a change 2014 to 2018?
 
-m_lat_2014 <- map( 
+m_lat_2014 <- rethinking::map( 
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_time*from2014_c + b_lat*abs_lat_c,
@@ -1392,7 +1430,7 @@ m_lat_2014 <- map(
 precis(m_lat_2014)
 pairs(m_lat_2014)
 
-m_lat_2014_CA_only <- map( 
+m_lat_2014_CA_only <- rethinking::map( 
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_time*from2014_c + b_lat*abs_lat_c,
@@ -1406,7 +1444,7 @@ m_lat_2014_CA_only <- map(
 precis(m_lat_2014_CA_only, prob = .95)
 pairs(m_lat_2014_CA_only)
 
-m_lat_CA_only <- map( 
+m_lat_CA_only <- rethinking::map( 
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu + b_lat*abs_lat_c,
@@ -1419,7 +1457,7 @@ m_lat_CA_only <- map(
 precis(m_lat_CA_only, prob = .95)
 pairs(m_lat_CA_only)
 
-m_CA_only <- map( 
+m_CA_only <- rethinking::map( 
   alist(
     alpha ~ dbeta2(prob = p, theta = theta),
     logit(p) <- mu,
@@ -1432,7 +1470,7 @@ precis(m_CA_only, prob = .95)
 pairs(m_CA_only)
 rethinking::compare(m_CA_only, m_lat_CA_only, m_lat_2014_CA_only)
 
-m2_CA_only <- map( # quadratic approximation of the posterior MAP
+m2_CA_only <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1452,7 +1490,7 @@ m2_CA_only <- map( # quadratic approximation of the posterior MAP
 precis(m2_CA_only)
 coef(m2_CA_only)
 
-m2_2014_CA_only <- map( # quadratic approximation of the posterior MAP
+m2_2014_CA_only <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1473,7 +1511,7 @@ m2_2014_CA_only <- map( # quadratic approximation of the posterior MAP
 precis(m2_2014_CA_only, prob = .95)
 coef(m2_2014_CA_only)
 
-m2_2014 <- map( # quadratic approximation of the posterior MAP
+m2_2014 <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1694,7 +1732,7 @@ d_A %>%
   geom_point()
 
 # linear model with first 6 PCs:
-m_pc6_dist_lat <- map( # quadratic approximation of the posterior MAP
+m_pc6_dist_lat <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1718,7 +1756,7 @@ precis(m_pc6_dist_lat)
 coef(m_pc6_dist_lat)
 pairs(m_pc6_dist_lat)
 
-m_pc6_lat <- map( # quadratic approximation of the posterior MAP
+m_pc6_lat <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1741,7 +1779,7 @@ precis(m_pc6_lat)
 coef(m_pc6_lat)
 pairs(m_pc6_lat)
 
-m_pc6 <- map( # quadratic approximation of the posterior MAP
+m_pc6 <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1763,7 +1801,7 @@ precis(m_pc6)
 coef(m_pc6)
 pairs(m_pc6)
 
-m_pc4_lat <- map( # quadratic approximation of the posterior MAP
+m_pc4_lat <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1783,7 +1821,7 @@ m_pc4_lat <- map( # quadratic approximation of the posterior MAP
 precis(m_pc4_lat)
 pairs(m_pc4_lat)
 
-m_pc4 <- map( # quadratic approximation of the posterior MAP
+m_pc4 <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1802,7 +1840,7 @@ m_pc4 <- map( # quadratic approximation of the posterior MAP
 precis(m_pc4)
 pairs(m_pc4)
 
-m_pc1 <- map( # quadratic approximation of the posterior MAP
+m_pc1 <- rethinking::map( # quadratic approximation of the posterior MAP
   alist(
     alpha ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
@@ -1836,8 +1874,9 @@ logistic3 <- function(x, mu, b){
 # because bees in brazil have ~ 84% A ancestry, the true
 # asymptote is 84% A not 100% A for the cline, so
 # I can optionally use this to rescale the inferred logistic curves
-#rescale = .84
-rescale = 1
+#rescale1 = .84
+rescale1 = 1
+d_A <- mutate(d_A, rescale = rescale1)
 
 # fit_d just has distance brazil
 # fit_lat just has latitude
@@ -1849,6 +1888,16 @@ fit_lat0 <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, mu = mu),
                            mu = unname(start_lat["xmid"])),
               data = d_A,
               trace = F)
+sum_lat0 <- summary(fit_lat0)
+info_lat0 <- c(converged = sum_lat0$convInfo$isConv,
+               mu = sum_lat0$coefficients["mu", "Estimate"],
+               b = sum_lat0$coefficients["b", "Estimate"],
+               residual_error = sum_lat0$sigma,
+               AIC = AIC(fit_lat0),
+               w = sum_lat0$coefficients["b", "Estimate"]*4)
+
+
+
 fit_lat <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
                                               b = b, mu = mu),
                             start_lower = list(b = -1, mu = 25),
@@ -1856,44 +1905,50 @@ fit_lat <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat,
                             supp_errors = 'Y',
                             iter = 250,
                             convergence_count = 100,
-                            data = d_A %>%
-                           mutate(rescale = rescale))
+                            data = d_A)
 glance(fit_lat)
 summary(fit_lat)
+coef_lat = tidy(fit_lat) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate)
 
-
-
-sum_lat <- summary(fit_lat)
-info_lat <- c(converged = sum_lat$convInfo$isConv,
-              mu = sum_lat$coefficients["mu", "Estimate"],
-              b = sum_lat$coefficients["b", "Estimate"],
-              residual_error = sum_lat$sigma,
-              AIC = AIC(fit_lat),
-              w = sum_lat$coefficients["b", "Estimate"])
 # how well does the model fit?
 cor(d_A$alpha, predict(fit_lat)) # very high correlation!
 # high correlation for S. America
-cor(d_A$alpha[d_A$S_America == 1], 
-    sapply(d_A$abs_lat[d_A$S_America == 1], function(x)
-           logistic3(x, b = info_lat["b"], 
-                     mu = info_lat["mu"])))
+cor(d_A$alpha[d_A$S_America == 1], predict(fit_lat, newdata = d_A[d_A$S_America == 1, ]))
+
 # pure lat. model has lower correlation for N. America
-cor(d_A$alpha[d_A$S_America == 0], 
-    sapply(d_A$abs_lat[d_A$S_America == 0], function(x)
-      logistic3(x, b = info_lat["b"], 
-                mu = info_lat["mu"]))) 
+cor(d_A$alpha[d_A$S_America == 0], predict(fit_lat, newdata = d_A[d_A$S_America == 0, ]))
+
 #plot
 with(d_A, plot(abs_lat, alpha))
-curve(logistic3(x, b = info_lat["b"], mu = info_lat["mu"]), 
+curve(rescale1*logistic3(x, b = coef_lat$b, mu = coef_lat$mu), 
       from = min(d_A$abs_lat), to = max(d_A$abs_lat), add = T,
       col = "blue", lwd = 3)
 # can do the same w/ 'predict()' but need to sort data
 lines(d_A$abs_lat[order(d_A$abs_lat)], predict(fit_lat)[order(d_A$abs_lat)], lty=2, col="red", lwd=3)
 # what width would be expect for neutral diffusion?
 km_per_degree_lat = 110.567 # estimate from the equator
-curve((info_lat["w"]*km_per_degree_lat)^2/(2*pi*x), from = 20, to = 90,
+curve((coef_lat$b*4*km_per_degree_lat)^2/(2*pi*x), from = 20, to = 90,
       xlab = "generations since admixture",
       ylab = "neutral s.d. parent-offspring dispersal")
+years_tot = 2018-1957
+dispersal_kernel <- (coef_lat$b*4*km_per_degree_lat)^2/(2*pi*years_tot)
+dispersal_kernel # variance in distance between parent and offspring
+660/(1.68*sqrt(years_tot))
+# a dispersal kernel variance of ~130km/year seems like a lot,  
+# but may still be low for the rate of spread we saw in the Africanized honey bee invasion:
+# in a gaussian dispersal kernel, this would only gain bees ~5 km a year
+x = matrix(0, years_tot+1, 1000)
+for (i in 2:nrow(x)){
+  x[i, ] <- sapply(x[i - 1, ], function(m) rnorm(n = 1, mean = m, sd = sqrt(dispersal_kernel)))
+}
+max_pos = apply(x, 1, max)
+year = 1:nrow(x)
+plot(year, max_pos)
+abline(lm(max_pos ~ year))
+max(max_pos)/nrow(x) # mean distance gained per year
+
 #1957 to 2018 is approx 30 to 60 generations depending on whether you believe 1 gen every year or every other year
 (2018-1970)/2 # ~24 generations if you think of time since reaching current cline center
 # how do I add other predictors to an nls() model?
@@ -1914,8 +1969,7 @@ fit_lat_NA <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat,
                 supp_errors = 'Y',
                 iter = 250,
                 convergence_count = 100,
-                data = d_A[d_A$S_America == 0, ] %>%
-                  mutate(rescale = rescale))
+                data = d_A[d_A$S_America == 0, ])
 glance(fit_lat_NA)
 summary(fit_lat_NA)
 coef(fit_lat_NA0)
@@ -1930,27 +1984,65 @@ fit_lat_SA <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat,
                                           supp_errors = 'Y',
                                           iter = 250,
                                           convergence_count = 100,
-                                          data = d_A[d_A$S_America == 1, ] %>%
-                              mutate(rescale = rescale))
+                                          data = d_A[d_A$S_America == 1, ])
 
 glance(fit_lat_SA)
 summary(fit_lat_SA)
 summary(fit_lat)
 summary(fit_lat_NA)
 summary(fit_lat_SA)
+tidy(fit_lat)
+info(fit_lat)
+
+coef_lat_NA = tidy(fit_lat_NA) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate)
+coef_lat_SA = tidy(fit_lat_SA) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate)
+
+# ok what about fitting 1 model with a SA variable? joint fit.
+
+fit_lat_zone_mu_and_b <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
+                                                                 b = b + b_SA*S_America, 
+                                                                 mu = mu + mu_SA*S_America),
+                                       start_lower = list(b = -1, mu = 25, b_SA = -1, mu_SA = -5),
+                                       start_upper = list(b = 1, mu = 40, b_SA = 1, mu_SA = 5),
+                                       supp_errors = 'Y',
+                                       iter = 250,
+                                       convergence_count = 100,
+                                       data = d_A)
+summary(fit_lat_zone_mu_and_b) # b_SA is not significant, drop:
+coef_lat_zone_mu_b = tidy(fit_lat_zone_mu_and_b) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate)
+# only fit different centers
+fit_lat_zone <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
+                                                        b = b, 
+                                                        mu = mu + mu_SA*S_America),
+                              start_lower = list(b = -1, mu = 25, mu_SA = -5),
+                              start_upper = list(b = 1, mu = 40, mu_SA = 5),
+                              supp_errors = 'Y',
+                              iter = 250,
+                              convergence_count = 100,
+                              data = d_A)
+summary(fit_lat_zone)
+glance(fit_lat_zone_mu_and_b)
+glance(fit_lat_zone)
+glance(fit_lat)
+coef_lat_zone = tidy(fit_lat_zone) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate)
+
 
 # plot the two clines:
 #plot
-with(d_A, plot(abs_lat, alpha))
-curve(logistic3(x, b = info_lat["b"], mu = info_lat["mu"]), 
-      from = min(d_A$abs_lat), to = max(d_A$abs_lat), add = T,
-      col = "blue", lwd = 3)
-
-#png("../../bee_manuscript/figures/m_lat_model_prediction.png", height = 6, width = 8, units = "in", res = 300)
+# need to make pdf version eventually.
+png("../../bee_manuscript/figures/m_lat_model_prediction.png", height = 6, width = 8, units = "in", res = 300)
 plot(alpha ~ abs_lat, data = d_A, 
      col = NULL,
      ylim = c(0, 1), 
-     main = "African ancestry predicted by latitude", 
+     #main = "African ancestry predicted by latitude", 
      xlab = "Degrees latitude from equator",
      ylab = "A ancestry proportion")
 points(alpha ~ abs_lat, data = d_A, # plot points again on top
@@ -1958,24 +2050,21 @@ points(alpha ~ abs_lat, data = d_A, # plot points again on top
                     col_NA_SA_both["S. America"], 
                     col_NA_SA_both["N. America"]))
 # plot MAP line from model coefficients:
-curve(rescale*logistic3(x, b = summary(fit_lat_NA)$coefficients["b", "Estimate"], 
-                mu = summary(fit_lat_NA)$coefficients["mu", "Estimate"]), 
-      range(d_A$abs_lat), n = 1000,
-      col = col_NA_SA_both["N. America"], 
-      lwd = 2, add = T)
-curve(rescale*logistic3(x, b = summary(fit_lat_SA)$coefficients["b", "Estimate"], 
-                mu = summary(fit_lat_SA)$coefficients["mu", "Estimate"]), 
+curve(rescale1*logistic3(x, b = coef_lat_zone_mu_b$b + coef_lat_zone_mu_b$b_SA, 
+                         mu = coef_lat_zone_mu_b$mu + coef_lat_zone_mu_b$mu_SA), 
       range(d_A$abs_lat), n = 1000,
       col = col_NA_SA_both["S. America"], 
-      lwd = 2, add = T)
-curve(rescale*logistic3(x, b = tidy(fit_lat)$estimate[tidy(fit_lat)$term == "b"], 
-                        mu = tidy(fit_lat)$estimate[tidy(fit_lat)$term == "mu"]), 
+      lwd = 2, lty = 1, add = T)
+curve(rescale1*logistic3(x, b = coef_lat_zone_mu_b$b, mu = coef_lat_zone_mu_b$mu), 
       range(d_A$abs_lat), n = 1000,
-      col = "black", lwd = 2, add = T, lty = 2)
+      col = col_NA_SA_both["N. America"], 
+      lwd = 2, lty = 1, add = T)
+#curve(rescale1*logistic3(x, b = coef_lat$b, mu = coef_lat$mu), 
+#      range(d_A$abs_lat), n = 1000,
+#      col = "black", lwd = 2, add = T, lty = 2)
 
-legend("topright", c("S. America", "N. America", "model prediction (MAP)", "95% confidence (HPDI)"),
-       pch = c(1, 1, NA, 15), lty = c(NA, NA, 1, NA), col = c(col_NA_SA_both[1:2], "black", col_blind[1]))
-#dev.off()
+legend("topright", c("N. America", "S. America"), pch = c(1, 1), col = col_NA_SA_both[1:2])
+dev.off()
 
 
 
@@ -1985,7 +2074,7 @@ start_dist <- getInitial(alpha ~ SSlogis(km_from_sao_paulo,
                                              Asym, 
                                         xmid, scal), 
                         d = d_A[d_A$S_America == 1, ])
-fit_dist0 <- nls(alpha ~ logistic3(x = km_from_sao_paulo, b = b, mu = mu),
+fit_dist0 <- nls(alpha/rescale ~ logistic3(x = km_from_sao_paulo, b = b, mu = mu),
                start = list(b = 1/unname(start_dist["scal"]),
                             mu = unname(start_dist["xmid"])),
                data = d_A,
@@ -1997,14 +2086,13 @@ fit_dist <- nls_multstart(alpha ~ rescale*logistic3(x = km_from_sao_paulo,
               supp_errors = 'Y',
               iter = 250,
               convergence_count = 100,
-              data = d_A %>%
-                mutate(rescale = rescale))
+              data = d_A)
 glance(fit_dist)
 sum_dist <- summary(fit_dist)
 plot(alpha ~ km_from_sao_paulo, data = d_A, 
      col = NULL,
      ylim = c(0, 1), 
-     main = "African ancestry predicted by latitude", 
+     main = "African ancestry predicted by dispersal distance", 
      xlab = "Distance from Sao Paulo (km)",
      ylab = "A ancestry proportion")
 points(alpha ~ km_from_sao_paulo, data = d_A, # plot points again on top
@@ -2012,34 +2100,12 @@ points(alpha ~ km_from_sao_paulo, data = d_A, # plot points again on top
                     col_NA_SA_both["S. America"], 
                     col_NA_SA_both["N. America"]))
 # plot MAP line from model coefficients:
-curve(rescale*logistic3(x, b = summary(fit_dist)$coefficients["b", "Estimate"], 
+curve(rescale1*logistic3(x, b = summary(fit_dist)$coefficients["b", "Estimate"], 
                         mu = summary(fit_dist)$coefficients["mu", "Estimate"]), 
       range(d_A$km_from_sao_paulo), n = 1000,
       col = "black", lwd = 2, add = T, lty = 2)
 # clearly this is a silly exercise
 
-# ok what about fitting 1 model with a SA variable?
-#start_lat_zone <- getInitial(alpha/rescale ~ SSlogis(abs_lat, Asym, 
-#                                                   xmid, scal), 
-#                           d = d_A) # this is the same as the pure latitude fit
-fit_lat_zone_mu_and_b <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b + b_SA*S_America, 
-                                            mu = mu + mu_SA*S_America),
-                  start = list(b = 1/unname(start_lat["scal"]),
-                               mu = unname(start_lat["xmid"]),
-                               mu_SA = 0,
-                               b_SA = 0),
-                  data = d_A,
-                  trace = F)
-summary(fit_lat_zone_mu_and_b) # b_SA is not significant, drop:
-# only fit different centers
-fit_lat_zone <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, 
-                                                       mu = mu + mu_SA*S_America),
-                             start = list(b = 1/unname(start_lat["scal"]),
-                                          mu = unname(start_lat["xmid"]),
-                                          mu_SA = 0),
-                             data = d_A,
-                             trace = F)
-summary(fit_lat_zone)
 
 # also add in 2014 (vs. 2018) as something to fit
 # I removed Avalon_2014 because it's such an outlier for ancestry
@@ -2056,11 +2122,65 @@ fit_lat_zone_2014 <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b,
                     trace = F)
 summary(fit_lat_zone_2014)
 
+fit_winter <- nls_multstart(alpha ~ rescale*logistic3(x = MeanTempColdestQuarter, 
+                                                              b = b, mu = mu),
+                                    start_lower = list(b = -5, mu = min(d_A$MeanTempColdestQuarter)),
+                                    start_upper = list(b = 5, mu = max(d_A$MeanTempColdestQuarter)),
+                                    supp_errors = 'Y',
+                                    iter = 250,
+                                    convergence_count = 100,
+                                    data = d_A)
+
 # what if I fit on mean temp. instead of latitude?
 start_temp <- getInitial(alpha/rescale ~ SSlogis(AnnualMeanTemp, Asym, 
                                                      xmid, scal), 
                              d = d_A)
-fit_temp <- nls(alpha ~ rescale*logistic3(x = AnnualMeanTemp, b = b, 
+fit_temp_no_2014 <- nls_multstart(alpha ~ rescale*logistic3(x = AnnualMeanTemp, 
+                                                    b = b, mu = mu),
+                          start_lower = list(b = -5, mu = min(d_A$AnnualMeanTemp)),
+                          start_upper = list(b = 5, mu = max(d_A$AnnualMeanTemp)),
+                          supp_errors = 'Y',
+                          iter = 250,
+                          convergence_count = 100,
+                          data = d_A[d_A$year != 2014, ])
+fit_lat_no_2014 <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
+                                                    b = b, mu = mu),
+                          start_lower = list(b = -5, mu = min(d_A$abs_lat)),
+                          start_upper = list(b = 5, mu = max(d_A$abs_lat)),
+                          supp_errors = 'Y',
+                          iter = 250,
+                          convergence_count = 100,
+                          data = d_A[d_A$year != 2014, ])
+fit_winter_no_2014 <- nls_multstart(alpha ~ rescale*logistic3(x = MeanTempColdestQuarter, 
+                                                           b = b, mu = mu),
+                                 start_lower = list(b = -5, mu = min(d_A$MeanTempColdestQuarter)),
+                                 start_upper = list(b = 5, mu = max(d_A$MeanTempColdestQuarter)),
+                                 supp_errors = 'Y',
+                                 iter = 250,
+                                 convergence_count = 100,
+                                 data = d_A[d_A$year != 2014, ])
+fit_lat_zone_no_2014 <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
+                                                        b = b, 
+                                                        mu = mu + mu_SA*S_America),
+                              start_lower = list(b = -1, mu = 25, mu_SA = -5),
+                              start_upper = list(b = 1, mu = 40, mu_SA = 5),
+                              supp_errors = 'Y',
+                              iter = 250,
+                              convergence_count = 100,
+                              data = d_A[d_A$year != 2014, ])
+
+tidy(fit_temp)
+glance(fit_temp)
+glance(fit_winter)
+glance(fit_lat)
+glance(fit_lat_zone)
+
+glance(fit_temp_no_2014)
+glance(fit_winter_no_2014)
+glance(fit_lat_no_2014)
+glance(fit_lat_zone_no_2014)
+
+nls(alpha ~ rescale*logistic3(x = AnnualMeanTemp, b = b, 
                                               mu = mu),
                     start = list(b = 1/unname(start_temp["scal"]),
                                  mu = unname(start_temp["xmid"])),
@@ -2230,9 +2350,94 @@ curve(logistic3(mu = coef(fit0cc)["mu"],
       lty = 2)
 # maybe for tricky loci I should start with many initial values and then pick the one with lowest error
 
-a_mvn <- read.table("results/ind_snp_nls_clines/MVNsim_zero_bounded.txt", # data subset
-                header = T,
-                stringsAsFactors = F)
+
+### --------------------- INDIVIDUAL SNP CLINES --------------------------------- #####
+mvn_zero <- list(info = read.table("results/ind_snp_nls_multistart_clines/MVNsim_zero_bounded.info", # data simulation
+                             header = T, stringsAsFactors = F),
+            params = read.table("results/ind_snp_nls_multistart_clines/MVNsim_zero_bounded.params",
+                header = T, stringsAsFactors = F))
+mvn <- list(info = read.table("results/ind_snp_nls_multistart_clines/MVNsim_bounded.info", # data simulation
+                                   header = T, stringsAsFactors = F),
+                 params = read.table("results/ind_snp_nls_multistart_clines/MVNsim_bounded.params",
+                                     header = T, stringsAsFactors = F))
+sets <- paste0("A", 1:5)
+clines <- list(info = do.call(rbind, lapply(sets, function(s)
+                                            read.table(paste0("results/ind_snp_nls_multistart_clines/", s, ".info"), # data subset
+                                 header = T, stringsAsFactors = F))),
+               params = do.call(rbind, lapply(sets, function(s)
+                 read.table(paste0("results/ind_snp_nls_multistart_clines/", s, ".params"), # data subset
+                            header = T, stringsAsFactors = F))))
+# check all models converged -- great!
+table(mvn$info$isConv)
+table(mvn_zero$info$isConv)
+table(clines$info$isConv)
+
+# spread of simulated clines
+rbind(mutate(mvn_zero$params, data = "MVN_sim_zero_bounded"), 
+      mutate(mvn$params, data = "MVN_sim_bounded"), 
+      mutate(clines$params, data = "observed")) %>%
+  ggplot(., aes(x = estimate, fill = data)) +
+  geom_histogram() +
+  facet_wrap(~term, scales = "free_x")
+qqplot(mvn_zero$params$estimate[mvn_zero$params$term == "mu"], clines$params$estimate[clines$params$term == "mu"])
+#qqplot(mvn_zero$params$estimate[mvn_zero$params$term == "mu"], mvn$params$estimate[mvn$params$term == "mu"])
+abline(a = 0, b = 1, col = "blue")
+qqplot(mvn_zero$params$estimate[mvn_zero$params$term == "b"], clines$params$estimate[clines$params$term == "b"])
+qqplot(mvn_zero$params$estimate[mvn_zero$params$term == "b"], mvn$params$estimate[mvn$params$term == "b"])
+abline(a = 0, b = 1, col = "blue")
+
+# what is the FDR?
+#FDR_values = c(.1, .05, .01)
+# make seq of values to calculate FDR at
+b_range = seq(min(clines$params$estimate[clines$params$term == "b"]), 
+              max(clines$params$estimate[clines$params$term == "b"]), 
+              length.out = 1000)
+mu_range = seq(min(clines$params$estimate[clines$params$term == "mu"]), 
+             max(clines$params$estimate[clines$params$term == "mu"]), 
+             length.out = 1000)
+
+# false discovery rate calculations
+fdr_high_b <- sapply(b_range, function(b) fdr_1pop_high(a = b, pop = clines$params$estimate[clines$params$term == "b"], 
+                                                        sims = mvn_zero$params$estimate[mvn_zero$params$term == "b"]))
+fdr_low_b <- sapply(b_range, function(b) fdr_1pop_low(a = b, pop = clines$params$estimate[clines$params$term == "b"], 
+                                                        sims = mvn_zero$params$estimate[mvn_zero$params$term == "b"]))
+fdr_high_mu <- sapply(mu_range, function(m) fdr_1pop_high(a = m, pop = clines$params$estimate[clines$params$term == "mu"], 
+                                                        sims = mvn_zero$params$estimate[mvn_zero$params$term == "mu"]))
+fdr_low_mu <- sapply(mu_range, function(m) fdr_1pop_low(a = m, pop = clines$params$estimate[clines$params$term == "mu"], 
+                                                      sims = mvn_zero$params$estimate[mvn_zero$params$term == "mu"]))
+# combine to set FDR threshold
+FDR_clines = data.frame(FDR_values = FDR_values,
+                  high_b = sapply(FDR_values, function(p) ifelse(min(fdr_high_b) <= p, # are there any sig snps?
+                                                                     max(b_range[fdr_high_b > p], na.rm = T),
+                                                                 NA)),
+                  low_b = sapply(FDR_values, function(p) ifelse(min(fdr_low_b) <= p, # are there any sig snps?
+                                                                min(b_range[fdr_low_b > p], na.rm = T),
+                                                                NA)),
+                  high_mu = sapply(FDR_values, function(p) ifelse(min(fdr_high_mu) <= p, # are there any sig snps?
+                                                                  max(mu_range[fdr_high_mu > p], na.rm = T),
+                                                                  NA)),
+                  low_mu = sapply(FDR_values, function(p) ifelse(min(fdr_low_mu) <= p, # are there any sig snps?
+                                                                 min(mu_range[fdr_low_mu > p], na.rm = T),
+                                                                 NA)),
+                  stringsAsFactors = F)
+# visualize tails:
+#plot(mu_range[850:1000], fdr_high_mu[850:1000])
+#points(mvn_zero$params$estimate[mvn_zero$params$term == "mu"], rep(.01, 100000), col = "blue")
+
+write.table(FDR_clines, "results/FDRs_ind_snp_nls_multistart_clines.txt", quote = F, col.names = T, row.names = F, sep = "\t")
+
+# plot 1 steep cline from my data vs. 1 steep cline in the simulated data and median snp cline
+
+# plot the flattest cline in my data vs. flattest cline in simulated data
+
+# plot high and low mu's from my data vs. from simulated data
+
+
+# re-do calculation of enrichment for steep clines in regions of the genome with low recombination rates
+
+
+
+
 table(is.na(a_mvn$mu))
 no_fit_mvn <- which(is.na(a_mvn$mu))
 plot_a_cline_mvn(sample(1:nrow(a_mvn)[-no_fit_mvn], 1))
