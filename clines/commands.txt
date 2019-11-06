@@ -60,6 +60,9 @@ clines$ nohup parallel --noswap --jobs 7 --joblog logs/calc_nls_logistic_ind_snp
 # using starts from sslogis, some clines didn't fit. Using more robust approach of multiple starts:
 clines$ nohup parallel --noswap --jobs 4 --joblog logs/calc_nls_multistart_logistic_ind_snps.log 'Rscript nls_multistart_logistic_clines_ind_loci.R {1} {2} {3} {4} ' ::: MVNsim_zero_bounded MVNsim_bounded A A A A A :::+ 1 1 1 100001 200001 300001 400001 :::+ 100000 100000 100000 200000 300000 400000 542655 :::+ MVNsim_zero_bounded MVNsim_bounded A1 A2 A3 A4 A5 &> logs/calc_nls_mulstistart_logistic_ind_snps.out &
 [1] 6005 - RUNNING 10.31.19
+# do the same, but fitting the N. American data (should be less certain, but will try)
+clines$ nohup parallel --noswap --jobs 4 --joblog logs/calc_nls_multistart_logistic_ind_snps_NA.log 'Rscript nls_multistart_logistic_clines_ind_loci_NA.R {1} {2} {3} {4} ' ::: MVNsim_zero_bounded MVNsim_bounded A A A A A :::+ 1 1 1 100001 200001 300001 400001 :::+ 100000 100000 100000 200000 300000 400000 542655 :::+ MVNsim_zero_bounded MVNsim_bounded A1 A2 A3 A4 A5 &> logs/calc_nls_mulstistart_logistic_ind_snps_NA.out &
+[1] 11255 - RUNNING 11.5.19
 
 
 # source for other methods of fitted clines: https://onlinelibrary.wiley.com/doi/full/10.1111/jeb.13524

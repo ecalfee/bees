@@ -14,6 +14,8 @@ source("../colors.R") # get color palette
 #install.packages("nls.multstart")
 library(nls.multstart)
 source("../local_ancestry/calc_FDRs.R")
+load("../local_ancestry/results/pops_by_lat.RData") # contains objects pops_by_lat meta.pop and meta.AR.order.by.lat 
+load("../local_ancestry/results/A.RData") # ancestry data for each pop
 
 #retrieve_data_new <- T
 retrieve_data_new <- F
@@ -2426,41 +2428,404 @@ FDR_clines = data.frame(FDR_values = FDR_values,
 
 write.table(FDR_clines, "results/FDRs_ind_snp_nls_multistart_clines.txt", quote = F, col.names = T, row.names = F, sep = "\t")
 
+
+
+##########3 ---------------------- MAKE SOME PLOTS OF CLINES ---------------- ##############
+
+
+# plot a set of clines from simulations:
+mean_cline_mvn <- group_by(mvn$params, term) %>%
+  summarise(mean = mean(estimate))
+plot(meta.AR.order.by.lat$lat, 
+     rep(0, length(meta.AR.order.by.lat$lat)),
+     col = NULL,
+     ylim = c(0, 1),
+     xlim = range(d_A$lat[d_A$group == "AR_2018"]),
+     ylab = "A ancestry",
+     xlab = "latitude")
+curve(logistic3(mu = mean_cline_mvn$mean[mean_cline_mvn$term == "mu"], 
+                b = mean_cline_mvn$mean[mean_cline_mvn$term == "b"], 
+                x), 
+      from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+      to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+      n = 100,
+      add = T,
+      lwd = 2, 
+      lty = 2)
+# sample 10 random clines
+set.seed(100)
+sample_10 <- sample(1:(nrow(mvn$params)/2), 100, replace = F)
+sapply(sample_10, function(i)
+       curve(logistic3(mu = mvn$params$estimate[mvn$params$term == "mu" & mvn$params$snp_index == i], 
+                       b = mvn$params$estimate[mvn$params$term == "b" & mvn$params$snp_index == i], 
+                       x), 
+             from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+             to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+             n = 100,
+             col = "grey",
+             add = T,
+             lwd = 1, 
+             lty = 1))
+
 # plot 1 steep cline from my data vs. 1 steep cline in the simulated data and median snp cline
-
-# plot the flattest cline in my data vs. flattest cline in simulated data
-
-# plot high and low mu's from my data vs. from simulated data
-
-
-# re-do calculation of enrichment for steep clines in regions of the genome with low recombination rates
-
-
-
-
-table(is.na(a_mvn$mu))
-no_fit_mvn <- which(is.na(a_mvn$mu))
-plot_a_cline_mvn(sample(1:nrow(a_mvn)[-no_fit_mvn], 1))
-plot_a_cline_mvn(i = sample(no_fit_mvn, 1))
-
-plot_a_cline_mvn <- function(i){
-  plot(meta.AR.order.by.lat$lat, 
-       A[i, meta.AR.order.by.lat$population],
-       ylim = c(0, 1),
-       xlim = range(d_A$lat[d_A$group == "AR_2018"]),
-       ylab = "A ancestry - logistic",
-       xlab = "latitude",
-       main = paste("snp", i))
-  curve(logistic3(mu = a_mvn$mu[i], b = a_mvn$b[i], x), 
+outlier_clines <- c(which.max(clines$params$estimate[clines$params$term == "b"]),
+                    which.min(clines$params$estimate[clines$params$term == "b"]),
+                    which.max(clines$params$estimate[clines$params$term == "mu"]),
+                    which.min(clines$params$estimate[clines$params$term == "mu"]))
+sapply(1:length(outlier_clines), function(i)
+  curve(logistic3(mu = clines$params$estimate[clines$params$term == "mu" & clines$params$snp_index == outlier_clines[i]], 
+                  b = clines$params$estimate[clines$params$term == "b" & clines$params$snp_index == outlier_clines[i]], 
+                  x), 
         from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
         to = range(d_A$lat[d_A$group == "AR_2018"])[2],
         n = 100,
-        ylab = "A ancestry - logistic",
-        xlab = "latitude",
-        col = "orange", 
-        ylim = c(0, 1),
+        col = rainbow(4)[i],
+        add = T,
+        lwd = 1, 
+        lty = 1))
+outlier_mvn_clines <- c(which.max(mvn$params$estimate[mvn$params$term == "b"]),
+                    which.min(mvn$params$estimate[mvn$params$term == "b"]),
+                    which.max(mvn$params$estimate[mvn$params$term == "mu"]),
+                    which.min(mvn$params$estimate[mvn$params$term == "mu"]))
+sapply(1:length(outlier_mvn_clines), function(i)
+  curve(logistic3(mu = mvn$params$estimate[mvn$params$term == "mu" & mvn$params$snp_index == outlier_mvn_clines[i]], 
+                  b = mvn$params$estimate[mvn$params$term == "b" & mvn$params$snp_index == outlier_mvn_clines[i]], 
+                  x), 
+        from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+        to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+        n = 100,
+        col = rainbow(4)[i],
+        add = T,
+        lwd = 1, 
+        lty = 2))
+plot_random_clines <- function(d, n, seed = 200, color = "darkgrey"){
+  # set frame
+  plot(meta.AR.order.by.lat$lat, 
+       rep(0, length(meta.AR.order.by.lat$lat)),
+       col = NULL,
+       ylim = c(0, 1),
+       xlim = range(d_A$lat[d_A$group == "AR_2018"]),
+       ylab = "A ancestry",
+       xlab = "latitude")
+  # set seed
+  set.seed(seed)
+  # sample data
+  sample_data <- sample(1:(nrow(d$params)/2), 100, replace = F)
+  # plot
+  sapply(sample_data, function(i)
+    curve(logistic3(mu = d$params$estimate[d$params$term == "mu" & d$params$snp_index == i], 
+                    b = d$params$estimate[d$params$term == "b" & d$params$snp_index == i], 
+                    x), 
+          from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+          to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+          n = 100,
+          col = "darkgrey",
+          add = T,
+          lwd = 1, 
+          lty = 1))
+}
+# just the background random clines
+png("plots/random_clines_100.png", units = "in", res = 300, height = 6, width = 6)
+plot_random_clines(d = clines, n = 100, seed = 200, color = "darkgrey")
+dev.off()
+viridis::magma(n = 3)
+
+png("plots/random_clines_100_plus_steep.png", units = "in", res = 300, height = 6, width = 6)
+plot_random_clines(d = clines, n = 100, seed = 200, color = "darkgrey")
+sapply(1, function(i)
+  curve(logistic3(mu = clines$params$estimate[clines$params$term == "mu" & clines$params$snp_index == outlier_clines[i]], 
+                  b = clines$params$estimate[clines$params$term == "b" & clines$params$snp_index == outlier_clines[i]], 
+                  x), 
+        from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+        to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+        n = 100,
+        col = viridis::viridis(n = 3)[i],
+        add = T,
+        lwd = 3, 
+        lty = 1))
+dev.off()
+
+png("plots/random_clines_100_plus_introgress.png", units = "in", res = 300, height = 6, width = 6)
+plot_random_clines(d = clines, n = 100, seed = 200, color = "darkgrey")
+sapply(2:3, function(i)
+  curve(logistic3(mu = clines$params$estimate[clines$params$term == "mu" & clines$params$snp_index == outlier_clines[i]], 
+                  b = clines$params$estimate[clines$params$term == "b" & clines$params$snp_index == outlier_clines[i]], 
+                  x), 
+        from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+        to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+        n = 100,
+        col = viridis::viridis(n = 3)[i],
+        add = T,
+        lwd = 3, 
+        lty = 1))
+dev.off()
+
+# all 3 outliers
+png("plots/random_clines_100_plus_3outliers.png", units = "in", res = 300, height = 6, width = 6)
+plot_random_clines(d = clines, n = 100, seed = 200, color = "darkgrey")
+sapply(1:3, function(i){
+  curve(logistic3(mu = clines$params$estimate[clines$params$term == "mu" & clines$params$snp_index == outlier_clines[i]], 
+                  b = clines$params$estimate[clines$params$term == "b" & clines$params$snp_index == outlier_clines[i]], 
+                  x), 
+        from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+        to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+        n = 100,
+        col = viridis::viridis(n = 3)[i],
+        add = T,
+        lwd = 3, 
+        lty = 1)
+}
+  )
+dev.off()
+
+# ADD Points to all of these plots!
+png("plots/random_clines_100_plus_steep_points.png", units = "in", res = 300, height = 6, width = 6)
+plot_random_clines(d = clines, n = 100, seed = 200, color = "darkgrey")
+sapply(1, function(i){
+  curve(logistic3(mu = clines$params$estimate[clines$params$term == "mu" & clines$params$snp_index == outlier_clines[i]], 
+                  b = clines$params$estimate[clines$params$term == "b" & clines$params$snp_index == outlier_clines[i]], 
+                  x), 
+        from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+        to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+        n = 100,
+        col = viridis::viridis(n = 3)[i],
+        add = T,
+        lwd = 3, 
+        lty = 1)
+  points(meta.AR.order.by.lat$lat, 
+         A[outlier_clines[i], meta.AR.order.by.lat$population],
+         pch = 20,
+         col = viridis::viridis(n = 3)[i])
+  })
+dev.off()
+
+png("plots/random_clines_100_plus_introgress_points.png", units = "in", res = 300, height = 6, width = 6)
+plot_random_clines(d = clines, n = 100, seed = 200, color = "darkgrey")
+sapply(2:3, function(i){
+  curve(logistic3(mu = clines$params$estimate[clines$params$term == "mu" & clines$params$snp_index == outlier_clines[i]], 
+                  b = clines$params$estimate[clines$params$term == "b" & clines$params$snp_index == outlier_clines[i]], 
+                  x), 
+        from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+        to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+        n = 100,
+        col = viridis::viridis(n = 3)[i],
+        add = T,
+        lwd = 3, 
+        lty = 1)
+  points(meta.AR.order.by.lat$lat, 
+       A[outlier_clines[i], meta.AR.order.by.lat$population],
+       pch = 20,
+       col = viridis::viridis(n = 3)[i])
+})
+dev.off()
+
+# all 3 outliers
+png("plots/random_clines_100_plus_3outliers_points.png", units = "in", res = 300, height = 6, width = 6)
+plot_random_clines(d = clines, n = 100, seed = 200, color = "darkgrey")
+sapply(1:3, function(i){
+  curve(logistic3(mu = clines$params$estimate[clines$params$term == "mu" & clines$params$snp_index == outlier_clines[i]], 
+                  b = clines$params$estimate[clines$params$term == "b" & clines$params$snp_index == outlier_clines[i]], 
+                  x), 
+        from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+        to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+        n = 100,
+        col = viridis::viridis(n = 3)[i],
+        add = T,
+        lwd = 3, 
+        lty = 1)
+  points(meta.AR.order.by.lat$lat, 
+         A[outlier_clines[i], meta.AR.order.by.lat$population],
+         pch = 20,
+         col = viridis::viridis(n = 3)[i])
+}
+)
+dev.off()
+
+
+# what does the N. American cline look like for the 'steep' SNP? Also looks steep.
+# should exclude Avalon -- such a consistent outlier point can really affect cline shape
+points(-meta.pop$lat[meta.pop$zone == "N. America"], 
+       A[outlier_clines[1], meta.pop$zone == "N. America"],
+       pch = 20,
+       col = "deeppink")
+
+fit_pink = nls_multstart(A ~ logistic3(x = lat, 
+                                       b = b, mu = mu),
+                                       start_lower = list(b = -1, mu = 25),
+                                       start_upper = list(b = 1, mu = 40),
+                                       supp_errors = 'Y',
+                                       iter = 250,
+                                       convergence_count = 100,
+                                       data = data.frame(A = unname(t(A[outlier_clines[1], 
+                                                                        meta.CA.order.by.lat$population[meta.CA.order.by.lat$population != "Avalon_2014"]])), 
+                                                         lat = meta.CA.order.by.lat$lat[meta.CA.order.by.lat$population != "Avalon_2014"], 
+                                                         stringsAsFactors = F))
+curve(logistic3(mu = unlist(-tidy(fit_pink)[tidy(fit_pink)$term == "mu", "estimate"]), 
+                b = unlist(-tidy(fit_pink)[tidy(fit_pink)$term == "b", "estimate"]), 
+                x), 
+      from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+      to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+      n = 100,
+      col = "deeppink",
+      add = T,
+      lwd = 3, 
+      lty = 1)
+
+
+
+
+
+# I can alternatively plot absolute latitude:
+curve(logistic3(mu = -mean_cline_mvn$mean[mean_cline_mvn$term == "mu"], 
+                b = -mean_cline_mvn$mean[mean_cline_mvn$term == "b"], 
+                x), 
+      from = abs(range(d_A$lat[d_A$group == "AR_2018"])[2]), 
+      to = abs(range(d_A$lat[d_A$group == "AR_2018"])[1]),
+      n = 100,
+      col = "blue",
+      add = F,
+      lwd = 2, 
+      lty = 2)
+
+# the top clines with data from N. America too:
+meta.pop.A <- meta.pop %>%
+  mutate(meanA = apply(A[ , meta.pop$population], 2, mean)) %>%
+  mutate(abs_lat = abs(lat))
+png("plots/high_A_SA_clines.png", units = "in", res = 300, height = 3, width = 3)
+plot(meta.pop.A$lat[meta.pop.A$zone == "S. America"], 
+       meta.pop.A$meanA[meta.pop.A$zone == "S. America"],
+       ylim = c(0, 1),
+       pch = 20,
+     cex = 1,
+       col = col_blind[1],
+        ylab = "A ancestry",
+        xlab = "latitude")
+points(meta.pop$lat[meta.pop$zone == "S. America"], 
+       A[outlier_clines[2], meta.pop$zone == "S. America"],
+       pch = 20,
+       cex = 1,
+       col = col_NA_SA_both["S. America"])
+dev.off()
+
+png("plots/high_A_NA_clines.png", units = "in", res = 300, height = 3, width = 3)
+plot(meta.pop.A$abs_lat[meta.pop.A$zone == "N. America"], 
+       meta.pop.A$meanA[meta.pop.A$zone == "N. America"],
+     ylim = c(0, 1),
+     pch = 20,
+     cex = 1,
+     col = col_blind[1],
+     ylab = "A ancestry",
+     xlab = "latitude")
+points(meta.pop$lat[meta.pop$zone == "N. America"], 
+       A[outlier_clines[2], meta.pop$zone == "N. America"],
+       pch = 20,
+       cex = 1,
+       col = col_NA_SA_both["N. America"])
+dev.off()
+
+# low SA outlier:
+png("plots/low_A_SA_clines.png", units = "in", res = 300, height = 3, width = 3)
+plot(meta.pop.A$lat[meta.pop.A$zone == "S. America"], 
+     meta.pop.A$meanA[meta.pop.A$zone == "S. America"],
+     ylim = c(0, 1),
+     pch = 20,
+     cex = 1,
+     col = col_blind[1],
+     ylab = "A ancestry",
+     xlab = "latitude")
+points(meta.pop$lat[meta.pop$zone == "S. America"], 
+       A[outlier_clines[3], meta.pop$zone == "S. America"],
+       pch = 20,
+       cex = 1,
+       col = col_NA_SA_both["S. America"])
+dev.off()
+
+png("plots/low_A_NA_clines.png", units = "in", res = 300, height = 3, width = 3)
+plot(meta.pop.A$abs_lat[meta.pop.A$zone == "N. America"], 
+     meta.pop.A$meanA[meta.pop.A$zone == "N. America"],
+     ylim = c(0, 1),
+     pch = 20,
+     cex = 1,
+     col = col_blind[1],
+     ylab = "A ancestry",
+     xlab = "latitude")
+points(meta.pop$lat[meta.pop$zone == "N. America"], 
+       A[outlier_clines[3], meta.pop$zone == "N. America"],
+       pch = 20,
+       cex = 1,
+       col = col_NA_SA_both["N. America"])
+dev.off()
+
+
+
+
+
+
+##### -------------------- ENRICHMENT OF STEEP CLINES IN REGIONS OF THE GENOME WITH LOW RECOMB? ---------------######
+
+
+# re-do calculation of enrichment for steep clines in regions of the genome with low recombination rates
+load("../local_ancestry/results/sites_r.RData") # load recombination rate data by sites
+steepest_clines <- which(clines$params$estimate[clines$params$term == "b"] >= 
+                           quantile(clines$params$estimate[clines$params$term == "b"], .99))
+table(sites_r$r_bin5[steepest_clines])
+
+cbind(sites_r, clines$params[clines$params$term == "b", ]) %>%
+  filter(estimate >= quantile(estimate, .99)) %>%
+  ggplot(.) +
+  geom_point(aes(x = pos, y = estimate, color = r_bin5_factor)) +
+  facet_wrap(~chr)
+
+# (!) Here high b is steep, but for slopes the other way (on + lat), high b will be large & negative
+clines_plus_sites <- sites_r %>%
+  mutate(b = clines$params[clines$params$term == "b", "estimate"]) %>%
+  mutate(mu = clines$params[clines$params$term == "mu", "estimate"]) %>%
+  mutate(top_b = b >= quantile(b, .99)) %>%
+  mutate(top_mu = mu >= quantile(mu, .99)) %>%
+  mutate(bottom_mu = mu <= quantile(mu, .01))
+mean_b_by_r <- clines_plus_sites %>%
+  group_by(r_bin5_factor) %>%
+  summarise(mean_b = mean(b))
+clines_plus_sites %>%
+  group_by(r_bin5_factor) %>%
+  summarise(mean_b = mean(mu))
+clines_plus_sites %>%
+  group_by(r_bin5_factor) %>%
+  summarise(perc_top_b = mean(top_b),
+            perc_top_mu = mean(top_mu),
+            perc_bottom_mu = mean(bottom_mu))
+b_by_r <- with(clines_plus_sites, lm(b ~ cM_Mb))
+summary(b_by_r)
+mu_by_r <- with(clines_plus_sites, lm(mu ~ cM_Mb))
+summary(mu_by_r)
+# subsample to plot faster
+dplyr::sample_frac(clines_plus_sites, size = .1) %>%
+  ggplot(., aes(x = cM_Mb, y = b)) +
+  geom_point() +
+  geom_smooth()
+# ok so the slopes go down with higher recomb, but is this a big enough effect ot be interesting? not sure. let's plot:
+#mean_b_by_r
+png("plots/lower_r_regions_have_very_slightly_steeper_mean_slopes.png", height = 6, width = 6, units = "in", res = 300)
+plot_random_clines(d = clines, n = 100, seed = 200, color = "darkgrey")
+for (i in 1:5){
+  curve(logistic3(mu = mean(clines_plus_sites$mu), 
+                  b = mean_b_by_r$mean_b[i], 
+                  x), 
+        from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
+        to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+        n = 100,
+        col = viridis::magma(5)[i],
         add = T,
         lwd = 2, 
-        lty = 2)
+        lty = 1)
 }
+dev.off()
 
+# Group11 possibly has some large inversion or something, not the largest peak, but the widest.
+# also not colocalized with the region of high M
+cbind(sites_r, clines$params[clines$params$term == "b", ]) %>%
+  mutate(AR = apply(A[ , meta.AR.order.by.lat$population], 1, mean)) %>%
+  filter(estimate >= quantile(estimate, .99)) %>%
+  ggplot(.) +
+  geom_point(aes(x = pos, y = AR, color = r_bin5_factor)) +
+  facet_wrap(~chr)
