@@ -9,7 +9,7 @@
 # Varroa resistance includes multiple behaviors. I need to verify which are associated with African ancestry specifically:
 # - uncapping and removal of freeze-killed brood
 	Harpur 2019 GBE Integrative genomics reverals the genetics and evolution of the honey bee's social immune system.
-	Artificial selection for two generations on 2 populations (100 colonies each) and compared it to a maintained "baseline" population. Used hapFLK to identify Fst-like haplotype outliers. 
+	Artificial selection for two generations on 2 populations (100 colonies each) and compared it to a maintained "baseline" population. Used hapFLK to identify Fst-like haplotype outliers.
 # - Varroa sensitive hygeine
 #
 
@@ -87,8 +87,8 @@ What have other papers done? e.g. "We used DAVID v 6.7 (Huang et al. 2009) to id
 # Step (3) Test for enrichment of top hits in vs. out of QTLs.
 
 # Step (0) A Gather QTL positions and make bed files for positions on scaffolds.
-Note: Harpur's study blasted the markers against the genome + 5kb to get coordinates for prior varroa-hygeine QTLs 
-# Step (0) B Get genes and their positions: 
+Note: Harpur's study blasted the markers against the genome + 5kb to get coordinates for prior varroa-hygeine QTLs
+# Step (0) B Get genes and their positions:
 FILE SAVED HERE: bees/data/honeybee_genome/gene_annotations/ref_Amel_HAv3.1_top_level.gff3.gz
 # Downloaded 7/22/19 latest genome assembly for apis mellifera - Amel_HAv3.1 from RefSeq NCBI.
 # Found by search NCBI accession number QIUM00000000; published in Wallberg 2019 doi: 10.1186/s12864-019-5642-0 .
@@ -138,7 +138,9 @@ our gene set was enriched for Gene Ontology (GO) and KEGG pathway terms using Ap
 mellifera gene calls against a background of all genes in the honeybee genome."
 
 
-
-
-
-
+### -------- Getting Amel HAv3.1 QTL positions using BLASTN ------- ####
+First I followed instructions to ftp download blast+ software suite from ncbi:
+https://www.ncbi.nlm.nih.gov/books/NBK52640/
+Then I created a local blast db for the HAv3.1 genome
+honeybee_genome$ makeblastdb -in Amel_HAv3.1.fasta -input_type fasta -dbtype nucl
+To search:
