@@ -138,6 +138,48 @@ ns_ACM <- do.call(rbind,
                                                          header = T, stringsAsFactors = F)))*2
 ns <- cbind(ns_ACM, ns_pops) # x2 because diploid
 
+# basic Fst A-C-M:
+# w/out small sample size correction
+complete_freqs_ACM = na.omit(freqs_ACM) %>%
+  mutate(AC = (A+C)/2,
+         AM = (A+M)/2,
+         CM = (C+M)/2)
+frac_snps_complete_ACM <- nrow(complete_freqs_ACM)/genome_size
+complete_het_ACM = 2*complete_freqs_ACM*(1-complete_freqs_ACM)
+complete_het_ACM_mean = apply(complete_het_ACM, 2, mean)
+# calc basic Fst:
+1 - mean(complete_het_ACM_mean[c("A", "C")])/complete_het_ACM_mean[c("AC")]
+1 - mean(complete_het_ACM_mean[c("A", "M")])/complete_het_ACM_mean[c("AM")]
+1 - mean(complete_het_ACM_mean[c("C", "M")])/complete_het_ACM_mean[c("CM")]
+table(apply(ns_ACM>=10, 1, mean))
+# dxy: divergence isnt' that high, it's mostly bottlenecks that increase Fst here
+complete_dxy_ACM = complete_freqs_ACM %>%
+  mutate(dxyAC = (A*(1-C) + C*(1-A)),
+         dxyAM = (A*(1-M) + M*(1-A)),
+         dxyCM = (M*(1-C) + C*(1-M))) %>%
+  dplyr::select(starts_with("dxy")) %>%
+  apply(., 2, mean)
+#pi
+complete_dxy_ACM*frac_snps_complete_ACM
+complete_het_ACM_mean*frac_snps_complete_ACM
+# fixed differences are very rare
+table(complete_freqs_ACM$A==1 & complete_freqs_ACM$C==0 & complete_freqs_ACM$M ==0)
+table(complete_freqs_ACM$A==0 & complete_freqs_ACM$C==1 & complete_freqs_ACM$M ==1)
+
+# make sure it's robust to small outliers:
+min10_freqs_ACM = freqs_ACM %>%
+  filter(with(ns_ACM, M >= 10 & C >= 10 & A >= 10)) %>%
+  mutate(AC = (A+C)/2,
+         AM = (A+M)/2,
+         CM = (C+M)/2)
+min10_het_ACM = 2*min10_freqs_ACM*(1-min10_freqs_ACM)
+min10_het_ACM_mean = apply(min10_het_ACM, 2, mean)
+# calc basic Fst (it's unchanged):
+1 - mean(min10_het_ACM_mean[c("A", "C")])/min10_het_ACM_mean[c("AC")]
+1 - mean(min10_het_ACM_mean[c("A", "M")])/min10_het_ACM_mean[c("AM")]
+1 - mean(min10_het_ACM_mean[c("C", "M")])/min10_het_ACM_mean[c("CM")]
+
+
 # freqs and heterozygosity within AA CC MM ancestry
 freqs_by_ancestry <- lapply(ancestries, function(a) 
   cbind(freqs_ACM, 
