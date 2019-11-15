@@ -221,16 +221,18 @@ for (a in 1:5){
 
 # calculate mean correlations for different recombination rate bins:
 # function from plotLocalAncestryTracts.R:
+mean_corrs0 <- do.call(rbind,
+                      lapply(1:5, function(k) get_mean_corr_from_K(K_byr[[k]]$K) %>%
+                               mutate(r_bin5 = k))) %>%
+  left_join(., distinct(dplyr::select(sites_r, c("r_bin5", "r_bin5_factor"))), by = "r_bin5")
+
 pair_types <- data.frame(label = c("Warm SA", "Cold SA vs. Warm SA", "Cold SA", "Cold NA vs. Warm SA", "Cold NA vs. Cold SA", "Cold NA"),
-                         type = unique(mean_corrs$type)[order(unique(mean_corrs$type))],
+                         type = unique(mean_corrs0$type)[order(unique(mean_corrs0$type))],
                          stringsAsFactors = F) %>%
   mutate(label = factor(label, levels = c("Warm SA", "Cold SA", "Cold NA", "Cold NA vs. Cold SA", "Cold SA vs. Warm SA", "Cold NA vs. Warm SA"),
                         ordered = T))
-mean_corrs <- do.call(rbind,
-                      lapply(1:5, function(k) get_mean_corr_from_K(K_byr[[k]]$K) %>%
-                       mutate(r_bin5 = k))) %>%
-  left_join(., distinct(dplyr::select(sites_r, c("r_bin5", "r_bin5_factor"))), by = "r_bin5") %>%
-  left_join(., pair_types, by = "type")
+mean_corrs = left_join(mean_corrs0, pair_types, by = "type")
+
 mean_corrs %>%
   write.table(., "results/mean_anc_corr_grouped_by_r.txt",
               col.names = T, row.names = F, quote = F, sep = "\t")
@@ -251,3 +253,29 @@ ggsave(paste0("../../bee_manuscript/figures/mean_k_corr_by_groups_and_r.pdf"),
        height = 4, width = 6, 
        units = "in", device = "pdf")
 
+# is this finding robust across all chromosomes?
+K_by_chr <- lapply(1:16, function(chr)
+  make_K_calcs(t(A[sites_r$chr_n == chr, pops_by_lat])))
+mean_corrs_chr <- do.call(rbind,
+                       lapply(1:16, function(k) get_mean_corr_from_K(K_by_chr[[k]]$K) %>%
+                                mutate(chr_n = k))) %>%
+  left_join(., pair_types, by = "type")
+
+mean_corrs_chr %>%
+  ggplot(., aes(x = label, y = mean_anc_corr, color = factor(chr_n), shape = factor(chr_n))) +
+  geom_jitter(width = .2) +
+  ylab("Mean Ancestry Correlation") +
+  theme_classic() +
+  xlab("") +
+  scale_color_viridis_d(name = "Chr", labels = 1:16, option = "D") +
+  scale_shape_manual(name = "Chr",
+                     labels = 1:16,
+                     values = rep(c(1:3,19), 10)[1:16]) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Ancestry correlations by chromosome")
+ggsave(paste0("plots/mean_k_corr_by_groups_and_chr.png"), 
+       height = 4, width = 6, 
+       units = "in", device = "png")
+ggsave(paste0("../../bee_manuscript/figures/mean_k_corr_by_groups_and_chr.pdf"), 
+       height = 4, width = 6, 
+       units = "in", device = "pdf")
