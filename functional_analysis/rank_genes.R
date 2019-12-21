@@ -8,6 +8,21 @@ library(ggrastr)# to rasterize points but not legends in ggplot graphs
 sig_text = data.frame(FDR = c(0.01, 0.05, 0.1, NA),
                       stars = c("***", "**", "*", "n.s."))
 
+# load qtls
+qtl = read.csv("../data/QTL_markers_Hunt_lab/AMEL_QTLS.csv", sep = ",", stringsAsFactors = F)
+
+# load genome metadata
+# Compute chromosome sizes
+chr_lengths <- read.table("../data/honeybee_genome/chr.list", sep = "\t", stringsAsFactors = F)
+head(chr_lengths)
+colnames(chr_lengths) <- c("scaffold", "length", "chr_group", "chr_lg")
+chr_lengths <- chr_lengths %>%
+  mutate(chr = as.numeric(substr(chr_lg, 3, 100))) %>%
+  arrange(chr) %>%
+  mutate(chr_start = cumsum(length) - length,
+         chr_end = cumsum(length)) %>%
+  mutate(chr_midpoint = (chr_start + chr_end)/2)
+
 #-------------------------------------HAv3.1 Analysis------------------------------------------------------------
 
 # load mean ancestry all snps with ancestry calls genomewide
@@ -775,13 +790,17 @@ sapply(outlier_types, function(x)
 
 # assess overlap with QTLs. top hits? enrichment?
 # first varroa qtls
-hygeine_QTL <- read.table("../data/honeybee_genome/QTLs/Harpur_2019_social_immunity_hygeine/DatasetS1_PreviousAssociated_hygeine_QTLs.txt",
+hygeine_QTL <- read.table("../data/honeybee_genome/Amel_4.5/QTLs/Harpur_2019_social_immunity_hygeine/DatasetS1_PreviousAssociated_hygeine_QTLs.txt",
                           header = T, sep = "\t", stringsAsFactors = F) %>%
   mutate(Scaffold_Start = ifelse(is.na(Scaffold_Start), NA, paste0("Group", Scaffold_Start))) %>%
+  # note: typo, should be Oxley 2010 (2008 was a study on QTLs for worker sterility)
   mutate(Scaffold_End = ifelse(is.na(Scaffold_End), NA, paste0("Group", Scaffold_End)))
-grooming_QTL <- read.table("results/grooming_QTL_Arechavaleta-Velasco_2012.txt",
+grooming_QTL <- read.table("Amel4.5_results/grooming_QTL_Arechavaleta-Velasco_2012.txt",
                            header = T, sep = "\t", stringsAsFactors = F) %>%
   mutate(Outlier_type = "QTL")
+# Using the conservatively chosen confidence intervals forHyg1,2and3, a  total  of 339  known and  putative  geneswere  identified.  Of  these,  218  had  orthologs  with  GeneOntology  annotations  (The  Gene  Ontology  Consortium2000).
+# v3 snp file (with seq. next to it? 250bp..) plus positions of putative QTLs Spoetter 2012: https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.1755-0998.2011.03106.x
+
 # there's also uncap1, uncap2, and rem1 from Oxley et al. 2010 and hyg1-3 but I don't easily have markers: https://onlinelibrary.wiley.com/doi/full/10.1111/j.1365-294X.2010.04569.x
 # ok hyg1-3 are in the harpur list, only the hyg 1 on chr2 was sig.
 # tentative other QTLs from that study: "2 suggested QTLs for uncapping & 1 for removal"
@@ -863,16 +882,7 @@ ggsave("plots/A_frequency_mirrored_plot_AR_CA_FDR_whole_genome.png",
 
 # make a plot 'wide' format 'manhattan style':
 # manhattan style plot
-# Compute chromosome size
 
-#chr_lengths <- varroa_scaffolds_on_chr %>%
-#  mutate(chr = as.numeric(substr(chr, 4, 100))) %>%
-#  group_by(chr) %>%
-#  arrange(chr) %>%
-#  summarise(length = max(stop)) %>%
-#  mutate(chromosome_start = cumsum(length) - length,
-#         chromosome_end = cumsum(length)) %>%
-#  mutate(chromosome_midpoint = (chromosome_start + chromosome_end)/2)
 
 varroa_QTL_cumulative <- varroa_QTL %>%
   left_join(., chr_lengths, by = "chr") %>%
@@ -889,51 +899,69 @@ pretty_label_zone = data.frame(zone = c("CA", "AR"),
                                zone_pretty = c("N. America", "S. America"),
                                #zone_pretty = c("California", "Argentina"),
                                stringsAsFactors = F)
+# buffer for visibility only:
+buffer_4_visibility = 25000*4 # add 50kb for visibility only
 A_AR_CA_cumulative <- A_AR_CA %>%
   mutate(chr_n = as.numeric(substr(chr, 6, 100))) %>% # turn Group11 into 11
   arrange(chr_n) %>% # sort by chromosome order
   tidyr::gather(., "zone", "A_ancestry", c("CA", "AR")) %>%
-  mutate(FDR = apply(., 1, function(x) ifelse(x["zone"] == "CA", 
-                                              min(x[c("FDR_CA_high", "FDR_CA_low")], na.rm = T),
-                                              min(x[c("FDR_AR_high", "FDR_AR_low")], na.rm = T)))) %>%
+  mutate(FDR = sapply(1:nrow(.), function(i) ifelse(.$zone[i] == "CA", 
+                                                    min(.$FDR_CA_high[i], .$FDR_CA_low[i], na.rm = T), 
+                                                    min(.$FDR_AR_high[i], .$FDR_AR_low[i], na.rm = T))),
+         FDR = ifelse(FDR == Inf, NA, FDR)) %>%
+  #mutate(FDR = apply(., 1, function(x) ifelse(x["zone"] == "CA", 
+  #                                            min(x[c("FDR_CA_high", "FDR_CA_low")], na.rm = T),
+  #                                            min(x[c("FDR_AR_high", "FDR_AR_low")], na.rm = T)))) %>%
   mutate(color_by = ifelse(is.na(FDR), ifelse((chr_n %% 2 == 0), # even chromosomes different color
                                                "n.s. - even chr", "n.s. - odd chr"), FDR)) %>%
   left_join(., pretty_label_zone, by = "zone")
 
+# get QTLs:
+QTL = qtl %>%
+  left_join(., chr_lengths, by = c("AMEL_CHR"="scaffold")) %>%
+  # start is the lower one, end is the higher endpoint
+  mutate(start = apply(., 1, function(x) min(as.integer(x[["Start"]]), as.integer(x[["End"]]))),
+         end = apply(., 1, function(x) max(as.integer(x[["Start"]]), as.integer(x[["End"]]))))
+
 # simple plot of outliers, whole genome
 ggplot() + # raster looks pretty terrible -- I could plot instead every 5th or 10th non-sig point or s.t.
-  ggrastr::geom_point_rast(data = A_AR_CA_cumulative %>%
-               filter(is.na(FDR)), # plot grey points first
-             aes(x = cum_pos, y = A_ancestry, 
-                 color = color_by), size = .02,
-             raster.dpi = 600) +
-             #, raster.height = 5, raster.width = 10) +
   #ggrastr::geom_point_rast(data = A_AR_CA_cumulative %>%
-  #             filter(!is.na(FDR)), # then plot sig points on top 
+  #             filter(is.na(FDR)), # plot grey points first
   #           aes(x = cum_pos, y = A_ancestry, 
   #               color = color_by), size = .02,
   #           raster.dpi = 600) +
-             #, raster.height = 5, raster.width = 10) +
+  geom_point(data = (A_AR_CA_cumulative %>% # plot grey points first; every 10th point only
+                    filter(is.na(FDR)))[c(T, rep(F, 9)), ], 
+                  aes(x = cum_pos, y = A_ancestry, 
+                      color = color_by), size = .02) +
   geom_point(data = A_AR_CA_cumulative %>%
                              filter(!is.na(FDR)), # then plot sig points on top 
                            aes(x = cum_pos, y = A_ancestry, 
                                color = color_by), size = .02) +
   xlab("Position (bp)") +
   ylab("mean African ancestry") +
-  scale_colour_manual(name = NULL,
-                      values = c("0.01"="red", "0.05"="orange", "0.10"="skyblue", 
-                                 "n.s. - even chr"="darkgrey", 
-                                 "n.s. - odd chr"="grey"),
-                      limits = c("0.01", "0.05", "0.10"),
-                      labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
-  ) + 
-  geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
+  #scale_colour_manual(name = NULL,
+  #                    values = c("0.01"="red", "0.05"="orange", "0.10"="skyblue", 
+  #                               "n.s. - even chr"="darkgrey", 
+  #                               "n.s. - odd chr"="grey"),
+  #                    limits = c("0.01", "0.05", "0.10"),
+  #                    labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
+  #) + 
+  geom_segment(data = left_join(rename(outliers_all, scaffold = chr) %>%
+                                  rename(., length_outlier = length), 
                                 chr_lengths, by = "scaffold") %>%
                  #mutate(cum_start = start + chr_start,
                   #      cum_end = end + chr_start)
                  filter(outlier_type == "high_shared"),
-               aes(x = start + chr_start - 25000, xend = end + chr_start + 25000, # add 50kb for visibility only
+               aes(x = start + chr_start - buffer_4_visibility, 
+                   xend = end + chr_start + buffer_4_visibility, # add 50kb for visibility only
                    y = 0.7, yend = 0.7, color = min_FDR),
+               lwd = 4) +
+  # add in QTLs:
+  geom_segment(data = QTL,
+               aes(x = start + chr_start - buffer_4_visibility, # add 50kb for visibility only
+                   xend = end + chr_start + buffer_4_visibility, 
+                   y = 0.7, yend = 0.7, color = Publication),
                lwd = 4) +
   scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
   #theme(legend.position = "none") +
