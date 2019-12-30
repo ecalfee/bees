@@ -408,6 +408,7 @@ meta.AR.order.by.lat <- data.frame(population = pops_by_lat, stringsAsFactors = 
   filter(zone == "S. America") %>%
   mutate(abs_lat_SA_c = abs(lat) - mean(abs(lat))) # absolute latitude centered for SA
 save(file = "results/pops_by_lat.RData", list = c("pops_by_lat", "meta.pop", "meta.AR.order.by.lat"))
+save(file = "results/meta.RData", list = c("meta.ind", "meta.pop", "pops_by_lat", "meta.AR.order.by.lat"))
 
 # get SNP sites where ancestry was called
 sites0 <- read.table("results/SNPs/combined_sept19/chr.var.sites", stringsAsFactors = F,
@@ -433,9 +434,6 @@ popA <- lapply(pops_by_lat, function(p) read.table(paste0(dir_results, "/anc/", 
 A <- do.call(cbind, popA)
 rm(popA)
 colnames(A) <- pops_by_lat
-
-# save ancestry data for later access:
-save(file = "results/A.RData", list = c("A", "sites"))
 
 popM <- lapply(pops_by_lat, function(p) read.table(paste0(dir_results, "/anc/", p, ".M.anc"),
                                             stringsAsFactors = F))
@@ -583,6 +581,9 @@ meanA_AR <- apply(AR_A, 1, function(x) sum(x*AR_pops_included$n_bees)/sum(AR_pop
 meanA <- apply(A[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
                function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(CA_pops_included$n_bees, AR_pops_included$n_bees)))
 
+# save ancestry data for later access:
+save(file = "results/A.RData", list = c("A", "sites", "meanA"))
+
 # make plots - all loci, mean ancestry across all pops
 png("plots/histogram_A_ancestry_all_loci.png", height = 6, width = 8, units = "in", res = 300)
 hist(meanA, main = "all loci: mean ancestry across populations")
@@ -711,18 +712,10 @@ zAnc_bees = make_K_calcs(t(A[ , pops_by_lat]))
 AR_pops_S <- names(zAnc_bees$alpha[zAnc_bees$alpha < .5 & names(zAnc_bees$alpha) %in% AR_pops_included$population])
 AR_pops_N <- names(zAnc_bees$alpha[zAnc_bees$alpha >= .5 & names(zAnc_bees$alpha) %in% AR_pops_included$population])
 CA_pops <- CA_pops_included$population
-#melt(cov2cor(zAnc_bees$K)[lower.tri(zAnc_bees$K, diag = F)]) %>%
-get_mean_corr_from_K <- function(K){
-  lower_tri <- cov2cor(K)
+
+get_mean_from_K <- function(K){ # for covariance use K, for correlation set K = cov2cor(K)
+  lower_tri <- K
   lower_tri[lower.tri(lower_tri, diag = T)] <- NA # ignore variances and repeats
-  k_lower_tri <- melt(lower_tri) %>%
-    mutate(CA_CA = Var1 %in% CA_pops & Var2 %in% CA_pops) %>%
-    mutate(ARS_ARS = Var1 %in% AR_pops_S & Var2 %in% AR_pops_S) %>%
-    mutate(ARN_ARN = Var1 %in% AR_pops_N & Var2 %in% AR_pops_N) %>%  
-    mutate(ARN_ARS = (Var1 %in% AR_pops_N & Var2 %in% AR_pops_S) | (Var1 %in% AR_pops_S & Var2 %in% AR_pops_N)) %>%  
-    mutate(CA_ARS = (Var1 %in% AR_pops_S & Var2 %in% CA_pops) | (Var1 %in% CA_pops & Var2 %in% AR_pops_S)) %>%
-    mutate(CA_ARN = (Var1 %in% AR_pops_N & Var2 %in% CA_pops) | (Var1 %in% CA_pops & Var2 %in% AR_pops_N)) %>%
-    mutate(check = CA_CA + ARS_ARS + ARN_ARN + CA_ARS + CA_ARN + ARN_ARS)
   k_lower_tri <- melt(lower_tri) %>%
     filter(!is.na(value)) %>%
     mutate(type = ifelse(Var1 %in% CA_pops & Var2 %in% CA_pops, "CA_CA",
@@ -737,12 +730,16 @@ get_mean_corr_from_K <- function(K){
     summarise(mean_anc_corr = mean(value))
   return(mean_corr)
 }
-mean_corr_k <- get_mean_corr_from_K(zAnc_bees$K)
+mean_corr_k <- get_mean_from_K(cov2cor(zAnc_bees$K))
 mean_corr_k
 mean_corr_k %>%
   write.table(., "results/mean_anc_corr_grouped.txt",
               col.names = T, row.names = F, quote = F, sep = "\t")
-
+mean_cov_k <- get_mean_from_K(zAnc_bees$K)
+mean_cov_k
+mean_cov_k %>%
+  write.table(., "results/mean_anc_cov_grouped.txt",
+              col.names = T, row.names = F, quote = F, sep = "\t")
 
 melt(lower_tri) %>% 
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 

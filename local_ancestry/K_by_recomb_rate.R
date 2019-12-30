@@ -4,6 +4,7 @@ library(ggplot2)
 library(viridis)
 library(bedr)
 library(rethinking)
+library(Hmisc)
 source("../colors.R") # for color palette
 source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
 
@@ -13,6 +14,8 @@ source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # i
 
 # I need to load the local ancestry data from plotLocalAncestryTracts.R:
 # objects: A, meta.ind, meta.pop, sites
+load("results/A.RData") # c("A", "sites", "meanA)
+load("results/meta.RData") # c("meta.ind", "meta.pop", "pops_by_lat", "meta.AR.order.by.lat")
 
 # load recombination rates:
 rmap <- read.table("../data/recomb_map/Wallberg_HAv3.1/map_rates_extended_10kb.bed",
@@ -29,35 +32,40 @@ table(rmap$r_bin5) # good, each bin includes 20% of windows
 levels(rmap$r_bin5)
 
 # map recombination rates (and bins/quintiles) onto sites
-sites_r <- bedr(
-  engine = "bedtools", 
-  input = list(a = dplyr::mutate(sites, start = pos - 1, end = pos) %>%  # make 0 index for bedtools
-                 dplyr::select(chr, start, end, pos, scaffold, chr_n, chr_start, cum_pos),
-               b = rmap), 
-  method = "map", 
-  # cM_Mb is col 4 and r_bin5 is col 6
-  params = "-g ../data/honeybee_genome/chr_names.lengths -c 4,6 -o collapse", 
-  check.chr = F
-) 
-colnames(sites_r) <- c("chr", "start", "end", "pos", "scaffold", 
-                       "chr_n", "chr_start", "cum_pos", "cM_Mb", "r_bin5")
-sites_r$cM_Mb <- as.numeric(sites_r$cM_Mb)
-sites_r$pos <- as.numeric(sites_r$pos)
-sites_r$chr_n <- as.numeric(sites_r$chr_n)
-sites_r$cum_pos <- as.numeric(sites_r$cum_pos)
-sites_r$chr_start <- as.numeric(sites_r$chr_start)
-sites_r$r_bin5_factor <- factor(sites_r$r_bin5, levels = levels(rmap$r_bin5),
-                                ordered = T)
-sites_r$r_bin5 <- as.numeric(sites_r$r_bin5_factor) # translate to 1-5 numbers
-# negative correlation between being a tight snp and high recombination rate, even when we exclude Group11
-cor(A_clines1$b_lat[sites_r$chr] <= quantile(A_clines1$b_lat, .01), sites_r$cM_Mb)
-cor(A_clines1$b_lat[sites_r$chr != "Group11"] <= quantile(A_clines1$b_lat, .01), sites_r$cM_Mb[sites_r$chr != "Group11"])
+rerun_sites_r = F
+if (rerun_sites_r){
+  sites_r <- bedr(
+    engine = "bedtools", 
+    input = list(a = dplyr::mutate(sites, start = pos - 1, end = pos) %>%  # make 0 index for bedtools
+                   dplyr::select(chr, start, end, pos, scaffold, chr_n, chr_start, cum_pos),
+                 b = rmap), 
+    method = "map", 
+    # cM_Mb is col 4 and r_bin5 is col 6
+    params = "-g ../data/honeybee_genome/chr_names.lengths -c 4,6 -o collapse", 
+    check.chr = F
+  ) 
+  colnames(sites_r) <- c("chr", "start", "end", "pos", "scaffold", 
+                         "chr_n", "chr_start", "cum_pos", "cM_Mb", "r_bin5")
+  sites_r$cM_Mb <- as.numeric(sites_r$cM_Mb)
+  sites_r$pos <- as.numeric(sites_r$pos)
+  sites_r$chr_n <- as.numeric(sites_r$chr_n)
+  sites_r$cum_pos <- as.numeric(sites_r$cum_pos)
+  sites_r$chr_start <- as.numeric(sites_r$chr_start)
+  sites_r$r_bin5_factor <- factor(sites_r$r_bin5, levels = levels(rmap$r_bin5),
+                                  ordered = T)
+  sites_r$r_bin5 <- as.numeric(sites_r$r_bin5_factor) # translate to 1-5 numbers
+  
+  #head(sites_r)
+  str(sites_r)
+  table(sites_r$r_bin5_factor)
+  table(is.na(sites_r$r_bin5_factor))
+  levels(sites_r$r_bin5_factor)
+  save(sites_r, file = "results/sites_r.RData")
+} else{
+  load("results/sites_r.RData")
+}
 
-str(sites_r)
-table(sites_r$r_bin5_factor)
-table(is.na(sites_r$r_bin5_factor))
-levels(sites_r$r_bin5_factor)
-save(sites_r, file = "results/sites_r.RData")
+
 
 # look at mean A ancestry across recombination bins:
 cbind(sites_r, meanA) %>%
@@ -82,22 +90,19 @@ A_r %>%
   geom_point() +
   facet_wrap(~zone)
 
-# I test and find that mean cline isn't steeper for low recombination rate regions:
-# nor does mean A change with recombination rate bin
+# I test and find that mean cline is the tiniest bit steeper for low recombination rate regions (but high uncertainty(:
+# but center of the clines show no consistent pattern
+# includes N and S America jointly..maybe better to split them up
 m_lat_r_mean_cline <- map2stan( # quadratic approximation of the posterior MAP
   alist(
     A ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
     # beta distribution provided by the 'rethinking' package
     # where mean probability 'prob' = a/(a+b) and parameter 'theta' = a+b
     # are used instead of shape1 = a and shape2 = b
-    logit(p) <- mu + b_lat[r_bin5_number]*abs_lat_c + b_r*r_bin5_number_c,
-    mu ~ dnorm(0, 5),
+    logit(p) <- mu[r_bin5_number] + b_lat[r_bin5_number]*abs_lat_c,
+    mu[r_bin5_number] ~ dnorm(0, 5),
     theta ~ dcauchy(0, 2), # allows it to sample large #s as needed
-    b_lat[r_bin5_number] ~ dnorm(0, 5),
-    #b_lat[r_bin5_number] ~ dnorm(b_lat_mean, b_lat_theta), # hierarchical model for effect of latitude
-    #b_lat_mean ~ dnorm(0, 5),
-    #b_lat_theta ~ dcauchy(0, 2),
-    b_r ~ dnorm(0,5)
+    b_lat[r_bin5_number] ~ dnorm(0, 5)
   ),
   data = A_r,
   iter = 2000, warmup = 1000, chains = 2, cores = 2)
@@ -105,8 +110,10 @@ write.table(precis(m_lat_r_mean_cline, depth = 2)@output,
             "results/m_lat_r_mean_cline_model_summary.txt",
             row.names = T, col.names = T)
 precis(m_lat_r_mean_cline, depth = 2)
+precis(m_lat_r_mean_cline, depth = 2)@output
 pairs(m_lat_r_mean_cline)
 plot(m_lat_r_mean_cline) # there are warnings from STAN about 1 divergent transition, but chains look ok
+# HOWEVER, probably not how I want to analyze these with a beta dist...perhaps better just using nls()
 
 
 
@@ -181,7 +188,7 @@ for (a in 1:5){
 pop_alpha_genomewide <- apply(A[ , pops_by_lat], 2, mean)
 K_byr2 <- lapply(1:5, function(r)
   calcK(ancFreqMatrix = t(A[sites_r$r_bin5 == r, pops_by_lat]),
-        alpha = pop_alpha_genomewide))
+        alpha = pop_alpha_genomewide[pops_by_lat]))
 # make new plots:
 for (a in 1:5){
   melt(K_byr2[[a]]) %>%
@@ -220,9 +227,11 @@ for (a in 1:5){
 # the effect -- mean slope doesn't get steeper, but top 1% are in low r regions
 
 # calculate mean correlations for different recombination rate bins:
-# function from plotLocalAncestryTracts.R:
+# function get_mean_from_K needs to be loaded from plotLocalAncestryTracts.R:
+zAnc_bees <- make_K_calcs(t(A[ , pops_by_lat]))
+mean_corr_k <- get_mean_from_K(cov2cor(zAnc_bees$K))
 mean_corrs0 <- do.call(rbind,
-                      lapply(1:5, function(k) get_mean_corr_from_K(K_byr[[k]]$K) %>%
+                      lapply(1:5, function(k) get_mean_from_K(cov2cor(K_byr[[k]]$K)) %>%
                                mutate(r_bin5 = k))) %>%
   left_join(., distinct(dplyr::select(sites_r, c("r_bin5", "r_bin5_factor"))), by = "r_bin5")
 
@@ -255,22 +264,47 @@ ggsave(paste0("../../bee_manuscript/figures/mean_k_corr_by_groups_and_r.pdf"),
 
 # is this finding robust across all chromosomes?
 K_by_chr <- lapply(1:16, function(chr)
-  make_K_calcs(t(A[sites_r$chr_n == chr, pops_by_lat])))
+  calcK(t(A[sites_r$chr_n == chr, pops_by_lat]),
+               alpha = pop_alpha_genomewide[pops_by_lat]))
+
 mean_corrs_chr <- do.call(rbind,
-                       lapply(1:16, function(k) get_mean_corr_from_K(K_by_chr[[k]]$K) %>%
+                       lapply(1:16, function(k) get_mean_from_K(cov2cor(K_by_chr[[k]])) %>%
                                 mutate(chr_n = k))) %>%
   left_join(., pair_types, by = "type")
+mean_covs_chr <- do.call(rbind,
+                          lapply(1:16, function(k) get_mean_from_K(K_by_chr[[k]]) %>%
+                                   mutate(chr_n = k))) %>%
+  left_join(., pair_types, by = "type")
 
+
+# plot with bars representing all chromosomes:
 mean_corrs_chr %>%
-  ggplot(., aes(x = label, y = mean_anc_corr, color = factor(chr_n), shape = factor(chr_n))) +
-  geom_jitter(width = .2) +
+  ggplot(., aes(x = label, y = mean_anc_corr)) +
+
+  #stat_summary(data = mean_corrs_chr, #%>%
+               #filter(!(chr_n %in% c(1, 11))),
+  #             mapping = aes(x = label, y = mean_anc_corr),
+  #             fun.y = "mean", 
+  #             geom = "point",
+  #             color = "black",
+  #             fill = "black",
+   #            shape = 23) +
+  geom_jitter(aes(color = factor(chr_n), shape = factor(chr_n)), width = .2) +
   ylab("Mean Ancestry Correlation") +
   theme_classic() +
   xlab("") +
-  scale_color_viridis_d(name = "Chr", labels = 1:16, option = "D") +
-  scale_shape_manual(name = "Chr",
+  stat_summary(data = mean_corrs_chr, #%>%
+               #filter(!(chr_n %in% c(1, 11))),
+               mapping = aes(x = label, y = mean_anc_corr),
+               fun.data = "mean_cl_normal", 
+               geom = "errorbar",
+               color = "black",
+               width = .3) +
+  scale_color_viridis_d(name = "Chromosome", labels = 1:16, option = "D") +
+  scale_shape_manual(name = "Chromosome",
                      labels = 1:16,
                      values = rep(c(1:3,19), 10)[1:16]) +
+  guides(color=guide_legend(ncol=2)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   ggtitle("Ancestry correlations by chromosome")
 ggsave(paste0("plots/mean_k_corr_by_groups_and_chr.png"), 
@@ -279,3 +313,157 @@ ggsave(paste0("plots/mean_k_corr_by_groups_and_chr.png"),
 ggsave(paste0("../../bee_manuscript/figures/mean_k_corr_by_groups_and_chr.pdf"), 
        height = 4, width = 6, 
        units = "in", device = "pdf")
+
+# plot with bars representing 95% CI from t-test excluding outlier chromosome 1 and 11:
+mean_corrs_chr %>%
+  ggplot(., aes(x = label, y = mean_anc_corr)) +
+
+  #stat_summary(data = mean_corrs_chr %>%
+  #             filter(!(chr_n %in% c(1, 11))),
+  #             mapping = aes(x = label, y = mean_anc_corr),
+  #             fun.y = "mean", 
+  #             geom = "point",
+  #             color = "black",
+  #             fill = "black",
+  #             shape = 23) +
+  geom_jitter(aes(color = factor(chr_n), shape = factor(chr_n)), width = .2) +
+  ylab("Mean Ancestry Correlation") +
+  theme_classic() +
+  xlab("") +
+  stat_summary(data = mean_corrs_chr %>%
+                 filter(!(chr_n %in% c(1, 11))),
+               mapping = aes(x = label, y = mean_anc_corr),
+               fun.data = "mean_cl_normal", 
+               geom = "errorbar",
+               color = "black",
+               width = .3) +
+  scale_color_viridis_d(name = "Chromosome", labels = 1:16, option = "D") +
+  scale_shape_manual(name = "Chromosome",
+                     labels = 1:16,
+                     values = rep(c(1:3,19), 10)[1:16]) +
+  guides(color=guide_legend(ncol=2)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Ancestry correlations by chromosome")
+ggsave(paste0("plots/mean_k_corr_by_groups_and_chr_outliers_chr1and11.png"), 
+       height = 4, width = 6, 
+       units = "in", device = "png")
+ggsave(paste0("../../bee_manuscript/figures/mean_k_corr_by_groups_and_chr_outliers_chr1and11.pdf"), 
+       height = 4, width = 6, 
+       units = "in", device = "pdf")
+
+# run t-tests: I'm not sure if we expect there to be correlation across chromosomes (paired t-test) or not. I run both test, all sig.
+with(filter(mean_corrs_chr, type %in%  c("CA_ARS", "ARN_ARS")), t.test(mean_anc_corr ~ type), alternative = "two.sided")
+with(filter(mean_corrs_chr, type %in%  c("CA_ARS", "ARN_ARS") &
+              !(chr_n %in% c(1, 11))), t.test(mean_anc_corr ~ type), alternative = "two.sided")
+with(filter(mean_corrs_chr, type %in%  c("CA_ARS", "ARN_ARS")) %>% arrange(chr_n), 
+     t.test(mean_anc_corr ~ type, paired = T))
+with(filter(mean_corrs_chr, type %in%  c("CA_ARS", "ARN_ARS") &
+              !(chr_n %in% c(1, 11))) %>% arrange(chr_n), 
+     t.test(mean_anc_corr ~ type, paired = T))
+
+
+# plot covariances:
+# plot with bars representing all chromosomes:
+mean_covs_chr %>%
+  ggplot(., aes(x = label, y = mean_anc_corr)) +
+  
+  #stat_summary(data = mean_covs_chr, #%>%
+  #filter(!(chr_n %in% c(1, 11))),
+  #             mapping = aes(x = label, y = mean_anc_corr),
+  #             fun.y = "mean", 
+  #             geom = "point",
+  #             color = "black",
+  #             fill = "black",
+  #            shape = 23) +
+  geom_jitter(aes(color = factor(chr_n), shape = factor(chr_n)), width = .2) +
+  ylab("Mean Ancestry Covariance") +
+  theme_classic() +
+  xlab("") +
+  stat_summary(data = mean_covs_chr %>%
+               filter(!(chr_n %in% c(1, 11))),
+               mapping = aes(x = label, y = mean_anc_corr),
+               fun.data = "mean_cl_normal", 
+               geom = "errorbar",
+               color = "black",
+               width = .3) +
+  scale_color_viridis_d(name = "Chromosome", labels = 1:16, option = "D") +
+  scale_shape_manual(name = "Chromosome",
+                     labels = 1:16,
+                     values = rep(c(1:3,19), 10)[1:16]) +
+  guides(color=guide_legend(ncol=2)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Ancestry covariances by chromosome")
+ggsave(paste0("plots/mean_k_cov_by_groups_and_chr.png"), 
+       height = 4, width = 6, 
+       units = "in", device = "png")
+ggsave(paste0("../../bee_manuscript/figures/mean_k_cov_by_groups_and_chr.pdf"), 
+       height = 4, width = 6, 
+       units = "in", device = "pdf")
+# clearly these covariances aren't diff.
+with(filter(mean_covs_chr, type %in%  c("CA_ARS", "ARN_ARS")), t.test(mean_anc_corr ~ type), alternative = "two.sided")
+with(filter(mean_covs_chr, type %in%  c("CA_ARS", "ARN_ARS") &
+              !(chr_n %in% c(1, 11))), t.test(mean_anc_corr ~ type), alternative = "two.sided")
+with(filter(mean_covs_chr, type %in%  c("CA_ARS", "ARN_ARS")) %>% arrange(chr_n), 
+     t.test(mean_anc_corr ~ type, paired = T))
+with(filter(mean_covs_chr, type %in%  c("CA_ARS", "ARN_ARS") &
+              !(chr_n %in% c(1, 11))) %>% arrange(chr_n), 
+     t.test(mean_anc_corr ~ type, paired = T))
+
+# plot standardized covariances instead of correlations: 
+# i.e. dividing by sqrt(2*alpha1*(1-alpha1)*2*alpha2*(1-alpha2)) for mean ancestry in pops 1 and 2 
+# like we would for extracting drift out of co-varying allele freqs:
+standardize_k <- function(K, alpha){
+  v = sqrt(2*alpha*(1-alpha))
+  K/outer(v, v, "*") # divide to standardize
+}
+standardize_k(K = matrix(1, 2, 2), alpha = c(.25, .5))
+mean_sd_cov_chr <- do.call(rbind,
+                          lapply(1:16, function(k) get_mean_from_K(standardize_k(K_by_chr[[k]], 
+                                                                                 alpha = pop_alpha_genomewide[colnames(K_by_chr[[k]])])) %>%
+                                   mutate(chr_n = k))) %>%
+  left_join(., pair_types, by = "type")
+mean_sd_cov_chr %>%
+  ggplot(., aes(x = label, y = mean_anc_corr)) +
+  
+  #stat_summary(data = mean_sd_cov_chr, #%>%
+  #filter(!(chr_n %in% c(1, 11))),
+  #             mapping = aes(x = label, y = mean_anc_corr),
+  #             fun.y = "mean", 
+  #             geom = "point",
+  #             color = "black",
+  #             fill = "black",
+  #            shape = 23) +
+  geom_jitter(aes(color = factor(chr_n), shape = factor(chr_n)), width = .2) +
+  ylab("Mean Ancestry Covariance (Standardized)") +
+  theme_classic() +
+  xlab("") +
+  stat_summary(data = mean_sd_cov_chr,# %>%
+                 #filter(!(chr_n %in% c(1, 11))),
+               mapping = aes(x = label, y = mean_anc_corr),
+               fun.data = "mean_cl_normal", 
+               geom = "errorbar",
+               color = "black",
+               width = .3) +
+  scale_color_viridis_d(name = "Chromosome", labels = 1:16, option = "D") +
+  scale_shape_manual(name = "Chromosome",
+                     labels = 1:16,
+                     values = rep(c(1:3,19), 10)[1:16]) +
+  guides(color=guide_legend(ncol=2)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Ancestry covariances by chromosome")
+ggsave(paste0("plots/mean_k_standardized_cov_by_groups_and_chr.png"), 
+       height = 4, width = 6, 
+       units = "in", device = "png")
+ggsave(paste0("../../bee_manuscript/figures/mean_k_standardized_cov_by_groups_and_chr.pdf"), 
+       height = 4, width = 6, 
+       units = "in", device = "pdf")
+# t-tests
+with(filter(mean_sd_cov_chr, type %in%  c("CA_ARS", "ARN_ARS")), t.test(mean_anc_corr ~ type), alternative = "two.sided")
+with(filter(mean_sd_cov_chr, type %in%  c("CA_ARS", "ARN_ARS") &
+              !(chr_n %in% c(1, 11))), t.test(mean_anc_corr ~ type), alternative = "two.sided")
+with(filter(mean_sd_cov_chr, type %in%  c("CA_ARS", "ARN_ARS")) %>% arrange(chr_n), 
+     t.test(mean_anc_corr ~ type, paired = T))
+with(filter(mean_sd_cov_chr, type %in%  c("CA_ARS", "ARN_ARS") &
+              !(chr_n %in% c(1, 11))) %>% arrange(chr_n), 
+     t.test(mean_anc_corr ~ type, paired = T))
+     

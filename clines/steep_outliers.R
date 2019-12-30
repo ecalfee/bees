@@ -1,3 +1,5 @@
+# no longer fitting steep clines this way -- see instead nls_multistart_logistic_clines etc. in clines/
+
 library(dplyr)
 library(tidyr)
 library(ggplot2)

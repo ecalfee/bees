@@ -2239,7 +2239,7 @@ str(fit_lat)
 
 
 # load in individual snp clines
-a0 <- a
+#a0 <- a
 a <- read.table("results/ind_snp_nls_clines/A1.txt", # data subset
            header = T,
            stringsAsFactors = F)
@@ -2252,8 +2252,7 @@ load(paste0("../local_ancestry/results/A.RData"))
 load(paste0("../local_ancestry/results/pops_by_lat.RData"))
 i = sample(no_fit, 1)
 i = sample(1:nrow(a)[-no_fit], 1)
-plot_a_cline(sample(1:nrow(a)[-no_fit], 1))
-plot_a_cline(i = sample(no_fit, 1))
+
 plot_a_cline <- function(i){
   plot(meta.AR.order.by.lat$lat, 
      A[i, meta.AR.order.by.lat$population],
@@ -2286,7 +2285,8 @@ curve(logistic(a0$mu[i] + a0$b[i]*
       lwd = 2, 
       lty = 2)
 }
-
+plot_a_cline(sample(1:nrow(a)[-no_fit], 1))
+plot_a_cline(i = sample(no_fit, 1))
 i0 <- 31104
 d0 <- data.frame(A = unname(t(A[i0, meta.AR.order.by.lat$population])),
                  lat = meta.AR.order.by.lat$lat)
@@ -2385,8 +2385,20 @@ qqplot(mvn_zero$params$estimate[mvn_zero$params$term == "mu"], clines$params$est
 #qqplot(mvn_zero$params$estimate[mvn_zero$params$term == "mu"], mvn$params$estimate[mvn$params$term == "mu"])
 abline(a = 0, b = 1, col = "blue")
 qqplot(mvn_zero$params$estimate[mvn_zero$params$term == "b"], clines$params$estimate[clines$params$term == "b"])
+abline(a = 0, b = 1, col = "blue")
 qqplot(mvn_zero$params$estimate[mvn_zero$params$term == "b"], mvn$params$estimate[mvn$params$term == "b"])
 abline(a = 0, b = 1, col = "blue")
+qqplot(mvn$params$estimate[mvn_zero$params$term == "b"], clines$params$estimate[mvn$params$term == "b"])
+abline(a = 0, b = 1, col = "blue")
+
+par(mfrow=c(1,3))
+# mu vs. b at the same snps
+plot(clines$params$estimate[clines$params$term == "mu"], clines$params$estimate[clines$params$term == "b"], ylim = c(0,1))
+# in the neutral model mu vs. b
+plot(mvn_zero$params$estimate[clines$params$term == "mu"], mvn_zero$params$estimate[clines$params$term == "b"], ylim = c(0,1))
+plot(mvn$params$estimate[clines$params$term == "mu"], mvn$params$estimate[clines$params$term == "b"], ylim = c(0,1))
+par(mfrow=c(1,1))
+# mu and b across the genome
 
 # what is the FDR?
 #FDR_values = c(.1, .05, .01)
@@ -2766,9 +2778,123 @@ dev.off()
 
 # re-do calculation of enrichment for steep clines in regions of the genome with low recombination rates
 load("../local_ancestry/results/sites_r.RData") # load recombination rate data by sites
-steepest_clines <- which(clines$params$estimate[clines$params$term == "b"] >= 
-                           quantile(clines$params$estimate[clines$params$term == "b"], .99))
+steepest_clines <- clines$params$estimate[clines$params$term == "b"] > 
+                           quantile(clines$params$estimate[clines$params$term == "b"], .99)
+steepest_clines05 <- clines$params$estimate[clines$params$term == "b"] > # top 5% 
+                           quantile(clines$params$estimate[clines$params$term == "b"], .95)
 table(sites_r$r_bin5[steepest_clines])
+table(sites_r$r_bin5)
+# calc. enrichment of steepest clines in regions of the genome with low recombination rates:
+table(sites_r$r_bin5[steepest_clines])/table(sites_r$r_bin5)
+table(sites_r$r_bin5[steepest_clines05])/table(sites_r$r_bin5)
+# (will bootstrap conf. intervals)
+# does this pattern hold across all chromosomes? Small # outliers.. this doesn't really make sense to do with small #s
+sites_r %>%
+  mutate(steepest_clines = steepest_clines,
+         steepest_clines05 = steepest_clines05) %>%
+  group_by(chr, r_bin5) %>%
+  summarise(n = n(),
+            steepest_clines05_perc = sum(steepest_clines05)/n,
+            steepest_clines01_perc = sum(steepest_clines)/n) %>%
+  arrange(r_bin5) %>%
+  View(.)
+# how are the outliers distributed across chromosomes? Top 5% on all chr. Top 1% on all chr except 16.
+sites_r %>%
+  mutate(steepest_clines = steepest_clines,
+         steepest_clines05 = steepest_clines05) %>%
+  group_by(chr) %>%
+  summarise(n = n(),
+            steepest_clines05 = sum(steepest_clines05),
+            steepest_clines01 = sum(steepest_clines))
+table(sites_r$r_bin5[steepest_clines05])/table(sites_r$r_bin5)
+
+# show across genome:
+sites_r %>%
+  mutate(., b = clines$params$estimate[clines$params$term == "b"],
+         percentile = sapply(1:nrow(sites_r), function(i) 
+           ifelse(steepest_clines[i], "1%", 
+                  ifelse(steepest_clines05[i], "5%", "n.s")))) %>%
+  #filter(chr %in% c("Group1", "Group11")) %>%
+  ggplot(., aes(x = pos, y = b, color = percentile)) +
+  geom_point() +
+  facet_wrap(~chr)
+
+# for bootstrap divide genome into 0.2cM windows (see script divide_map_0.2cM_windows.R):
+rmap2 <- read.table("../data/recomb_map/Wallberg_HAv3.1/map_10kb_in_0.2cM_windows.bed", stringsAsFactors = F , 
+                    header = T , sep = "\t")
+# associate each site with an ancestry call with a 0.2cM window
+sites_r_windows <- bedr(
+  engine = "bedtools", 
+  input = list(a = dplyr::select(sites_r, chr, pos) %>% # take just center position & find window
+                 mutate(start = pos - 1) %>%
+                 mutate(end = pos) %>%
+                 dplyr::select(., chr, start, end),
+               b = rmap2), 
+  method = "map", 
+  params = "-g ../data/honeybee_genome/chr.lengths.by.name -c 4 -o mean",
+  check.chr = F
+) %>%
+  data.table::setnames(c("chr", "ignore", "pos", "window_0.2cM")) %>%
+  dplyr::select(., chr, pos, window_0.2cM) %>%
+  mutate(pos = as.integer(pos), window_0.2cM = as.integer(window_0.2cM)) %>%
+  left_join(sites_r, ., 
+            by = c("chr", "pos"))
+head(sites_r_windows)
+sites_r_windows = sites_r_windows %>%
+  group_by(window_0.2cM) %>%
+  summarise(n = n()) %>%
+  left_join(sites_r_windows, ., by = "window_0.2cM") %>%
+  mutate(b = clines$params$estimate[clines$params$term == "b"]) # add slope
+
+# citation for block bootstrap with genomic data: Bickel, P. J., Boley, N., Brown, J. B., Huang, H., & Zhang, N. R. (2010). Subsampling Methods for Genomic Inference.The Annals ofApplied Statistics,4(4), 1660-1697.http://dx.doi.org/10.1214/10-AOAS363
+# this follows ENCODE Strategy..generally though they deal with homogeneous blocks..and it's overly conservative if blocks are not homogeneous...better to segment the blocks in this case.
+# other possible publication to look at : https://www.jstor.org/stable/2290993?seq=1#metadata_info_tab_contents
+
+top_1perc = quantile(sites_r_windows$b, 0.99)
+top_5perc = quantile(sites_r_windows$b, 0.95)
+
+save(file = "results/sites_r_windows_steep_slopes.RData",
+     list = c("sites_r_windows", "top_1perc", "top_5perc"))
+
+
+# bootstrapping moved to it's own script -- bootstrap_steep_clines.R                                  
+#set.seed(200)
+#b = bootstrap_steep_clines(windows_with_data = windows_with_data, n_windows = n_windows, name = "test_boot")
+#bootstrap_steep_clines(windows_with_data = split(max_clines, max_clines$window_0.2cM), n_windows = nrow(max_clines), name = "test_boot")
+
+# can alternatively bootstrap using just the steepest cline for any 0.2cM window:
+# or one random cline for a 0.2cM window.
+#max_clines <- sites_r_windows %>%
+#  mutate(b = clines$params$estimate[clines$params$term == "b"]) %>% # add slope
+#  group_by(., sites_r_windows$window_0.2cM) %>%
+#  arrange(., sample(1:nrow(.), replace = F)) %>% # randomly permute order
+#  arrange(., desc(b)) %>% # move highest b (steepest slope) to top
+#  filter(!duplicated(window_0.2cM)) # keep the first site with the highest slope
+#max_clines %>%
+#  group_by(., r_bin5) %>%
+#  summarise(perc1 = sum(b > quantile(max_clines$b, .99))/n(),
+#            perc5 = sum(b > quantile(max_clines$b, .95))/n(),
+#            n = n())
+
+plot(sites_r$cM_Mb, clines$params$estimate[clines$params$term == "b"], main = "slope b by r (cM/Mb)")
+non_outlier_cline_center = abs(clines$params$estimate[clines$params$term == "mu"] - mean(clines$params$estimate[clines$params$term == "mu"])) < 1
+plot(sites_r$cM_Mb[non_outlier_cline_center], 
+     clines$params$estimate[clines$params$term == "b"][non_outlier_cline_center], 
+     main = "non-outlier centers: slope b by r (cM/Mb)")
+# % of overall points with ancestry calls in lowest recombination bin vs. % steepest clines in lowest recombination bin
+table(sites_r$r_bin5)/nrow(sites_r)
+table(sites_r$r_bin5[steepest_clines])/nrow(sites_r[steepest_clines,])
+table(sites_r$r_bin5[steepest_clines05])/nrow(sites_r[steepest_clines05,])
+table(sites_r$r_bin5[steepest_clines05 & non_outlier_cline_center])/table(sites_r$r_bin5[non_outlier_cline_center])
+
+
+mutate(sites_r, b = clines$params$estimate[clines$params$term == "b"]) %>%
+  group_by(r_bin5) %>%
+  summarise(mean = mean(b))
+mutate(sites_r, b = clines$params$estimate[clines$params$term == "b"]) %>% # still true if I exclude clines with somewhat skewed centers
+  filter(non_outlier_cline_center) %>%
+  group_by(r_bin5) %>%
+  summarise(mean = mean(b))
 
 cbind(sites_r, clines$params[clines$params$term == "b", ]) %>%
   filter(estimate >= quantile(estimate, .99)) %>%

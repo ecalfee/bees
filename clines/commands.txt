@@ -75,6 +75,9 @@ where w is the cline width, MATH is the standard deviation of parental‐offspri
 # I may be better off trying to estimate deviation from neutrality Using
 # the center vs. edges of the hybrid zone contrast..in one of the classic Barton & Szymura papers
 
+# testing for enrichment of steep clines in low r regions using a block bootstrap resampling:
+clines$ nohup parallel --noswap --jobs 5 --joblog logs/block_bootstrap_r_steep_clines.log 'Rscript bootstrap_steep_clines.R boot_{1} 100' ::: {1..100} &> logs/block_bootstrap_r_steep_clines.out &
+[1] 691 - RUNNING 12.29.19
 
 
 TO DO: ignoring frost, just using 0.5 resolution bioclim variables, first do a pca and use the first 5 PCs as covariates in a linear model of ancestry. Then re-run all the models with individual variables and print a table for the manuscript supplement. Decide what you want your final plot to be for the paper and update that section of the manuscript results.
