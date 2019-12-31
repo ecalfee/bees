@@ -79,5 +79,10 @@ where w is the cline width, MATH is the standard deviation of parental‐offspri
 clines$ nohup parallel --noswap --jobs 5 --joblog logs/block_bootstrap_r_steep_clines.log 'Rscript bootstrap_steep_clines.R boot_{1} 100' ::: {1..100} &> logs/block_bootstrap_r_steep_clines.out &
 [1] 691 - RUNNING 12.29.19
 
+# verifying ancestry calls for outlier regions by
+# looking at allele freq. clines at ancestry informative markers (AIMs)
+# first ID AIMs using interacting R script find_AIMs.R, then run for all populations for chr1 and chr11:
+clines$ nohup parallel --noswap --jobs 2 --joblog logs/get_maf_at_aims.log './AIMs_allele_freq.sh {1} Group{2} {3}' :::: ../bee_samples_listed/byPop/combined_sept19_pops.list ::: 1 11 :::+ A M &> logs/get_maf_at_aims.out &
+[3] 14794 - RUNNING 12.30.19. when done I will plot these clines in plot_AIMs_clines.R
 
 TO DO: ignoring frost, just using 0.5 resolution bioclim variables, first do a pca and use the first 5 PCs as covariates in a linear model of ancestry. Then re-run all the models with individual variables and print a table for the manuscript supplement. Decide what you want your final plot to be for the paper and update that section of the manuscript results.

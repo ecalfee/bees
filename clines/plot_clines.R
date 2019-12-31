@@ -2876,6 +2876,21 @@ save(file = "results/sites_r_windows_steep_slopes.RData",
 #            perc5 = sum(b > quantile(max_clines$b, .95))/n(),
 #            n = n())
 
+# read in and summarise bootstraps
+boot <- read.table("results/BOOT_r_steep_clines/boot_1.txt", header = T, stringsAsFactors = F) %>%
+  mutate(top5_orig_1_perc = top5_orig_1/n_1,
+         top5_sample_1_perc = top5_sample_1/n_1,
+         top5_orig_5_perc = top5_orig_5/n_5,
+         top5_sample_5_perc = top5_sample_5/n_5)
+summary(boot$top5_orig_1_perc)
+summary(boot$top5_orig_5_perc)
+summary(boot$top5_sample_1_perc)
+summary(boot$top5_sample_5_perc)
+with(boot, hist(top5_cutoff)) # 5% cutoff is very similar across bootstraps, 
+# so makes little diff. if I use original fixed cutoff or bootstrap cutoff.
+
+with(boot, hist(mean_b_5 - mean_b_1))
+
 plot(sites_r$cM_Mb, clines$params$estimate[clines$params$term == "b"], main = "slope b by r (cM/Mb)")
 non_outlier_cline_center = abs(clines$params$estimate[clines$params$term == "mu"] - mean(clines$params$estimate[clines$params$term == "mu"])) < 1
 plot(sites_r$cM_Mb[non_outlier_cline_center], 
