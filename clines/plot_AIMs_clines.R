@@ -1,7 +1,7 @@
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-
+  
 # plot clines in allele frequencies at outlier loci
 # to see snps underlying ancestry skews and confirm ancestry calls are consistent wiht allelic clines
 source("../colors.R") # get color palette
