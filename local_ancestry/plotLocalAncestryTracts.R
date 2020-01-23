@@ -5,6 +5,7 @@ library(ggplot2)
 library(scales)
 library(reshape2)
 library(viridis)
+library(reshape2) # melt function
 library(LaplacesDemon)
 library(emdbook)
 library(betareg)
@@ -452,7 +453,7 @@ meanC0 <- apply(C, 1, mean)
 meanM0 <- apply(M, 1, mean)
 
 # mean ancestry across the genome for each pop
-admix_proportions <- data.frame(population = pops,
+admix_proportions <- data.frame(population = pops_by_lat,
                                 A = apply(A, 2, mean),
                                 C = apply(C, 2, mean),
                                 M = apply(M, 2, mean),
@@ -506,7 +507,7 @@ admix_times %>%
   ggplot(., aes(x = proportion, y = time, color = zone, shape = factor(year))) +
   geom_point(alpha = .75) +
   #ggtitle("Time since admixture estimated from ancestry block lengths") +
-  facet_grid(. ~ ancestry_labels) +
+  facet_grid(. ~ ancestry) +
   scale_color_manual(values = col_NA_SA_both, name = "Hybrid zone") +
   ylab("Time (generations in the past)") +
   xlab("Admixture proportion") +
@@ -582,7 +583,7 @@ meanA <- apply(A[ , c(AR_pops_included$population, CA_pops_included$population)]
                function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(CA_pops_included$n_bees, AR_pops_included$n_bees)))
 
 # save ancestry data for later access:
-save(file = "results/A.RData", list = c("A", "sites", "meanA"))
+save(file = "results/A.RData", list = c("A", "sites", "meanA", "meanA_CA", "meanA_AR"))
 
 # make plots - all loci, mean ancestry across all pops
 png("plots/histogram_A_ancestry_all_loci.png", height = 6, width = 8, units = "in", res = 300)
@@ -740,7 +741,9 @@ mean_cov_k
 mean_cov_k %>%
   write.table(., "results/mean_anc_cov_grouped.txt",
               col.names = T, row.names = F, quote = F, sep = "\t")
-
+# plot the lower triangle of K
+lower_tri <- zAnc_bees$K
+lower_tri[lower.tri(lower_tri, diag = T)] <- NA
 melt(lower_tri) %>% 
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile()
@@ -854,6 +857,14 @@ meanA_MVNsim_AR_bounded <- apply(MVNsim_AR_bounded[ , AR_pops_included$populatio
                                   function(x) sum(x*AR_pops_included$n_bees)/sum(AR_pops_included$n_bees))
 meanA_MVNsim_CA_bounded <- apply(MVNsim_CA_bounded[ , CA_pops_included$population], 1, 
                                   function(x) sum(x*CA_pops_included$n_bees)/sum(CA_pops_included$n_bees))
+# before bounding:
+# mean across individuals
+meanA_MVNsim_AR_unbounded <- apply(MVNsim_AR[ , AR_pops_included$population], 1, 
+                                 function(x) sum(x*AR_pops_included$n_bees)/sum(AR_pops_included$n_bees))
+meanA_MVNsim_CA_unbounded <- apply(MVNsim_CA[ , CA_pops_included$population], 1, 
+                                 function(x) sum(x*CA_pops_included$n_bees)/sum(CA_pops_included$n_bees))
+
+
 # combined mean across individuals
 meanA_MVNsim_bounded <- apply(cbind(MVNsim_AR_bounded, MVNsim_CA_bounded)[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
                                function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(AR_pops_included$n_bees, CA_pops_included$n_bees)))
@@ -885,27 +896,33 @@ MVNsim_zero <- mvrnorm(n = n_sim,
 
 # how many simulations exceed the bounds?
 # overall few, but more than 25% for some populations
-sum(MVNsim < 0)/sum(table(MVNsim<0))
+sum(MVNsim < 0)/sum(table(MVNsim<0)) # low outliers need to be set to bound
 sum(MVNsim > 1)/sum(table(MVNsim>1))
-sum(MVNsim_zero < 0)/sum(table(MVNsim_zero<0))
+sum(MVNsim_zero < 0)/sum(table(MVNsim_zero<0)) # high outliers need to be set to bound
 sum(MVNsim_zero > 1)/sum(table(MVNsim_zero>1))
 hist(MVNsim[MVNsim_zero<0])
 table(MVNsim_bounded[MVNsim_zero < 1])
 apply(MVNsim, 2, function(x) sum(x > 1))/(nrow(MVNsim_zero))
 summary(apply(MVNsim, 2, function(x) sum(x <0))/(nrow(MVNsim_zero)))
-data.frame(population = colnames(MVNsim_zero),
-           percent_0 = apply(MVNsim_zero, 2, function(x) sum(x < 0))/nrow(MVNsim_zero),
+perc_sim_freq_out_of_bounds = data.frame(population = colnames(MVNsim),
+           Lower = apply(MVNsim, 2, function(x) sum(x < 0))/nrow(MVNsim),
+           Upper = apply(MVNsim, 2, function(x) sum(x > 1))/nrow(MVNsim),
            stringsAsFactors = F) %>%
+  pivot_longer(data = ., cols = c("Lower", "Upper"), names_to = "bound", values_to = "p") %>% 
   left_join(., admix_proportions, by = "population") %>%
   left_join(., meta.pop, by = "population") %>%
-  ggplot(., aes(x = A, y = percent_0, color = zone)) +
+  ggplot(., aes(x = A, y = p, color = zone)) +
   geom_point(alpha = .75) +
+  facet_wrap(~bound) +
   xlab("Mean A ancestry proportion (ancestry_hmm)") +
-  ylab("Percent sims < 0 (MVN)") +
+  ylab("Percent sims exceeding bound") +
   #ggtitle("Percent simulated population ancestry frequencies < 0 (MVN)") +
-  scale_color_manual(values = col_NA_SA_both, name = NULL)
+  scale_color_manual(values = col_NA_SA_both, name = NULL) +
+  theme_classic()
+perc_sim_freq_out_of_bounds
 ggsave("plots/percents_MVN_sims_need_truncation_low.png",
-       height = 3, width = 8, units = "in")
+       plot = perc_sim_freq_out_of_bounds,
+       height = 3, width = 6, units = "in")
 
 
 
@@ -931,6 +948,50 @@ meanA_MVNsim_zero <- apply(cbind(MVNsim_AR_zero, MVNsim_CA_zero)[ , c(AR_pops_in
 save(MVNsim_zero_bounded, meanA_MVNsim_zero_bounded, meanA_MVNsim_AR_zero_bounded, meanA_MVNsim_CA_zero_bounded,
      file = "results/MVNsim_zero_bounded.RData")
 
+# other simulations without covariances:
+# compare distribution between binomial and MVN for 10^5 simulations
+# first read in individual alpha estimates for mean A ancestry
+CA_indAlpha <- do.call(rbind,
+                       lapply(CA_pops_included$population, function(p) 
+                         read.table(paste0("results/ancestry_hmm/combined_sept19/posterior/anc/", p, ".alpha.anc"),
+                                    stringsAsFactors = F, header = T)))
+AR_indAlpha <- do.call(rbind,
+                       lapply(AR_pops_included$population, function(p) 
+                         read.table(paste0("results/ancestry_hmm/combined_sept19/posterior/anc/", p, ".alpha.anc"),
+                                    stringsAsFactors = F, header = T)))
+
+set.seed(101) # use same seed
+PoiBinsim_CA <- apply(do.call(rbind,
+                              lapply(CA_indAlpha$A, 
+                                     function(alpha)
+                                       rbinom(n = n_sim, size = 2, prob = alpha)))/2, 2, mean)
+PoiBinsim_AR <- apply(do.call(rbind,
+                              lapply(AR_indAlpha$A, 
+                                     function(alpha)
+                                       rbinom(n = n_sim, size = 2, prob = alpha)))/2, 2, mean)
+PoiBinsim_combined <- (PoiBinsim_CA*sum(CA_pops_included$n_bees) + PoiBinsim_AR*sum(AR_pops_included$n_bees))/sum(c(CA_pops_included$n_bees, AR_pops_included$n_bees))
+
+# MVN simulation bounded with no covariances
+set.seed(101)
+MVNsim_no_cov <- mvrnorm(n = n_sim, 
+                         mu = zAnc_bees$alpha, 
+                         Sigma = diag(diag(zAnc_bees$K), length(zAnc_bees$alpha), length(zAnc_bees$alpha)), 
+                         tol = 1e-6, 
+                         empirical = FALSE, 
+                         EISPACK = FALSE)
+MVNsim_no_cov_bounded <- MVNsim_no_cov
+MVNsim_no_cov_bounded[MVNsim_no_cov < 0] <- 0
+MVNsim_no_cov_bounded[MVNsim_no_cov > 1] <- 1
+MVNsim_AR_no_cov_bounded <- MVNsim_no_cov_bounded[ , AR_pops_included$population]
+MVNsim_CA_no_cov_bounded <- MVNsim_no_cov_bounded[ , CA_pops_included$population]
+# mean across individuals
+meanA_MVNsim_AR_no_cov_bounded <- apply(MVNsim_no_cov_bounded[ , AR_pops_included$population], 1, 
+                                        function(x) sum(x*AR_pops_included$n_bees)/sum(AR_pops_included$n_bees))
+meanA_MVNsim_CA_no_cov_bounded <- apply(MVNsim_no_cov_bounded[ , CA_pops_included$population], 1, 
+                                        function(x) sum(x*CA_pops_included$n_bees)/sum(CA_pops_included$n_bees))
+# combined mean across individuals
+meanA_MVNsim_no_cov_bounded <- apply(MVNsim_no_cov_bounded[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
+                                     function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(AR_pops_included$n_bees, CA_pops_included$n_bees)))
 
 #summarise
 summary(meanA_MVNsim)
@@ -990,73 +1051,178 @@ abline(0, 1, col = "blue")
 dev.off()
 
 
-make_qqplot_lines <- function(x, legend = T){
-  abline(0, 1, col = "black")
-  abline(v = quantile(x, 
-                      c(0.99, 0.95, 0.75, 0.5, 0.01, 0.05, 0.25)), 
-         col = c("lightgreen", "salmon", "lightblue", "yellow", "lightgreen", "salmon", "lightblue"))
-  if (legend) {legend("bottomright", 
-         legend = c(0.99, 0.95, 0.75, 0.5), 
-         title = "Quantile",
-         lty = 1,
-         lwd = 2,
-         col = c("lightgreen", "salmon", "lightblue", "yellow"))
-  }
-}
 
-# make QQ plots for paper:
-for (path in c("plots/", 
-               "../../bee_manuscript/figures/")){
-  png(paste0(path, "QQ_plots_MVN_vs_data.png"),
-      height = 8, width = 8, res = 300, units = "in")
-  png("plots/QQ_plots_MVN_vs_data.png",
-      height = 8, width = 8, res = 300, units = "in")
-  # plot poisson binomial
-  par(mfrow=c(2,2))
-  # plot effect of truncation
-  par(oma = c(4, 1, 1, 1))
-  qqplot(meanA_MVNsim_zero, meanA_MVNsim_zero_bounded,
-         main = "QQ plot - A Ancestry effect of truncation",
-         xlab = "MVN before truncation [0, 1]",
-         ylab = "MVN after truncation [0, 1]",
-         col = "grey")
-  make_qqplot_lines(meanA_MVNsim_zero_bounded, legend = F)
-  qqplot(meanA_MVNsim_zero_bounded, meanA,
-         main = "QQ plot fit - A Ancestry Combined Sample",
-         xlab = "MVN simulation",
-         ylab = "Observed",
-         col = "grey")
-  make_qqplot_lines(meanA_MVNsim_zero_bounded, legend = F)
-  qqplot(meanA_MVNsim_CA_zero_bounded, meanA_CA,
-         main = "QQ plot fit - A Ancestry N. America",
-         xlab = "MVN simulation",
-         ylab = "Observed",
-         col = "grey")
-  make_qqplot_lines(meanA_MVNsim_CA_zero_bounded, legend = F)
-  qqplot(meanA_MVNsim_AR_zero_bounded, meanA_AR,
-         main = "QQ plot fit - A Ancestry S. America",
-         xlab = "MVN simulation",
-         ylab = "Observed",
-         col = "grey")
-  make_qqplot_lines(meanA_MVNsim_AR_zero_bounded, legend = F)
-  par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
-  plot(0, 0, type = "n", bty = "n", xaxt = "n", yaxt = "n")
-  legend("bottom",
-         legend = c(0.99, 0.95, 0.75, 0.5), 
-         title = "Quantile",
-         lty = 1,
-         lwd = 2,
-         xpd = TRUE, horiz = TRUE, 
-         inset = c(0, 0),
-         bty = "n",
-         col = c("lightgreen", "salmon", "lightblue", "yellow"))
-  dev.off()
-  
+                  
+plot_QQ <- function(NA1, NA2, SA1, SA2, axis1, axis2, ps_qq = seq(0, 1, length.out = 10000)){
+  d_qq <- bind_rows(data.frame(p = ps_qq,
+                                           zone = "N. America", stringsAsFactors = F) %>%
+                                  mutate(q1 = quantile(NA1, p), 
+                                         q2 = quantile(NA2, p)),
+                                data.frame(p = ps_qq,
+                                           zone = "S. America", stringsAsFactors = F) %>%
+                                  mutate(q1 = quantile(SA1, p), 
+                                         q2 = quantile(SA2, p)))
+  ggplot(data = d_qq) + 
+    geom_point(aes(x = q1, y = q2, color = p)) +
+    geom_abline(slope = 1, intercept = 0) +
+    xlab(axis1) +
+    ylab(axis2) +
+    scale_color_viridis(option = "plasma", direction = -1, name = "Quantile") +
+    theme_classic() +
+    facet_grid(.~zone)#, scales = "free_x")
 }
-png("plots/mean_A_ancestry_CA_vs_AR_grey.png", 
-    height = 8, width = 12, res = 300, units = "in")
-plot(meanA_CA, meanA_AR, pch = 20, col = alpha("grey", .1),
-     main = "comparison of A ancestry in California vs. Argentina zone")
+# make QQ plots for paper:
+# effect of truncating at [0,1] is small:
+MVN_vs_01_truncated_MVN_qq = plot_QQ(NA1 = meanA_MVNsim_CA_bounded, NA2 = meanA_MVNsim_CA_unbounded, 
+        SA1 = meanA_MVNsim_AR_bounded, SA2 = meanA_MVNsim_AR_unbounded, 
+        axis1 = "MVN simulation", axis2 = "MVN simulation unbounded", 
+        ps_qq = seq(0, 1, length.out = 10000))
+ggsave("plots/qq_effect_truncation_on_MVN.png",
+       plot = MVN_vs_01_truncated_MVN_qq,
+       height = 3, width = 6, 
+       units = "in", device = "png")
+effect_truncation_on_MVN <- arrangeGrob(perc_sim_freq_out_of_bounds + ggtitle("A"),
+                                        MVN_vs_01_truncated_MVN_qq + ggtitle("B"),
+                                         nrow = 2,
+                                         ncol = 1)
+ggsave("../../bee_manuscript/figures/effect_truncation_on_MVN.pdf", 
+       plot = effect_truncation_on_MVN,
+       height = 6.5, width = 6, 
+       units = "in", device = "pdf")
+# overall good fit of data to MVN:
+mvn_vs_data_qq = plot_QQ(NA1 = meanA_MVNsim_CA_bounded, NA2 = meanA_CA, 
+        SA1 = meanA_MVNsim_AR_bounded, SA2 = meanA_AR, 
+        axis1 = "MVN simulation", axis2 = "Observed A frequencies", 
+        ps_qq = seq(0, 1, length.out = 10000))
+mvn_vs_data_qq
+# very high expected false-positive rate with poisson-binomial null:
+poibin_vs_data_qq = plot_QQ(NA1 = PoiBinsim_CA, NA2 = meanA_CA, 
+        SA1 = PoiBinsim_AR, SA2 = meanA_AR, 
+        axis1 = "Poisson binomial simulation", axis2 = "Observed A frequencies", 
+        ps_qq = seq(0, 1, length.out = 10000))
+# and high expected false-positive rate with no-covariance MVN:
+mvn_no_cov_vs_data_qq = plot_QQ(NA1 = meanA_MVNsim_CA_no_cov_bounded, NA2 = meanA_CA, 
+        SA1 = meanA_MVNsim_AR_no_cov_bounded, SA2 = meanA_AR, 
+        axis1 = "MVN simulation with zero covariances", axis2 = "Observed A frequencies", 
+        ps_qq = seq(0, 1, length.out = 10000))
+# make joint plot for these QQs:
+qq_vs_data_plots_combined <- arrangeGrob(mvn_vs_data_qq + ggtitle("A"),
+                                         mvn_no_cov_vs_data_qq + ggtitle("B"),
+                                         poibin_vs_data_qq + ggtitle("C"),
+                                     nrow = 3,
+                                     ncol = 1)
+# plot them all together as a facet wrap instead:
+sim_NA = list(meanA_MVNsim_CA_bounded, meanA_MVNsim_CA_no_cov_bounded, PoiBinsim_CA)
+sim_SA = list(meanA_MVNsim_AR_bounded, meanA_MVNsim_AR_no_cov_bounded, PoiBinsim_AR)
+sim_names = c("MVN", "MVN zero covariances", "Poisson binomial")
+ps_qq = seq(0, 1, length.out = 10000)
+
+d_qq <- do.call(rbind, lapply(1:3, function(i)
+  bind_rows(data.frame(p = ps_qq,
+             zone = "N. America",
+             sim = sim_names[i],
+             stringsAsFactors = F) %>%
+    mutate(q2 = quantile(meanA_CA, p),
+      q1 = quantile(sim_NA[[i]], p)),
+    data.frame(p = ps_qq,
+             zone = "S. America",
+             sim = sim_names[i],
+             stringsAsFactors = F) %>%
+      mutate(q2 = quantile(meanA_AR, p), 
+             q1 = quantile(sim_SA[[i]], p)))))
+ggplot(data = d_qq) + 
+    geom_point(aes(x = q1, y = q2, color = p), size = 0.5) +
+    geom_abline(slope = 1, intercept = 0) +
+    xlab("Simulated A frequencies") +
+    ylab("Observed A frequencies") +
+    scale_color_viridis(option = "plasma", direction = -1, name = "Quantile") +
+    theme_classic() +
+    facet_grid(zone~sim)#, scales = "free_x")
+ggsave("../../bee_manuscript/figures/qq_vs_data_sim_comparison.pdf",
+       device = "pdf",
+       width = 6, 
+       height = 5, units = "in")
+ggsave("plots/qq_vs_data_sim_comparison.png",
+       device = "png",
+       width = 6, 
+       height = 5, units = "in")
+
+library(plotly)
+library(MASS)
+
+# Compute kde2d
+kd_data <- with(data = data.frame(x = meanA_CA, y = meanA_AR), 
+           MASS::kde2d(y = y, x = x, n = 100,
+                       lims = c(c(0,.6),c(0,.6))))
+kd_mvn <- with(data = data.frame(x = meanA_MVNsim_CA_unbounded, 
+                                 y = meanA_MVNsim_AR_unbounded), 
+               MASS::kde2d(y = y, x = x, n = 100,
+                           lims = c(c(0,.6),c(0,.6))))
+ggplot(data.frame(kd_mvn)) +
+  geom_density(aes(x = x, y = y, z = z))
+# Plot with plotly
+plot_ly(x = kd_data$x, y = kd_data$y, z = kd_data$z) %>% add_surface()
+plot_ly(x = kd_mvn$x, y = kd_mvn$y, z = kd_mvn$z) %>% add_surface()
+plot_ly(x = kd_data$x, 
+        y = kd_data$y, 
+        z = kd_data$z - kd_mvn$z,
+        xlab = "N. America",
+        ylab = "S. America") %>% 
+  add_surface() %>% 
+  layout(
+    title = "2D Density Observed A frequency minus MVN",
+    scene = list(
+      xaxis = list(title = "NA", range = c(1, 0)),
+      yaxis = list(title = "SA", range = c(1, 0)),
+      zaxis = list(title = "Diff.")
+    ))
+
+
+# confirm identical 2d grid points for each density
+identical(kd_data$x, kd_mvn$x) == T
+identical(kd_data$y, kd_mvn$y) == T
+
+# calc difference between density estimates
+kd_diff = kd_data 
+kd_diff$z = kd_data$z - kd_mvn$z
+
+image(kd_diff, col = viridis(30))
+
+# melt z data to long format from 100 x 100 matrix
+rownames(kd_diff$z) = kd_diff$x
+colnames(kd_diff$z) = kd_diff$y
+kd_diff$z %>% # melt
+  melt(., id.var = rownames(kd_diff)) %>%
+  data.table::setnames(c("A_NA", "A_SA", "A_DIFF")) %>%
+  ggplot(., aes(x = A_NA, A_SA, z = A_DIFF, fill = A_DIFF)) +
+  stat_density2d(aes(alpha = A_DIFF),
+                 geom="polygon", bins = 100)
+  
+  geom_tile() +
+  stat_contour(aes(colour = ..level..), binwidth = .01) +
+  scale_fill_gradient2(low="red",mid="white", high="blue", midpoint=0) +
+  scale_colour_gradient2(low=muted("red"), mid="white", high=muted("blue"), midpoint=0) +
+  coord_cartesian(xlim = c(0,1), ylim = c(0,1)) +
+  guides(colour=FALSE)
+
+plot_2d_density <- function(){
+  contour(kd_mvn, col = viridis(10)[1], nlevels = 7, 
+          xlim = c(0.12, 0.35),
+          ylim = c(0.32, 0.5),
+          xlab = "N. America",
+          ylab = "S. America")
+  contour(kd_data, add = T, col = viridis(10)[9], nlevels = 7)
+  legend("bottomright", legend = c("Observed A frequency", "Simulated A frequency (MVN)"),
+         lwd = 1, lty = 1, col = viridis(10)[c(9,1)], cex = 0.5)
+}
+  
+pdf(file = "../../bee_manuscript/figures/comparison_2d_density_data_mvn.pdf",
+    height = 4, width = 6)
+plot_2d_density()
+dev.off()
+png(file = "plots/comparison_2d_density_data_mvn.png",
+    height = 4, width = 6, units = "in", res = 300)
+plot_2d_density()
 dev.off()
 
 # for how long do my quantiles match up?
@@ -1198,51 +1364,8 @@ table(meanA_MVNsim_AR_bounded < MVNsim_AR_bounded_quantile_low &
 
 # these outliers are pretty surprising under a MVN framework
 # how about under a poisson binomial framework? even more surprising
-# first read in individual alpha estimates for mean A ancestry
-CA_indAlpha <- do.call(rbind,
-                       lapply(CA_pops_included$population, function(p) 
-  read.table(paste0("results/ancestry_hmm/combined_sept19/posterior/anc/", p, ".alpha.anc"),
-                                            stringsAsFactors = F, header = T)))
-AR_indAlpha <- do.call(rbind,
-                       lapply(AR_pops_included$population, function(p) 
-                         read.table(paste0("results/ancestry_hmm/combined_sept19/posterior/anc/", p, ".alpha.anc"),
-                                    stringsAsFactors = F, header = T)))
 
-# compare distribution between binomial and MVN for 10^5 simulations
-set.seed(101) # use same seed
-PoiBinsim_CA <- apply(do.call(rbind,
-                        lapply(CA_indAlpha$A, 
-                       function(alpha)
-                         rbinom(n = n_sim, size = 2, prob = alpha)))/2, 2, mean)
-PoiBinsim_AR <- apply(do.call(rbind,
-                                 lapply(AR_indAlpha$A, 
-                                        function(alpha)
-                                          rbinom(n = n_sim, size = 2, prob = alpha)))/2, 2, mean)
-PoiBinsim_combined <- (PoiBinsim_CA*sum(CA_pops_included$n_bees) + PoiBinsim_AR*sum(AR_pops_included$n_bees))/sum(c(CA_pops_included$n_bees, AR_pops_included$n_bees))
-                                                                                                                    
-# MVN simulation bounded with no covariances
-set.seed(101)
-MVNsim_no_cov <- mvrnorm(n = n_sim, 
-                       mu = zAnc_bees$alpha, 
-                       Sigma = diag(diag(zAnc_bees$K), length(zAnc_bees$alpha), length(zAnc_bees$alpha)), 
-                       tol = 1e-6, 
-                       empirical = FALSE, 
-                       EISPACK = FALSE)
-MVNsim_no_cov_bounded <- MVNsim_no_cov
-MVNsim_no_cov_bounded[MVNsim_no_cov < 0] <- 0
-MVNsim_no_cov_bounded[MVNsim_no_cov > 1] <- 1
-MVNsim_AR_no_cov_bounded <- MVNsim_no_cov_bounded[ , AR_pops_included$population]
-MVNsim_CA_no_cov_bounded <- MVNsim_no_cov_bounded[ , CA_pops_included$population]
-# mean across individuals
-meanA_MVNsim_AR_no_cov_bounded <- apply(MVNsim_no_cov_bounded[ , AR_pops_included$population], 1, 
-                                      function(x) sum(x*AR_pops_included$n_bees)/sum(AR_pops_included$n_bees))
-meanA_MVNsim_CA_no_cov_bounded <- apply(MVNsim_no_cov_bounded[ , CA_pops_included$population], 1, 
-                                      function(x) sum(x*CA_pops_included$n_bees)/sum(CA_pops_included$n_bees))
-# combined mean across individuals
-meanA_MVNsim_no_cov_bounded <- apply(MVNsim_no_cov_bounded[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
-                                   function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(AR_pops_included$n_bees, CA_pops_included$n_bees)))
-
-
+# compare simulations
 # plot comparison
 sim_compare <- 
   data.frame(poisson_binomial = PoiBinsim_combined,
@@ -2260,4 +2383,5 @@ lapply(1:9, function(x) table(some_tracts[[x]]$length <= 10000))
 lapply(1:9, function(x) table(some_tracts[[x]]$length <= 5000))
 lapply(1:9, function(x) table(some_tracts[[x]]$length <= 1000))
 lapply(1:9, function(x) table(some_tracts[[x]]$length <= 2000))
+
 

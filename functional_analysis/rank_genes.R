@@ -60,6 +60,13 @@ high.shared <- A_AR_CA %>%
   rename(chr = scaffold) %>%
   filter(!is.na(FDR_shared_high)) %>%
   filter(FDR_shared_high <= threshold_extend_region)
+high.shared2 <- A_AR_CA %>%
+  dplyr::select(c("scaffold", "start", "end", "snp_id", "AR", "CA", "FDR_AR_high", "FDR_CA_high", "FDR_shared_high")) %>%
+  mutate(FDR_AR_high = as.numeric(FDR_AR_high),
+         FDR_CA_high = as.numeric(FDR_CA_high)) %>%
+  rename(chr = scaffold) %>%
+  filter(!is.na(FDR_AR_high) & !is.na(FDR_CA_high)) %>%
+  filter(FDR_AR_high <= threshold_extend_region & FDR_CA_high <= threshold_extend_region)
 table(is.valid.region(high.shared, check.chr = F))
 length(bedr.merge.region(high.shared, check.chr = F))
 high.shared.outliers <- bedr(
@@ -72,6 +79,30 @@ high.shared.outliers <- bedr(
   mutate(region = rownames(.)) %>%
   data.table::setnames(c("chr", "start", "end", "min_FDR", "region")) %>%
   filter(min_FDR <= threshold_keep_region)
+high.shared.outliers
+
+# high shared outliers defined by BOTH being subthreshold 10% FDR in CA and AR
+threshold_keep_region2 = 0.1
+high.shared2 <- A_AR_CA %>%
+  dplyr::select(c("scaffold", "start", "end", "snp_id", "AR", "CA", "FDR_AR_high", "FDR_CA_high", "FDR_shared_high")) %>%
+  mutate(FDR_AR_high = as.numeric(FDR_AR_high),
+         FDR_CA_high = as.numeric(FDR_CA_high)) %>%
+  rename(chr = scaffold) %>%
+  filter(!is.na(FDR_AR_high) & !is.na(FDR_CA_high)) %>%
+  filter(FDR_AR_high <= threshold_extend_region & FDR_CA_high <= threshold_extend_region)
+table(is.valid.region(high.shared2, check.chr = F))
+length(bedr.merge.region(high.shared2, check.chr = F))
+high.shared.outliers2 <- bedr(
+  engine = "bedtools", 
+  input = list(i = high.shared2), 
+  method = "merge", 
+  params = "-d 10000 -c 7,8 -o min", # merge if within 10kb
+  check.chr = F
+) %>%
+  mutate(region = rownames(.)) %>%
+  data.table::setnames(c("chr", "start", "end", "min_FDR_AR", "min_FDR_CA", "region")) %>%
+  filter(min_FDR_AR <= threshold_keep_region2 & min_FDR_CA <= threshold_keep_region2)
+high.shared.outliers2
 
 
 # low shared outliers -- NONE
@@ -288,7 +319,7 @@ low.AR.outliers <- low.AR.only.outliers # b/c no shared low outliers
 # write files with outliers regions:
 #outlier_sets <- list(high.shared.outliers, low.shared.outliers, high.AR.outliers, low.AR.outliers, high.CA.outliers)
 #outlier_set_names <- c("high_shared", "low_shared", "high_AR", "low_AR", "high_CA")
-outlier_sets <- list(high.shared.outliers, low.AR.outliers, high.CA.outliers) # only 3 categories of outliers at 5% FDR.
+outlier_sets <- list(high.shared.outliers2, low.AR.outliers, high.CA.outliers) # only 3 categories of outliers at 5% FDR.
 outlier_set_names <- c("high_shared", "low_AR", "high_CA")
 for (i in 1:length(outlier_sets)){
   write.table(outlier_sets[[i]], 
@@ -748,6 +779,289 @@ top_SNP_outliers_all <- do.call(rbind, top_SNP_outliers)
 
 
 
+# plot top outlier regions
+
+outlier_types <- c("shared_high", "AR_high", "CA_high", # no CA_low outliers
+                   "shared_low", "AR_low")
+
+# get approximate cumulative positions for all points with ancestry calls
+pretty_label_zone = data.frame(zone = c("CA", "AR"),
+                               zone_pretty = c("N. America", "S. America"),
+                               #zone_pretty = c("California", "Argentina"),
+                               stringsAsFactors = F)
+# buffer for visibility only:
+buffer_4_visibility = 25000*4 # add 50kb for visibility only
+A_AR_CA_cumulative <- A_AR_CA %>%
+  mutate(chr_n = as.numeric(substr(chr, 6, 100))) %>% # turn Group11 into 11
+  arrange(chr_n) %>% # sort by chromosome order
+  tidyr::gather(., "zone", "A_ancestry", c("CA", "AR")) %>%
+  mutate(FDR = sapply(1:nrow(.), function(i) ifelse(.$zone[i] == "CA", 
+                                                    min(.$FDR_CA_high[i], .$FDR_CA_low[i], na.rm = T), 
+                                                    min(.$FDR_AR_high[i], .$FDR_AR_low[i], na.rm = T))),
+         FDR = ifelse(FDR == Inf, NA, FDR)) %>%
+  mutate(color_by = ifelse(is.na(FDR), ifelse((chr_n %% 2 == 0), # even chromosomes different color
+                                              "n.s. - even chr", "n.s. - odd chr"), FDR)) %>%
+  left_join(., pretty_label_zone, by = "zone")
+
+
+
+# zoom in on chr1:
+A_AR_CA_cumulative %>%
+  filter(., chr_n == 1) %>%
+  filter(., pos >= 0.75*10^7 & pos <= 1.25*10^7) %>%
+  mutate(FDR = ifelse(zone == "CA", FDR_CA_high, FDR_AR_high)) %>% # just ind. zone FDR's
+  mutate(color_by = ifelse(is.na(FDR), ifelse((chr_n %% 2 == 0), # even chromosomes different color
+                                              "n.s. - even chr", "n.s. - odd chr"), FDR)) %>%
+  #apply(., 2, function(col) sum(is.na(col)))
+  #table(.$color_by)
+  ggplot(.) +
+  geom_point(data = . %>%
+               filter(is.na(FDR)), # plot grey points first, rasterized
+             aes(x = cum_pos, y = A_ancestry, 
+                 color = color_by), size = .05)+
+  geom_point(data = . %>%
+               filter(!is.na(FDR)), # then plot sig points on top 
+             aes(x = cum_pos, y = A_ancestry, 
+                 color = color_by), size = .05) +
+  xlab("Position (bp)") +
+  ylab("mean African ancestry") +
+  scale_colour_manual(name = NULL,
+                      values = c("0.01"="red", "0.05"="orange", "0.1"="skyblue", 
+                                 "n.s. - even chr"="darkgrey", 
+                                 "n.s. - odd chr"="grey"),
+                      limits = c("0.01", "0.05", "0.1"),
+                      labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
+  ) + 
+  geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
+                                #geom_segment(data = left_join(rename(high.shared.outliers, scaffold = chr) %>%
+                                #mutate(outlier_type = "high_shared"),
+                                chr_lengths, by = "scaffold") %>%
+                 filter(chr_n == 1) %>%
+                 filter(outlier_type == "high_shared"),
+               aes(x = start, xend = end, y = 0.7, yend = 0.7, color = min_FDR),
+               lwd = 4) +
+  #scale_x_discrete(limits=c("2", "0.5", "1")) +
+  #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
+  theme_classic() +
+  #theme(legend.position = "none") +
+  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
+  ggtitle("5Mb on chr 1 containing shared outlier cluster")
+ggsave("plots/A_frequency_plot_AR_CA_FDR_chr1_5mb_outlier_cluster.png",
+       height = 5, width = 10, units = "in", device = "png")
+ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_chr1_5mb_outlier_cluster.pdf",
+       height = 5, width = 10, units = "in", device = "pdf")
+
+# zoom in more on chr 1
+# zoom in on chr1:
+A_AR_CA_cumulative %>%
+  filter(., chr_n == 1) %>%
+  #filter(., pos >= 0.75*10^7 & pos <= 1.25*10^7) %>%
+  filter(., pos >= 1*10^7 & pos <= 1.25*10^7) %>%
+  mutate(FDR = ifelse(zone == "CA", FDR_CA_high, FDR_AR_high)) %>% # just ind. zone FDR's
+  mutate(color_by = ifelse(is.na(FDR), ifelse((chr_n %% 2 == 0), # even chromosomes different color
+                                              "n.s. - even chr", "n.s. - odd chr"), FDR)) %>%
+  #apply(., 2, function(col) sum(is.na(col)))
+  #table(.$color_by)
+  ggplot(.) +
+  geom_point(data = . %>%
+               filter(is.na(FDR)), # plot grey points first, rasterized
+             aes(x = cum_pos, y = A_ancestry, 
+                 color = color_by), size = .05)+
+  geom_point(data = . %>%
+               filter(!is.na(FDR)), # then plot sig points on top 
+             aes(x = cum_pos, y = A_ancestry, 
+                 color = color_by), size = .05) +
+  xlab("Position (bp)") +
+  ylab("mean African ancestry") +
+  scale_colour_manual(name = NULL,
+                      values = c("0.01"="red", "0.05"="orange", "0.1"="skyblue", 
+                                 "n.s. - even chr"="darkgrey", 
+                                 "n.s. - odd chr"="grey"),
+                      limits = c("0.01", "0.05", "0.1"),
+                      labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
+  ) + 
+  geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
+                                #geom_segment(data = left_join(rename(high.shared.outliers, scaffold = chr) %>%
+                                #mutate(outlier_type = "high_shared"),
+                                chr_lengths, by = "scaffold") %>%
+                 filter(chr_n == 1) %>%
+                 filter(outlier_type == "high_shared") %>%
+                 filter(start > 1*10^7 & end < 1.25*10^7),
+               aes(x = start, xend = end, y = 0.7, yend = 0.7, color = min_FDR),
+               lwd = 4) +
+  #scale_x_discrete(limits=c("2", "0.5", "1")) +
+  #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
+  theme_classic() +
+  #theme(legend.position = "none") +
+  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
+  ggtitle("2.5Mb around peak of shared outlier cluster on chr1")
+ggsave("plots/A_frequency_plot_AR_CA_FDR_chr1_5mb_outlier_cluster_ZOOM_IN.png",
+       height = 5, width = 10, units = "in", device = "png")
+ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_chr1_5mb_outlier_cluster_ZOOM_IN.pdf",
+       height = 5, width = 10, units = "in", device = "pdf")
+
+
+# zoom in on chr11:
+A_AR_CA_cumulative %>%
+  filter(chr_n == 11) %>%
+  filter(., pos > 1.25*10^7) %>%
+  ggplot(.) + # raster looks pretty terrible -- I could plot instead every 5th or 10th non-sig point or s.t.
+  geom_point(data = . %>%
+               filter(is.na(FDR)), # plot grey points first
+             aes(x = pos, y = A_ancestry, 
+                 color = color_by), size = .05) +
+  geom_point(data = . %>%
+               filter(!is.na(FDR)), # then plot sig points on top 
+             aes(x = pos, y = A_ancestry, 
+                 color = color_by), size = .05) +
+  xlab("Position (bp)") +
+  ylab("mean African ancestry") +
+  scale_colour_manual(name = NULL,
+                      values = c("0.01"="red", "0.05"="orange", "0.10"="skyblue", 
+                                 "n.s. - even chr"="darkgrey", 
+                                 "n.s. - odd chr"="grey"),
+                      limits = c("0.01", "0.05", "0.10"),
+                      labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
+  ) + 
+  #geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
+  #                              chr_lengths, by = "scaffold") %>%
+  #               filter(outlier_type == "low_AR") %>%
+  #               filter(chr == "Group11"),
+  #             aes(x = start, xend = end,
+  #                 y = 0.7, yend = 0.7, color = min_FDR),
+  #             lwd = 4) +
+  #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
+  #theme(legend.position = "none") +
+  theme_classic() +
+  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
+  ggtitle("Low A outlier on chr 11")
+ggsave("plots/A_frequency_plot_AR_CA_FDR_chr11_outlier.png",
+       height = 5, width = 10, units = "in", device = "png")
+ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_chr11_outlier.pdf",
+       height = 5, width = 10, units = "in", device = "pdf")
+
+# all 3 ancestries across chromosome 11:
+# zoom in on chr11:
+A_AR_CA %>%
+  filter(chr == "Group11") %>%
+  filter(., pos > 1.25*10^7) %>%
+  #pivot_longer(., cols = c("AR", "CA"), names_to )
+  ggplot(.) +
+  geom_point(data = . %>%
+               filter(!is.na(FDR)), # then plot sig points on top 
+             aes(x = pos, y = A_ancestry, 
+                 color = color_by), size = .05) +
+  xlab("Position (bp)") +
+  ylab("Mean ancestry frequency") +
+  #geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
+  #                              chr_lengths, by = "scaffold") %>%
+  #               filter(outlier_type == "low_AR") %>%
+  #               filter(chr == "Group11"),
+  #             aes(x = start, xend = end,
+  #                 y = 0.7, yend = 0.7, color = min_FDR),
+  #             lwd = 4) +
+  #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
+  #theme(legend.position = "none") +
+  theme_classic() +
+  facet_wrap(~zone_pretty, nrow = 2, ncol = 1)
+ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM.png",
+       height = 4, width = 6, units = "in", device = "png")
+ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr11_outlier.tiff",
+       height = 4, width = 6, units = "in", dpi = 600, device = "tiff")
+
+
+
+
+# plot with QTLs for varroa on top of 
+ggplot() +
+  geom_point(data = A_AR_CA_cumulative, aes(x = pos_cum, y = A_ancestry, 
+                                            color = color_by), size = .05) +
+  xlab("bp position on chromosome") +
+  ylab("mean African ancestry") +
+  scale_colour_manual(name = NULL,
+                      values = c("0.01"="red", "0.05"="orange", "0.1"="skyblue", 
+                                 "n.s. - even chr"="darkgrey", 
+                                 "n.s. - odd chr"="grey",
+                                 "Self-Grooming QTL"="limegreen", 
+                                 "Varro-Sensitive Hygiene GWAS SNP"="darkgreen", 
+                                 "Hygiene QTL"="olivedrab", 
+                                 "Varroa-Sensitive Hygiene putative QTL"="lightseagreen", 
+                                 "Varroa-Sensitive Hygiene QTL"="lightgreen"),
+                      limits = c("0.01", "0.05", "0.1", 
+                                 "n.s. - even chr", 
+                                 "n.s. - odd chr",
+                                 "Self-Grooming QTL", 
+                                 "Varro-Sensitive Hygiene GWAS SNP", 
+                                 "Hygiene QTL", 
+                                 "Varroa-Sensitive Hygiene putative QTL", 
+                                 "Varroa-Sensitive Hygiene QTL"),
+                      labels = c("0.01 FDR", "0.05 FDR", "0.1 FDR", 
+                                 "n.s. - even chr", 
+                                 "n.s. - odd chr",
+                                 "Self-Grooming QTL", 
+                                 "Varro-Sensitive Hygiene GWAS SNP", 
+                                 "Hygiene QTL", 
+                                 "Varroa-Sensitive Hygiene putative QTL", 
+                                 "Varroa-Sensitive Hygiene QTL")
+  ) + 
+  scale_x_discrete(limits=c("2", "0.5", "1")) +
+  scale_x_continuous(label = chr_lengths$chr, breaks = chr_lengths$chromosome_midpoint) +
+  #theme(legend.position = "none") +
+  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
+  geom_segment(data = mutate(varroa_QTL_cumulative, # add padding to GWAS SNPs just to visualize (o/w too small to see)
+                             cum_start = ifelse(Outlier_type == "GWAS_SNPs", cum_start - 20000, cum_start),
+                             cum_end = ifelse(Outlier_type == "GWAS_SNPs", cum_end + 20000, cum_end)),
+               aes(x=cum_start, xend=cum_end, y=0.68, yend=0.68, color = name),
+               lwd = 4) +
+  theme(legend.position = "bottom") +
+  ggtitle("Ancestry outliers across whole genome and co-localization with Varroa defense loci")
+ggsave("plots/A_frequency_plot_AR_CA_FDR_whole_genome_wide_VarroaQTL.png",
+       height = 5, width = 9, units = "in", device = "png")
+# note: the QTL with overlap on chr1 is a putative QTL for removal of varroa-infested brood
+# based on an unpublished study in Apis mellifera carnica
+# Spotter 2012 "Denser spacing was chosen for nine genomic regions because a preliminary study 
+# based on 245 microsatellite loci (M. Brink, M. Solignac, K. Bienefeld, unpublished data) 
+# identified QTL for the trait ‘removal of Varroa‐infested brood’ in these regions."
+
+# zoom in just on chromosome 1:
+ggplot() +
+  geom_point(data = filter(A_AR_CA_cumulative, chr == 1), aes(x = pos_cum, y = A_ancestry, 
+                                                              color = color_by), size = .1) +
+  xlab("bp position on chromosome") +
+  ylab("mean African ancestry") +
+  #theme(legend.position = "none") +
+  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
+  geom_segment(data = filter(varroa_QTL_cumulative, chr == 1), 
+               aes(x=cum_start, xend=cum_end, y=0.68, yend=0.68, color = name),
+               lwd = 4) +
+  scale_colour_manual(name = NULL,
+                      values = c("0.01"="red", "0.05"="orange", "0.1"="skyblue", 
+                                 "n.s. - even chr"="darkgrey", 
+                                 "n.s. - odd chr"="grey",
+                                 "Varroa-Sensitive Hygiene putative QTL"="lightseagreen", 
+                                 "Varroa-Sensitive Hygiene QTL"="lightgreen"),
+                      limits = c("0.01", "0.05", "0.1", 
+                                 "n.s. - even chr", 
+                                 "n.s. - odd chr",
+                                 "Varroa-Sensitive Hygiene putative QTL", 
+                                 "Varroa-Sensitive Hygiene QTL"),
+                      labels = c("0.01 FDR", "0.05 FDR", "0.1 FDR", 
+                                 "n.s. - even chr", 
+                                 "n.s. - odd chr",
+                                 "Varroa-Sensitive Hygiene putative QTL", 
+                                 "Varroa-Sensitive Hygiene QTL")
+  ) +
+  theme(legend.position = "bottom") +
+  ggtitle("Ancestry outliers across chromosome 1 and co-localization with Varroa defense loci")
+ggsave("plots/A_frequency_plot_AR_CA_FDR_chr1_wide_VarroaQTL.png",
+       height = 5, width = 9, units = "in", device = "png")
+
+
+# how much of the genome do different QTL types cover?
+varroa_QTL_cumulative %>%
+  group_by(Outlier_type, Reference) %>% 
+  summarise(sum = sum(QTL_length))
+
 
 
 
@@ -764,8 +1078,7 @@ genes0 <- read.table("results/genes_mean_AR_CA_ancestry.bed", stringsAsFactors =
 colnames(genes0) <- c("scaffold", "start", "end", "gene_list", "gff3_type", "gene_ID", "AR", "CA")
 
 # load FDR for genes -- which genes are outliers?
-outlier_types <- c("shared_high", "AR_high", "CA_high", # no CA_low outliers
-                   "shared_low", "AR_low")
+
 outlier_genes <- do.call(cbind,
                          lapply(outlier_types, function(x) 
                            read.table(paste0("results/outliers_", x, "_genes_mean_AR_CA_ancestry.bed"),
@@ -785,7 +1098,6 @@ hist(apply(genes0[,c("AR", "CA")], 1, mean))
 # how many genes are outliers?
 sapply(outlier_types, function(x)
   table(genes[ , x]))
-
 
 
 # assess overlap with QTLs. top hits? enrichment?
@@ -894,28 +1206,6 @@ varroa_QTL_cumulative <- varroa_QTL %>%
   mutate(QTL_length = cum_end - cum_start)
 
 
-# get approximate cumulative positions for all points with ancestry calls
-pretty_label_zone = data.frame(zone = c("CA", "AR"),
-                               zone_pretty = c("N. America", "S. America"),
-                               #zone_pretty = c("California", "Argentina"),
-                               stringsAsFactors = F)
-# buffer for visibility only:
-buffer_4_visibility = 25000*4 # add 50kb for visibility only
-A_AR_CA_cumulative <- A_AR_CA %>%
-  mutate(chr_n = as.numeric(substr(chr, 6, 100))) %>% # turn Group11 into 11
-  arrange(chr_n) %>% # sort by chromosome order
-  tidyr::gather(., "zone", "A_ancestry", c("CA", "AR")) %>%
-  mutate(FDR = sapply(1:nrow(.), function(i) ifelse(.$zone[i] == "CA", 
-                                                    min(.$FDR_CA_high[i], .$FDR_CA_low[i], na.rm = T), 
-                                                    min(.$FDR_AR_high[i], .$FDR_AR_low[i], na.rm = T))),
-         FDR = ifelse(FDR == Inf, NA, FDR)) %>%
-  #mutate(FDR = apply(., 1, function(x) ifelse(x["zone"] == "CA", 
-  #                                            min(x[c("FDR_CA_high", "FDR_CA_low")], na.rm = T),
-  #                                            min(x[c("FDR_AR_high", "FDR_AR_low")], na.rm = T)))) %>%
-  mutate(color_by = ifelse(is.na(FDR), ifelse((chr_n %% 2 == 0), # even chromosomes different color
-                                               "n.s. - even chr", "n.s. - odd chr"), FDR)) %>%
-  left_join(., pretty_label_zone, by = "zone")
-
 # get QTLs:
 QTL = qtl %>%
   left_join(., chr_lengths, by = c("AMEL_CHR"="scaffold")) %>%
@@ -931,13 +1221,13 @@ ggplot() + # raster looks pretty terrible -- I could plot instead every 5th or 1
   #               color = color_by), size = .02,
   #           raster.dpi = 600) +
   geom_point(data = (A_AR_CA_cumulative %>% # plot grey points first; every 10th point only
-                    filter(is.na(FDR)))[c(T, rep(F, 9)), ], 
-                  aes(x = cum_pos, y = A_ancestry, 
-                      color = color_by), size = .02) +
+                       filter(is.na(FDR)))[c(T, rep(F, 9)), ], 
+             aes(x = cum_pos, y = A_ancestry, 
+                 color = color_by), size = .02) +
   geom_point(data = A_AR_CA_cumulative %>%
-                             filter(!is.na(FDR)), # then plot sig points on top 
-                           aes(x = cum_pos, y = A_ancestry, 
-                               color = color_by), size = .02) +
+               filter(!is.na(FDR)), # then plot sig points on top 
+             aes(x = cum_pos, y = A_ancestry, 
+                 color = color_by), size = .02) +
   xlab("Position (bp)") +
   ylab("mean African ancestry") +
   #scale_colour_manual(name = NULL,
@@ -951,7 +1241,7 @@ ggplot() + # raster looks pretty terrible -- I could plot instead every 5th or 1
                                   rename(., length_outlier = length), 
                                 chr_lengths, by = "scaffold") %>%
                  #mutate(cum_start = start + chr_start,
-                  #      cum_end = end + chr_start)
+                 #      cum_end = end + chr_start)
                  filter(outlier_type == "high_shared"),
                aes(x = start + chr_start - buffer_4_visibility, 
                    xend = end + chr_start + buffer_4_visibility, # add 50kb for visibility only
@@ -973,231 +1263,8 @@ ggsave("plots/A_frequency_plot_AR_CA_FDR_whole_genome_wide.png",
 ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_whole_genome_wide.pdf",
        height = 5, width = 10, units = "in", device = "pdf")
 
-# zoom in on chr1:
-A_AR_CA_cumulative %>%
-  filter(., chr_n == 1) %>%
-  filter(., pos >= 0.75*10^7 & pos <= 1.25*10^7) %>%
-  mutate(FDR = ifelse(zone == "CA", FDR_CA_high, FDR_AR_high)) %>% # just ind. zone FDR's
-  mutate(color_by = ifelse(is.na(FDR), ifelse((chr_n %% 2 == 0), # even chromosomes different color
-                                              "n.s. - even chr", "n.s. - odd chr"), FDR)) %>%
-  #apply(., 2, function(col) sum(is.na(col)))
-  #table(.$color_by)
-  ggplot(.) +
-  geom_point(data = . %>%
-                             filter(is.na(FDR)), # plot grey points first, rasterized
-                           aes(x = cum_pos, y = A_ancestry, 
-                               color = color_by), size = .05)+
-  geom_point(data = . %>%
-               filter(!is.na(FDR)), # then plot sig points on top 
-             aes(x = cum_pos, y = A_ancestry, 
-                 color = color_by), size = .05) +
-  xlab("Position (bp)") +
-  ylab("mean African ancestry") +
-  scale_colour_manual(name = NULL,
-                      values = c("0.01"="red", "0.05"="orange", "0.1"="skyblue", 
-                                 "n.s. - even chr"="darkgrey", 
-                                 "n.s. - odd chr"="grey"),
-                      limits = c("0.01", "0.05", "0.1"),
-                      labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
-  ) + 
-  geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
-  #geom_segment(data = left_join(rename(high.shared.outliers, scaffold = chr) %>%
-                                  #mutate(outlier_type = "high_shared"),
-                                chr_lengths, by = "scaffold") %>%
-                 filter(chr_n == 1) %>%
-                 filter(outlier_type == "high_shared"),
-               aes(x = start, xend = end, y = 0.7, yend = 0.7, color = min_FDR),
-               lwd = 4) +
-  #scale_x_discrete(limits=c("2", "0.5", "1")) +
-  #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
-  theme_classic() +
-  #theme(legend.position = "none") +
-  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
-  ggtitle("5Mb on chr 1 containing shared outlier cluster")
-ggsave("plots/A_frequency_plot_AR_CA_FDR_chr1_5mb_outlier_cluster.png",
-       height = 5, width = 10, units = "in", device = "png")
-ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_chr1_5mb_outlier_cluster.pdf",
-       height = 5, width = 10, units = "in", device = "pdf")
-
-# zoom in more on chr 1
-# zoom in on chr1:
-A_AR_CA_cumulative %>%
-  filter(., chr_n == 1) %>%
-  #filter(., pos >= 0.75*10^7 & pos <= 1.25*10^7) %>%
-  filter(., pos >= 1*10^7 & pos <= 1.25*10^7) %>%
-  mutate(FDR = ifelse(zone == "CA", FDR_CA_high, FDR_AR_high)) %>% # just ind. zone FDR's
-  mutate(color_by = ifelse(is.na(FDR), ifelse((chr_n %% 2 == 0), # even chromosomes different color
-                                              "n.s. - even chr", "n.s. - odd chr"), FDR)) %>%
-  #apply(., 2, function(col) sum(is.na(col)))
-  #table(.$color_by)
-  ggplot(.) +
-  geom_point(data = . %>%
-               filter(is.na(FDR)), # plot grey points first, rasterized
-             aes(x = cum_pos, y = A_ancestry, 
-                 color = color_by), size = .05)+
-  geom_point(data = . %>%
-               filter(!is.na(FDR)), # then plot sig points on top 
-             aes(x = cum_pos, y = A_ancestry, 
-                 color = color_by), size = .05) +
-  xlab("Position (bp)") +
-  ylab("mean African ancestry") +
-  scale_colour_manual(name = NULL,
-                      values = c("0.01"="red", "0.05"="orange", "0.1"="skyblue", 
-                                 "n.s. - even chr"="darkgrey", 
-                                 "n.s. - odd chr"="grey"),
-                      limits = c("0.01", "0.05", "0.1"),
-                      labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
-  ) + 
-  geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
-                                #geom_segment(data = left_join(rename(high.shared.outliers, scaffold = chr) %>%
-                                #mutate(outlier_type = "high_shared"),
-                                chr_lengths, by = "scaffold") %>%
-                 filter(chr_n == 1) %>%
-                 filter(outlier_type == "high_shared") %>%
-                 filter(start > 1*10^7 & end < 1.25*10^7),
-               aes(x = start, xend = end, y = 0.7, yend = 0.7, color = min_FDR),
-               lwd = 4) +
-  #scale_x_discrete(limits=c("2", "0.5", "1")) +
-  #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
-  theme_classic() +
-  #theme(legend.position = "none") +
-  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
-  ggtitle("2.5Mb around peak of shared outlier cluster on chr1")
-ggsave("plots/A_frequency_plot_AR_CA_FDR_chr1_5mb_outlier_cluster_ZOOM_IN.png",
-       height = 5, width = 10, units = "in", device = "png")
-ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_chr1_5mb_outlier_cluster_ZOOM_IN.pdf",
-       height = 5, width = 10, units = "in", device = "pdf")
 
 
-# zoom in on chr11:
-A_AR_CA_cumulative %>%
-  filter(chr_n == 11) %>%
-  filter(., pos > 1.25*10^7) %>%
-  ggplot(.) + # raster looks pretty terrible -- I could plot instead every 5th or 10th non-sig point or s.t.
-  geom_point(data = . %>%
-                             filter(is.na(FDR)), # plot grey points first
-                           aes(x = pos, y = A_ancestry, 
-                               color = color_by), size = .05) +
-  geom_point(data = . %>%
-               filter(!is.na(FDR)), # then plot sig points on top 
-             aes(x = pos, y = A_ancestry, 
-                 color = color_by), size = .05) +
-  xlab("Position (bp)") +
-  ylab("mean African ancestry") +
-  scale_colour_manual(name = NULL,
-                      values = c("0.01"="red", "0.05"="orange", "0.10"="skyblue", 
-                                 "n.s. - even chr"="darkgrey", 
-                                 "n.s. - odd chr"="grey"),
-                      limits = c("0.01", "0.05", "0.10"),
-                      labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
-  ) + 
-  #geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
-  #                              chr_lengths, by = "scaffold") %>%
-  #               filter(outlier_type == "low_AR") %>%
-  #               filter(chr == "Group11"),
-  #             aes(x = start, xend = end,
-  #                 y = 0.7, yend = 0.7, color = min_FDR),
-  #             lwd = 4) +
-  #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
-  #theme(legend.position = "none") +
-  theme_classic() +
-  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
-  ggtitle("Low A outlier on chr 11")
-ggsave("plots/A_frequency_plot_AR_CA_FDR_chr11_outlier.png",
-       height = 5, width = 10, units = "in", device = "png")
-ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_chr11_outlier.pdf",
-       height = 5, width = 10, units = "in", device = "pdf")
-
-
-# plot with QTLs for varroa on top of 
-ggplot() +
-  geom_point(data = A_AR_CA_cumulative, aes(x = pos_cum, y = A_ancestry, 
-                                            color = color_by), size = .05) +
-  xlab("bp position on chromosome") +
-  ylab("mean African ancestry") +
-  scale_colour_manual(name = NULL,
-                      values = c("0.01"="red", "0.05"="orange", "0.1"="skyblue", 
-                                 "n.s. - even chr"="darkgrey", 
-                                 "n.s. - odd chr"="grey",
-                                 "Self-Grooming QTL"="limegreen", 
-                                 "Varro-Sensitive Hygiene GWAS SNP"="darkgreen", 
-                                 "Hygiene QTL"="olivedrab", 
-                                 "Varroa-Sensitive Hygiene putative QTL"="lightseagreen", 
-                                 "Varroa-Sensitive Hygiene QTL"="lightgreen"),
-                      limits = c("0.01", "0.05", "0.1", 
-                                 "n.s. - even chr", 
-                                 "n.s. - odd chr",
-                                 "Self-Grooming QTL", 
-                                 "Varro-Sensitive Hygiene GWAS SNP", 
-                                 "Hygiene QTL", 
-                                 "Varroa-Sensitive Hygiene putative QTL", 
-                                 "Varroa-Sensitive Hygiene QTL"),
-                      labels = c("0.01 FDR", "0.05 FDR", "0.1 FDR", 
-                                 "n.s. - even chr", 
-                                 "n.s. - odd chr",
-                                 "Self-Grooming QTL", 
-                                 "Varro-Sensitive Hygiene GWAS SNP", 
-                                 "Hygiene QTL", 
-                                 "Varroa-Sensitive Hygiene putative QTL", 
-                                 "Varroa-Sensitive Hygiene QTL")
-  ) + 
-  scale_x_discrete(limits=c("2", "0.5", "1")) +
-  scale_x_continuous(label = chr_lengths$chr, breaks = chr_lengths$chromosome_midpoint) +
-  #theme(legend.position = "none") +
-  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
-  geom_segment(data = mutate(varroa_QTL_cumulative, # add padding to GWAS SNPs just to visualize (o/w too small to see)
-                             cum_start = ifelse(Outlier_type == "GWAS_SNPs", cum_start - 20000, cum_start),
-                             cum_end = ifelse(Outlier_type == "GWAS_SNPs", cum_end + 20000, cum_end)),
-               aes(x=cum_start, xend=cum_end, y=0.68, yend=0.68, color = name),
-               lwd = 4) +
-  theme(legend.position = "bottom") +
-  ggtitle("Ancestry outliers across whole genome and co-localization with Varroa defense loci")
-ggsave("plots/A_frequency_plot_AR_CA_FDR_whole_genome_wide_VarroaQTL.png",
-       height = 5, width = 9, units = "in", device = "png")
-# note: the QTL with overlap on chr1 is a putative QTL for removal of varroa-infested brood
-# based on an unpublished study in Apis mellifera carnica
-# Spotter 2012 "Denser spacing was chosen for nine genomic regions because a preliminary study 
-# based on 245 microsatellite loci (M. Brink, M. Solignac, K. Bienefeld, unpublished data) 
-# identified QTL for the trait ‘removal of Varroa‐infested brood’ in these regions."
-
-# zoom in just on chromosome 1:
-ggplot() +
-  geom_point(data = filter(A_AR_CA_cumulative, chr == 1), aes(x = pos_cum, y = A_ancestry, 
-                                                              color = color_by), size = .1) +
-  xlab("bp position on chromosome") +
-  ylab("mean African ancestry") +
-  #theme(legend.position = "none") +
-  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
-  geom_segment(data = filter(varroa_QTL_cumulative, chr == 1), 
-               aes(x=cum_start, xend=cum_end, y=0.68, yend=0.68, color = name),
-               lwd = 4) +
-  scale_colour_manual(name = NULL,
-                      values = c("0.01"="red", "0.05"="orange", "0.1"="skyblue", 
-                                 "n.s. - even chr"="darkgrey", 
-                                 "n.s. - odd chr"="grey",
-                                 "Varroa-Sensitive Hygiene putative QTL"="lightseagreen", 
-                                 "Varroa-Sensitive Hygiene QTL"="lightgreen"),
-                      limits = c("0.01", "0.05", "0.1", 
-                                 "n.s. - even chr", 
-                                 "n.s. - odd chr",
-                                 "Varroa-Sensitive Hygiene putative QTL", 
-                                 "Varroa-Sensitive Hygiene QTL"),
-                      labels = c("0.01 FDR", "0.05 FDR", "0.1 FDR", 
-                                 "n.s. - even chr", 
-                                 "n.s. - odd chr",
-                                 "Varroa-Sensitive Hygiene putative QTL", 
-                                 "Varroa-Sensitive Hygiene QTL")
-  ) +
-  theme(legend.position = "bottom") +
-  ggtitle("Ancestry outliers across chromosome 1 and co-localization with Varroa defense loci")
-ggsave("plots/A_frequency_plot_AR_CA_FDR_chr1_wide_VarroaQTL.png",
-       height = 5, width = 9, units = "in", device = "png")
-
-
-# how much of the genome do different QTL types cover?
-varroa_QTL_cumulative %>%
-  group_by(Outlier_type, Reference) %>% 
-  summarise(sum = sum(QTL_length))
 
 
 # to do later: better idea is to color the shared outliers and to draw threshold lines for the ind zone outliers

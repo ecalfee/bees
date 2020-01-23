@@ -122,7 +122,9 @@ data/honeybee_genome$ awk '{print $1"\t"0"\t"$2}' chr.lengths > chr.bed
 functional_analysis$ bedtools intersect -a results/HAv3.1_genes_only.scaffolds_with_mtDNA.gff3.sorted.bed -b ../data/honeybee_genome/chr.bed -wa > results/HAv3.1_genes_only.chr.gff3.sorted.bed
 
 # in local ancestry make this file (includes FDR):
-../local_ancestry/results/mean_ancestry_AR_CA.bed
+../local_ancestry/results/mean_anc:
+# chr11 also has large QTL for chalkbrood resistance https://pdfslide.net/documents/association-of-single-nucleotide-polymorphisms-to-association-of-single.html
+# defined by SNPs on Amel4.5 at 13636.1kb and 13698.3kbestry_AR_CA.bed
 
 # use bedtools to find contiguous outlier regions and map mean combined AR and CA ancestries to genes:
 # done in script rank_genes.R
@@ -136,6 +138,17 @@ QTLs, we added an additional 50Kb to either side of the QTL"
 "We performed hypergeometric tests with DAVID 6.8 (Huang et al. 2009) to identify if
 our gene set was enriched for Gene Ontology (GO) and KEGG pathway terms using Apis
 mellifera gene calls against a background of all genes in the honeybee genome."
+
+
+# subset outlier genes to just those found in beebase:
+results$ cat genes_within_outlier_regions.txt | grep 'BEEBASE' | cut -f6 | tr \; \\t | cut -f2 | tr \: \\t | tr \, \\t | cut -f2 > beebase_genes_outliers.txt
+# ran through DAVID for enrichment analysis (probs shouldn't run all together w/ diff types of outliers).
+# found 203 genes with DAVID IDs for Apis mellifera
+# of these, 185 records of potential functions https://david.ncifcrf.gov/annotationReport.jsp?annot=12,87,88,30,38,46,55,53,70,79&currentList=2
+# one gene is related to defense on chr11 for Apoidea level and when I search for this gene I find another paper that finds 
+# a single chalkbrood resistance QTL, on chr11 
+# https://pdfslide.net/documents/association-of-single-nucleotide-polymorphisms-to-association-of-single.html
+# defined by SNPs on Amel4.5 at 13636.1kb and 13698.3kb
 
 
 ### -------- Getting Amel HAv3.1 QTL positions using BLASTN ------- ####

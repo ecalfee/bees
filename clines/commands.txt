@@ -77,12 +77,18 @@ where w is the cline width, MATH is the standard deviation of parental‐offspri
 
 # testing for enrichment of steep clines in low r regions using a block bootstrap resampling:
 clines$ nohup parallel --noswap --jobs 5 --joblog logs/block_bootstrap_r_steep_clines.log 'Rscript bootstrap_steep_clines.R boot_{1} 100' ::: {1..100} &> logs/block_bootstrap_r_steep_clines.out &
-[1] 691 - RUNNING 12.29.19
+[1] 691 - RUNNING 12.29.19.
 
 # verifying ancestry calls for outlier regions by
 # looking at allele freq. clines at ancestry informative markers (AIMs)
 # first ID AIMs using interacting R script find_AIMs.R, then run for all populations for chr1 and chr11:
 clines$ nohup parallel --noswap --jobs 2 --joblog logs/get_maf_at_aims.log './AIMs_allele_freq.sh {1} Group{2} {3}' :::: ../bee_samples_listed/byPop/combined_sept19_pops.list ::: 1 11 :::+ A M &> logs/get_maf_at_aims.out &
-[3] 14794 - RUNNING 12.30.19. when done I will plot these clines in plot_AIMs_clines.R
+[3] 14794 - COMPLETED 12.30.19. when done I will plot these clines in plot_AIMs_clines.R
+# I decided I also want full A C and M aims for all of chr1 and all of chr11 to plot alongside outliers:
+clines$ nohup parallel --noswap --jobs 4 --joblog logs/get_maf_at_aims_chr1_11_ACM.log './AIMs_allele_freq.sh {1} Group{2} {3}' :::: ../bee_samples_listed/byPop/combined_sept19_pops.list ::: 1 1 11 11 :::+ C M A C &> logs/get_maf_at_aims_chr1_11_ACM.out &
+[1] 1435 - COMPLETE 1.22.20 
+# now finding allele freqs across all AIMs in the genome:
+clines$ nohup parallel --noswap --jobs 4 --joblog logs/get_maf_at_aims_chr_all_other_ACM.log './AIMs_allele_freq.sh {1} Group{2} {3}' :::: ../bee_samples_listed/byPop/combined_sept19_pops.list ::: {2..10} {12..16} ::: C M A &> logs/get_maf_at_aims_chr_all_other_ACM.out &
+[1] 5088 - RUNNING 1.22.20
 
 TO DO: ignoring frost, just using 0.5 resolution bioclim variables, first do a pca and use the first 5 PCs as covariates in a linear model of ancestry. Then re-run all the models with individual variables and print a table for the manuscript supplement. Decide what you want your final plot to be for the paper and update that section of the manuscript results.
