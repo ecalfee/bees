@@ -579,11 +579,20 @@ meanA_AR0 <- apply(AR_A, 1, mean)
 meanA_AR <- apply(AR_A, 1, function(x) sum(x*AR_pops_included$n_bees)/sum(AR_pops_included$n_bees))
 
 # with only included pops, mean of all individuals:
-meanA <- apply(A[ , c(AR_pops_included$population, CA_pops_included$population)], 1, 
-               function(x) sum(x*c(AR_pops_included$n_bees, CA_pops_included$n_bees))/sum(c(CA_pops_included$n_bees, AR_pops_included$n_bees)))
+meanA <- apply(A, 1, function(x) sum(x*meta.pop$n_bees)/sum(meta.pop$n_bees))
+
+# C and M ancestries:
+meanC_CA <- apply(C[ , CA_pops_included$population], 1, function(x) sum(x*CA_pops_included$n_bees)/sum(CA_pops_included$n_bees))
+meanC_AR <- apply(C[ , AR_pops_included$population], 1, function(x) sum(x*AR_pops_included$n_bees)/sum(AR_pops_included$n_bees))
+meanC <- apply(C, 1, function(x) sum(x*meta.pop$n_bees)/sum(meta.pop$n_bees))
+meanM_CA <- apply(M[ , CA_pops_included$population], 1, function(x) sum(x*CA_pops_included$n_bees)/sum(CA_pops_included$n_bees))
+meanM_AR <- apply(M[ , AR_pops_included$population], 1, function(x) sum(x*AR_pops_included$n_bees)/sum(AR_pops_included$n_bees))
+meanM <- apply(M, 1, function(x) sum(x*meta.pop$n_bees)/sum(meta.pop$n_bees))
 
 # save ancestry data for later access:
 save(file = "results/A.RData", list = c("A", "sites", "meanA", "meanA_CA", "meanA_AR"))
+save(file = "results/C.RData", list = c("C", "sites", "meanC", "meanC_CA", "meanC_AR"))
+save(file = "results/M.RData", list = c("M", "sites", "meanM", "meanM_CA", "meanM_AR"))
 
 # make plots - all loci, mean ancestry across all pops
 png("plots/histogram_A_ancestry_all_loci.png", height = 6, width = 8, units = "in", res = 300)

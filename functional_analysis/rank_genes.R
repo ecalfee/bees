@@ -2,7 +2,10 @@ library(dplyr)
 library(ggplot2)
 library(bedr)
 library(ggrastr)# to rasterize points but not legends in ggplot graphs
-
+source("../colors.R") # for color palette
+load("../local_ancestry/results/A.RData")
+load("../local_ancestry/results/C.RData")
+load("../local_ancestry/results/M.RData")
 # this script ranks genes & plots them by evidence for selection
 # significance text
 sig_text = data.frame(FDR = c(0.01, 0.05, 0.1, NA),
@@ -46,12 +49,12 @@ genes <- bedr(
   check.chr = F
 ) %>%
   data.table::setnames(c(gene_file_columns, colnames(A_AR_CA[c(5,6,13)])))
-
+nrow(genes)
 
 
 # group outliers into contiguous regions
 threshold_extend_region <- 0.1
-threshold_keep_region <- 0.05 # only keep contiguous regions that meet FDR 0.05 cutoff, but extend them out to the 0.1 cutoff
+threshold_keep_region <- 0.1 # only keep contiguous regions that meet FDR 0.05 cutoff, but extend them out to the 0.1 cutoff
 
 # start with high A shared outliers
 high.shared <- A_AR_CA %>%
@@ -103,7 +106,10 @@ high.shared.outliers2 <- bedr(
   data.table::setnames(c("chr", "start", "end", "min_FDR_AR", "min_FDR_CA", "region")) %>%
   filter(min_FDR_AR <= threshold_keep_region2 & min_FDR_CA <= threshold_keep_region2)
 high.shared.outliers2
-
+table(high.shared.outliers$min_FDR)
+table(high.shared.outliers2[, c("min_FDR_CA", "min_FDR_AR")])
+table(high.shared.outliers$chr)
+table(high.shared.outliers2$chr)
 
 # low shared outliers -- NONE
 low.shared <- A_AR_CA %>%
@@ -126,7 +132,6 @@ low.shared.outliers <- bedr(
 
 # high CA outliers:
 high.CA <- A_AR_CA %>%
-  filter(., FDR_shared_high %in% c("0.1", "NA")) %>%
   dplyr::select(c("scaffold", "start", "end", "snp_id", "AR", "CA", "FDR_CA_high")) %>%
   mutate(FDR_CA_high = as.numeric(FDR_CA_high)) %>%
   rename(chr = scaffold) %>%
@@ -140,12 +145,12 @@ high.CA <- A_AR_CA %>%
 high.CA.only <- bedr(
   engine = "bedtools", 
   input = list(a = high.CA[ , c("chr", "start", "end")],
-               b = high.shared.outliers[ , c("chr", "start", "end")]), 
+               b = high.shared.outliers2[ , c("chr", "start", "end")]), 
   method = "intersect", 
   params = "-sorted -wao -g ../data/honeybee_genome/chr.lengths", # exclude if it's in a 'shared outlier' region
   check.chr = F
 ) %>%
-  left_join(., high.CA, by = c("chr", "start", "end")) %>%
+  left_join(high.CA, ., by = c("chr", "start", "end")) %>%
   filter(V7 == 0) %>%
   dplyr::select(colnames(high.CA))
 
@@ -164,7 +169,6 @@ high.CA.only.outliers <- bedr(
 
 # high AR outliers:
 high.AR <- A_AR_CA %>%
-  filter(., FDR_shared_high %in% c("0.1", "NA")) %>%
   dplyr::select(c("scaffold", "start", "end", "snp_id", "AR", "CA", "FDR_AR_high")) %>%
   mutate(FDR_AR_high = as.numeric(FDR_AR_high)) %>%
   rename(chr = scaffold) %>%
@@ -175,13 +179,13 @@ high.AR <- A_AR_CA %>%
 high.AR.only <- bedr( # exclude regions that overlap with high shared outliers
   engine = "bedtools", 
   input = list(a = high.AR[ , c("chr", "start", "end")],
-               b = high.shared.outliers[ , c("chr", "start", "end")]), 
+               b = high.shared.outliers2[ , c("chr", "start", "end")]), 
   method = "intersect", 
   params = "-sorted -wao -g ../data/honeybee_genome/chr.lengths", # exclude if it's in a 'shared outlier' region
   check.chr = F
 ) %>%
   #View() # I did a visual check.
-  left_join(., high.AR, by = c("chr", "start", "end")) %>%
+  left_join(high.AR, ., by = c("chr", "start", "end")) %>%
   filter(V7 == 0) %>%
   dplyr::select(colnames(high.AR))
 
@@ -238,13 +242,13 @@ low.AR.only.outliers <- bedr(
 high.CA.intersect <- bedr(
   engine = "bedtools", 
   input = list(a = high.CA[ , c("chr", "start", "end")],
-               b = high.shared.outliers[ , c("chr", "start", "end")]), 
+               b = high.shared.outliers2[ , c("chr", "start", "end")]), 
   method = "intersect", 
   params = "-sorted -wao -g ../data/honeybee_genome/chr.lengths", # exclude if it's in a 'shared outlier' region
   check.chr = F
 ) %>%
   #View() # I did a visual check.
-  left_join(., high.CA, by = c("chr", "start", "end")) %>%
+  left_join(high.CA, ., by = c("chr", "start", "end")) %>%
   mutate(bp_shared_outliers = V7) %>%
   dplyr::select(c(colnames(high.CA), bp_shared_outliers))
 
@@ -258,8 +262,13 @@ high.CA.outliers <- bedr(
 ) %>%
   data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers")) %>%
   mutate(region = rownames(.)) %>%
-  dplyr::select(c("chr", "start", "end", "min_FDR", "region", "bp_shared_outliers")) %>%
-  filter(min_FDR <= threshold_keep_region)
+  mutate(start = as.integer(start),
+         end = as.integer(end),
+         min_FDR = as.numeric(min_FDR),
+         bp_shared_outliers = as.integer(bp_shared_outliers),
+         percent_bp_shared = bp_shared_outliers/(end - start)) %>%
+  dplyr::select(c("chr", "start", "end", "min_FDR", "region", "bp_shared_outliers", "percent_bp_shared")) %>%
+  filter(min_FDR <= threshold_keep_region) # keep only outliers meeting threshold
 
 high.AR.intersect <- bedr(
   engine = "bedtools", 
@@ -270,7 +279,7 @@ high.AR.intersect <- bedr(
   check.chr = F
 ) %>%
   #View() # I did a visual check.
-  left_join(., high.AR, by = c("chr", "start", "end")) %>%
+  left_join(high.AR, ., by = c("chr", "start", "end")) %>%
   mutate(bp_shared_outliers = V7) %>%
   dplyr::select(c(colnames(high.AR), bp_shared_outliers))
 
@@ -284,8 +293,13 @@ high.AR.outliers <- bedr(
 ) %>%
   data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers")) %>%
   mutate(region = rownames(.)) %>%
-  dplyr::select(c("chr", "start", "end", "min_FDR", "region", "bp_shared_outliers")) %>%
-  filter(min_FDR <= threshold_keep_region) # no outliers meeting 10% FDR threshold
+  mutate(start = as.integer(start),
+         end = as.integer(end),
+         min_FDR = as.numeric(min_FDR),
+         bp_shared_outliers = as.integer(bp_shared_outliers),
+         percent_bp_shared = bp_shared_outliers/(end - start)) %>%
+  dplyr::select(c("chr", "start", "end", "min_FDR", "region", "bp_shared_outliers", "percent_bp_shared")) %>%
+  filter(min_FDR <= threshold_keep_region) # keep only outliers meeting threshold
 
 # NA -- no low shared outliers
 #low.AR.intersect <- 
@@ -319,8 +333,26 @@ low.AR.outliers <- low.AR.only.outliers # b/c no shared low outliers
 # write files with outliers regions:
 #outlier_sets <- list(high.shared.outliers, low.shared.outliers, high.AR.outliers, low.AR.outliers, high.CA.outliers)
 #outlier_set_names <- c("high_shared", "low_shared", "high_AR", "low_AR", "high_CA")
-outlier_sets <- list(high.shared.outliers2, low.AR.outliers, high.CA.outliers) # only 3 categories of outliers at 5% FDR.
-outlier_set_names <- c("high_shared", "low_AR", "high_CA")
+outlier_columns <- c("chr", "start", "end", "region", "min_FDR", "bp_shared_outliers", "percent_bp_shared", "min_FDR_AR", "min_FDR_CA")
+high.shared.outliers3 <- high.shared.outliers2 %>%
+  mutate(min_FDR_AR = as.numeric(min_FDR_AR),
+         min_FDR_CA = as.numeric(min_FDR_CA),
+         min_FDR = ifelse(min_FDR_AR < min_FDR_CA, min_FDR_CA, min_FDR_AR),
+         bp_shared_outliers = end - start,
+         percent_bp_shared = 1) %>%
+  dplyr::select(outlier_columns)
+low.AR.outliers3 <- low.AR.outliers %>%
+  mutate(min_FDR = as.numeric(min_FDR), min_FDR_AR = min_FDR, min_FDR_CA = NA,
+         bp_shared_outliers = 0, percent_bp_shared = 0) %>%
+  dplyr::select(outlier_columns)
+high.AR.outliers3 <- high.AR.outliers %>%
+  mutate(min_FDR_AR = min_FDR, min_FDR_CA = NA) %>%
+  dplyr::select(outlier_columns)
+high.CA.outliers3 <- high.CA.outliers %>%
+  mutate(min_FDR_CA = min_FDR, min_FDR_AR = NA) %>%
+  dplyr::select(outlier_columns)
+outlier_sets <- list(high.shared.outliers3, low.AR.outliers3, high.AR.outliers3, high.CA.outliers3) # only 3 categories of outliers at 5% FDR.
+outlier_set_names <- c("high_shared2", "low_AR", "high_AR", "high_CA")
 for (i in 1:length(outlier_sets)){
   write.table(outlier_sets[[i]], 
               paste0("results/outlier_regions/", outlier_set_names[i], ".bed"),
@@ -369,7 +401,28 @@ write.table(outliers_all_buffer,
             paste0("results/outlier_regions/all.plus20kb.noHeader.bed"),
             quote = F, col.names = F, row.names = F, sep = "\t")
 
-# WHICH GENES FALL IN OUTLIER REGIONS?
+#******************************************************** WHICH GENES FALL IN OUTLIER REGIONS?
+genes_high_AR <- bedr(
+    engine = "bedtools", 
+    input = list(a = genes,
+                 b = A_AR_CA %>%
+                   mutate(FDR_AR_high = as.numeric(FDR_AR_high)) %>%
+                   filter(!is.na(FDR_AR_high))), 
+    method = "intersect", 
+    params = "-sorted -g ../data/honeybee_genome/chr.lengths",
+    check.chr = F
+  ) 
+
+#-c 8 -o min
+#%>%
+    data.table::setnames(c(gene_file_columns, colnames(outliers_all_genome_sort[c(5,6)]), "overlaps_n_regions")) %>%
+    filter(overlaps_n_regions > 0) %>%
+    left_join(., genes, by = colnames(genes)[1:6])
+  
+)
+
+
+
 gene_outliers <- bedr(
   engine = "bedtools", 
   input = list(a = gene_file,
@@ -940,26 +993,58 @@ ggsave("plots/A_frequency_plot_AR_CA_FDR_chr11_outlier.png",
 ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_chr11_outlier.pdf",
        height = 5, width = 10, units = "in", device = "pdf")
 
-# all 3 ancestries across chromosome 11:
+
+#********************************************************************************************************************
+# all 3 ancestries together
+ACM_AR_CA <- A_AR_CA[ , c("scaffold", "start", "end", "chr", "pos", "cum_pos", "snp_id", 
+                          "FDR_shared_high", "FDR_AR_high", "FDR_CA_high", "FDR_AR_low")] %>%
+  mutate(A_AR = meanA_AR, A_CA = meanA_CA,
+         M_AR = meanM_AR, M_CA = meanM_CA,
+         C_AR = meanC_AR, C_CA = meanC_CA) %>%
+  pivot_longer(data = ., cols = c("A_AR", "A_CA", "C_AR", "C_CA", "M_AR", "M_CA"), 
+               values_to = "ancestry_freq", names_to = "ancestry") %>%
+  tidyr::separate(., "ancestry", c("ancestry", "zone")) %>%
+  left_join(., pretty_label_zone, by = "zone")
+ACM_means <- ACM_AR_CA %>%
+  group_by(ancestry, zone, zone_pretty) %>%
+  summarise(ancestry_sd = sd(ancestry_freq),
+            ancestry_freq = mean(ancestry_freq))
+
 # zoom in on chr11:
-A_AR_CA %>%
+ACM_AR_CA %>%
   filter(chr == "Group11") %>%
-  filter(., pos > 1.25*10^7) %>%
-  #pivot_longer(., cols = c("AR", "CA"), names_to )
+  filter(., pos > 1.3*10^7 & pos < 1.6*10^7) %>%
   ggplot(.) +
-  geom_point(data = . %>%
-               filter(!is.na(FDR)), # then plot sig points on top 
-             aes(x = pos, y = A_ancestry, 
-                 color = color_by), size = .05) +
+  geom_point(# then plot sig points on top 
+             aes(x = pos, y = ancestry_freq, 
+                 color = ancestry), size = .05) +
   xlab("Position (bp)") +
   ylab("Mean ancestry frequency") +
   #geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
   #                              chr_lengths, by = "scaffold") %>%
   #               filter(outlier_type == "low_AR") %>%
-  #               filter(chr == "Group11"),
-  #             aes(x = start, xend = end,
-  #                 y = 0.7, yend = 0.7, color = min_FDR),
+  #               filter(chr == 11),
+  #             aes(xmin = start, xend = end,
+  #                 y = 0.7, yend = 0.7),
   #             lwd = 4) +
+  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+                                chr_lengths, by = "scaffold") %>%
+                 filter(outlier_type == "low_AR") %>%
+                 filter(chr == 11) %>% 
+              mutate(zone = "SA", zone_pretty = "S. America"),
+               aes(xmin = start, xmax = end,
+                   ymin = -Inf, ymax = Inf),
+            alpha = .2) +
+  geom_hline(data = ACM_means, aes(yintercept = ancestry_freq, color = ancestry),
+             linetype = "solid") + # dashed
+
+  #geom_rect(data = ACM_means,
+  #             aes(xmin = 1.3*10^7, xmax = 1.6*10^7,
+  #                 ymin = ancestry_freq - 2*ancestry_sd, ymax = ancestry_freq + 2*ancestry_sd,
+  #                 fill = ancestry),
+  #          alpha = .2) +
+  scale_color_manual(values = col_ACM, name = "Ancestry") +
+  scale_fill_manual(values = col_ACM, name = "Ancestry") +
   #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
   #theme(legend.position = "none") +
   theme_classic() +
@@ -968,6 +1053,71 @@ ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM.png",
        height = 4, width = 6, units = "in", device = "png")
 ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr11_outlier.tiff",
        height = 4, width = 6, units = "in", dpi = 600, device = "tiff")
+
+# chr1
+A_AR_CA[which.max(meanA),]
+top_pos_shared_high = A_AR_CA[which.max(meanA),]$pos
+mean(meanA)
+ACM_AR_CA %>%
+  filter(chr == "Group1") %>%
+  filter(., pos > 1*10^7 & pos < 1.25*10^7) %>%
+  ggplot(.) +
+  geom_vline(xintercept = top_pos_shared_high) + # vertical line at top SNP (w/ cline plotted in other panel)
+  geom_point(# then plot sig points on top 
+    aes(x = pos, y = ancestry_freq, 
+        color = ancestry), size = .05) +
+  xlab("Position (bp)") +
+  ylab("Mean ancestry frequency") +
+  #geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
+  #                              chr_lengths, by = "scaffold") %>%
+  #               filter(outlier_type == "high_shared2") %>%
+  #               filter(chr == 1),
+  #             aes(xmin = start, xend = end,
+  #                 y = 0.7, yend = 0.7),
+  #             lwd = 4) +
+  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+                             chr_lengths, by = "scaffold") %>%
+              filter(outlier_type == "high_shared2") %>%
+              filter(chr == 1),
+            aes(xmin = start, xmax = end,
+                ymin = -Inf, ymax = Inf),
+            alpha = .2) +
+  #geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+  #                           chr_lengths, by = "scaffold") %>%
+  #            filter(outlier_type == "high_AR") %>%
+  #            filter(chr == 1 & start > 1*10^7 & end < 1.25*10^7) %>%
+  #            mutate(zone_pretty = "S. America"),
+  #          aes(xmin = start, xmax = end,
+  #              ymin = -Inf, ymax = Inf),
+  #          alpha = .2) +
+  #geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+  #                           chr_lengths, by = "scaffold") %>%
+  #            filter(outlier_type == "high_CA") %>%
+  #            filter(chr == 1 & start > 1*10^7 & end < 1.25*10^7) %>%
+  #            mutate(zone_pretty = "N. America"),
+  #          aes(xmin = start, xmax = end,
+  #              ymin = -Inf, ymax = Inf),
+  #          alpha = .2) +
+  geom_hline(data = ACM_means, aes(yintercept = ancestry_freq, color = ancestry),
+             linetype = "solid") +
+  #geom_rect(data = ACM_means,
+  #             aes(xmin = 1.3*10^7, xmax = 1.6*10^7,
+  #                 ymin = ancestry_freq - 2*ancestry_sd, ymax = ancestry_freq + 2*ancestry_sd,
+  #                 fill = ancestry),
+  #          alpha = .2) +
+  scale_color_manual(values = col_ACM, name = "Ancestry") +
+  scale_fill_manual(values = col_ACM, name = "Ancestry") +
+  #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
+  #theme(legend.position = "none") +
+  theme_classic() +
+  facet_wrap(~zone_pretty, nrow = 2, ncol = 1)
+ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM.png",
+       height = 4, width = 6, units = "in", device = "png")
+ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr1_outlier.tiff",
+       height = 4, width = 6, units = "in", dpi = 600, device = "tiff")
+
+
+
 
 
 
