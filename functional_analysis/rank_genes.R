@@ -404,23 +404,61 @@ write.table(outliers_all_buffer,
 #******************************************************** WHICH GENES FALL IN OUTLIER REGIONS?
 genes_high_AR <- bedr(
     engine = "bedtools", 
-    input = list(a = genes,
+    input = list(a = gene_file,
                  b = A_AR_CA %>%
                    mutate(FDR_AR_high = as.numeric(FDR_AR_high)) %>%
-                   filter(!is.na(FDR_AR_high))), 
-    method = "intersect", 
-    params = "-sorted -g ../data/honeybee_genome/chr.lengths",
+                   filter(!is.na(FDR_AR_high)) %>%
+                   dplyr::select(c("scaffold", "start", "end", "FDR_AR_high")) %>%
+                   rename(chr = scaffold)), 
+    method = "map", 
+    params = "-g ../data/honeybee_genome/chr.lengths -c 4, -o min",
     check.chr = F
-  ) 
-
-#-c 8 -o min
-#%>%
-    data.table::setnames(c(gene_file_columns, colnames(outliers_all_genome_sort[c(5,6)]), "overlaps_n_regions")) %>%
-    filter(overlaps_n_regions > 0) %>%
-    left_join(., genes, by = colnames(genes)[1:6])
-  
-)
-
+  ) %>%
+  data.table::setnames(c(gene_file_columns, "FDR_AR_high")) %>%
+  filter(FDR_AR_high != ".")
+genes_low_AR <- bedr(
+  engine = "bedtools", 
+  input = list(a = gene_file,
+               b = A_AR_CA %>%
+                 mutate(FDR_AR_low = as.numeric(FDR_AR_low)) %>%
+                 filter(!is.na(FDR_AR_low)) %>%
+                 dplyr::select(c("scaffold", "start", "end", "FDR_AR_low")) %>%
+                 rename(chr = scaffold)), 
+  method = "map", 
+  params = "-g ../data/honeybee_genome/chr.lengths -c 4, -o min",
+  check.chr = F
+) %>%
+  data.table::setnames(c(gene_file_columns, "FDR_AR_low")) %>%
+  filter(FDR_AR_low != ".")
+genes_high_CA <- bedr(
+  engine = "bedtools", 
+  input = list(a = gene_file,
+               b = A_AR_CA %>%
+                 mutate(FDR_CA_high = as.numeric(FDR_CA_high)) %>%
+                 filter(!is.na(FDR_CA_high)) %>%
+                 dplyr::select(c("scaffold", "start", "end", "FDR_CA_high")) %>%
+                 rename(chr = scaffold)), 
+  method = "map", 
+  params = "-g ../data/honeybee_genome/chr.lengths -c 4, -o min",
+  check.chr = F
+) %>%
+  data.table::setnames(c(gene_file_columns, "FDR_CA_high")) %>%
+  filter(FDR_CA_high != ".")
+genes_high_shared <- inner_join(genes_high_CA, genes_high_AR, by = gene_file_columns)
+genes_high_CA_only <- left_join(genes_high_CA, genes_high_AR, by = gene_file_columns) %>%
+  filter(is.na(FDR_AR_high))
+genes_high_AR_only <- left_join(genes_high_AR, genes_high_CA, by = gene_file_columns) %>%
+  filter(is.na(FDR_CA_high))
+genes_combined <- bind_rows(mutate(genes_high_shared, outlier_type = "high_shared"), 
+               mutate(genes_high_CA_only, outlier_type = "high_CA_only"), 
+               mutate(genes_high_AR_only, outlier_type = "high_AR_only"), 
+               mutate(genes_low_AR, outlier_type = "low_AR_only")) %>%
+  dplyr::arrange(scaffold, start)
+table(genes_combined$outlier_type) # mostly in the low AR category (very large region)
+table(genes_combined[ , c("scaffold", "outlier_type")])
+write.table(genes_combined, "results/genes_0.1FDR_combined.txt",
+            col.names = T, row.names = F, quote = F, sep = "\t")
+nrow(genes)
 
 
 gene_outliers <- bedr(
@@ -1011,6 +1049,8 @@ ACM_means <- ACM_AR_CA %>%
             ancestry_freq = mean(ancestry_freq))
 
 # zoom in on chr11:
+col_ACM_chr11_outliers = c(col_ACM, overlap_aims_low_M_outliers_11$color)
+names(col_ACM_chr11_outliers) = c(names(col_ACM), overlap_aims_low_M_outliers_11$AIM)
 ACM_AR_CA %>%
   filter(chr == "Group11") %>%
   filter(., pos > 1.3*10^7 & pos < 1.6*10^7) %>%
@@ -1020,6 +1060,9 @@ ACM_AR_CA %>%
                  color = ancestry), size = .05) +
   xlab("Position (bp)") +
   ylab("Mean ancestry frequency") +
+  geom_vline(data = overlap_aims_low_M_outliers_11, 
+             aes(xintercept = pos), color = "black") +
+  #overlap_aims_low_M_outliers_11
   #geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
   #                              chr_lengths, by = "scaffold") %>%
   #               filter(outlier_type == "low_AR") %>%
@@ -1045,24 +1088,32 @@ ACM_AR_CA %>%
   #          alpha = .2) +
   scale_color_manual(values = col_ACM, name = "Ancestry") +
   scale_fill_manual(values = col_ACM, name = "Ancestry") +
+  #scale_color_manual(values = col_ACM_chr11_outliers, name = "Ancestry") +
+  #scale_fill_manual(values = col_ACM_chr11_outliers, name = "Ancestry") +
   #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
   #theme(legend.position = "none") +
   theme_classic() +
   facet_wrap(~zone_pretty, nrow = 2, ncol = 1)
-ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM.png",
+ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM2.png",
        height = 4, width = 6, units = "in", device = "png")
-ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr11_outlier.tiff",
+ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr11_outlier2.tiff",
        height = 4, width = 6, units = "in", dpi = 600, device = "tiff")
 
 # chr1
 A_AR_CA[which.max(meanA),]
 top_pos_shared_high = A_AR_CA[which.max(meanA),]$pos
 mean(meanA)
+col_ACM_shared_outliers = c(col_ACM, overlap_aims_shared_outliers$color)
+names(col_ACM_shared_outliers) = c(names(col_ACM), overlap_aims_shared_outliers$AIM)
+left_join(overlap_aims_shared_outliers, A_AR_CA, by = c("chr"="scaffold", "pos"))
+sapply(overlap_aims_shared_outliers$pos, function(x) x %in% A_AR_CA[A_AR_CA$chr == "Group1", "pos"])
+# none of these markers are in the original ancestry calling set.
 ACM_AR_CA %>%
   filter(chr == "Group1") %>%
   filter(., pos > 1*10^7 & pos < 1.25*10^7) %>%
   ggplot(.) +
-  geom_vline(xintercept = top_pos_shared_high) + # vertical line at top SNP (w/ cline plotted in other panel)
+  geom_vline(data = overlap_aims_shared_outliers, 
+             aes(xintercept = pos, color = AIM)) +
   geom_point(# then plot sig points on top 
     aes(x = pos, y = ancestry_freq, 
         color = ancestry), size = .05) +
@@ -1105,8 +1156,8 @@ ACM_AR_CA %>%
   #                 ymin = ancestry_freq - 2*ancestry_sd, ymax = ancestry_freq + 2*ancestry_sd,
   #                 fill = ancestry),
   #          alpha = .2) +
-  scale_color_manual(values = col_ACM, name = "Ancestry") +
-  scale_fill_manual(values = col_ACM, name = "Ancestry") +
+  scale_color_manual(values = col_ACM_shared_outliers, name = "Ancestry") +
+  scale_fill_manual(values = col_ACM_shared_outliers, name = "Ancestry") +
   #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
   #theme(legend.position = "none") +
   theme_classic() +
@@ -1429,5 +1480,47 @@ ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_whole_genome_wid
 #par(mar=c(5,5,0,3))
 #plot(density(x2) , main="" , xlab="Value of my variable", ylim=c(1,0) , las=1 , col="tomato3" , lwd=4)  
 
+###-------------------------------------------------------###
+# read in genes list with beebase IDs:
+beebase_outlier_genes <- read.table("results/DAVID_results_genes_0.1FDR_combined_with_beebase.csv",
+                                    sep = ",", header = T)
+#"([A-Z]+|[a-z]+)[=]"
+remove_id <- function(x, link) stringr::str_replace(x, paste0("(.+)[", link, "]"), "") # turns ID=3253 into just 3253
+get_id <- function(x, link) stringr::str_replace(stringr::str_extract(x, paste0("(.+)[", link, "]")), paste0("[", link, "]"), "") # returns "ID"
+get_gene_id_info <- function(x, split = ";", link = "="){ # takes in dictionary and returns named vector
+  v = strsplit(x, split = split)[[1]] # turns a dictionary string e.g. "ID=89;Gene=20" into a vector, split by ;
+  y = remove_id(v, link = link) # returns just the values: 89, 20
+  names(y) = get_id(v, link = link) # returns just the IDs: ID, Gene
+  return(y)
+}
 
+#gene_id_cols <- c("ID", "Dbxref", "Name", "gbkey", "gene", "gene_biotype")
 
+get_gene_id_info(x = "BEEBASE:2,GeneID:LOC213", split = ",", link = ":")
+genes_combined2 = do.call(bind_rows,
+                          lapply(genes_combined$gene_info,
+                                 function(x) get_gene_id_info(x, split = ";", link = "="))) %>%
+  cbind(dplyr::select(genes_combined, -c(gene_info, gene)), .) %>%
+  cbind(., #dplyr::select(., -Dbxref)
+        do.call(bind_rows,
+                lapply(.$Dbxref, function(x)
+                  get_gene_id_info(x, split = ",", link = ":")))) %>%
+  left_join(., beebase_outlier_genes[ , c("BEEBASE_ID", "Gene.Name", "Related.Genes", "Species")], 
+            by = c("BEEBASE"="BEEBASE_ID")) %>%
+  rename(DAVID_gene_name = Gene.Name, 
+         DAVID_related_genes = Related.Genes, 
+         DAVID_species = Species) %>%
+  dplyr::arrange(desc(outlier_type), scaffold, start) %>%
+  mutate(FDR_AR_high = as.numeric(FDR_AR_high),
+         FDR_CA_high = as.numeric(FDR_CA_high),
+         FDR_AR_low = as.numeric(FDR_AR_low))
+table(!is.na(genes_combined2$BEEBASE))
+dim(beebase_outlier_genes)
+beebase_outlier_genes$BEEBASE_ID[!(beebase_outlier_genes$BEEBASE_ID %in% genes_combined2$BEEBASE)]
+genes_combined2$BEEBASE[!(genes_combined2$BEEBASE %in% beebase_outlier_genes$BEEBASE_ID) & !is.na(genes_combined2$BEEBASE)]
+
+# write genes and DAVID functional information to file
+write.table(dplyr::select(genes_combined2, -Dbxref), 
+            "results/genes_0.1FDR_combined_with_DAVID_functions.txt",
+            sep = "\t",
+            col.names = T, row.names = F)  
