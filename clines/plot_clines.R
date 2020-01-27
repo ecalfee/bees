@@ -2500,13 +2500,13 @@ sapply(1:length(outlier_mvn_clines), function(i)
         lty = 2))
 plot_random_clines <- function(d, n, seed = 200, color = "darkgrey"){
   # set frame
-  plot(meta.AR.order.by.lat$lat, 
+  plot(abs(meta.AR.order.by.lat$lat), 
        rep(0, length(meta.AR.order.by.lat$lat)),
        col = NULL,
        ylim = c(0, 1),
-       xlim = range(d_A$lat[d_A$group == "AR_2018"]),
-       ylab = "A ancestry",
-       xlab = "latitude")
+       xlim = range(d_A$abs_lat),#[d_A$group == "AR_2018"]),
+       ylab = "African ancestry frequency",
+       xlab = "Degrees latitude from equator")
   # set seed
   set.seed(seed)
   # sample data
@@ -2515,9 +2515,11 @@ plot_random_clines <- function(d, n, seed = 200, color = "darkgrey"){
   sapply(sample_data, function(i)
     curve(logistic3(mu = d$params$estimate[d$params$term == "mu" & d$params$snp_index == i], 
                     b = d$params$estimate[d$params$term == "b" & d$params$snp_index == i], 
-                    x), 
-          from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
-          to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+                    -x), 
+          from = range(d_A$abs_lat)[1],
+          to = range(d_A$abs_lat)[2],
+          #from = range(d_A$abs_lat[d_A$group == "AR_2018"])[1], 
+          #to = range(d_A$abs_lat[d_A$group == "AR_2018"])[2],
           n = 100,
           col = "darkgrey",
           add = T,
@@ -2535,9 +2537,9 @@ plot_random_clines(d = clines, n = 100, seed = 200, color = "darkgrey")
 sapply(1, function(i)
   curve(logistic3(mu = clines$params$estimate[clines$params$term == "mu" & clines$params$snp_index == outlier_clines[i]], 
                   b = clines$params$estimate[clines$params$term == "b" & clines$params$snp_index == outlier_clines[i]], 
-                  x), 
-        from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
-        to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+                  -x), 
+        from = range(d_A$abs_lat)[1], 
+        to = range(d_A$abs_lat)[2],
         n = 100,
         col = viridis::viridis(n = 3)[i],
         add = T,
@@ -2550,9 +2552,9 @@ plot_random_clines(d = clines, n = 100, seed = 200, color = "darkgrey")
 sapply(2:3, function(i)
   curve(logistic3(mu = clines$params$estimate[clines$params$term == "mu" & clines$params$snp_index == outlier_clines[i]], 
                   b = clines$params$estimate[clines$params$term == "b" & clines$params$snp_index == outlier_clines[i]], 
-                  x), 
-        from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
-        to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+                  -x), 
+        from = range(d_A$abs_lat)[1], 
+        to = range(d_A$abs_lat)[2],
         n = 100,
         col = viridis::viridis(n = 3)[i],
         add = T,
@@ -2584,15 +2586,15 @@ plot_random_clines(d = clines, n = 100, seed = 200, color = "darkgrey")
 sapply(1, function(i){
   curve(logistic3(mu = clines$params$estimate[clines$params$term == "mu" & clines$params$snp_index == outlier_clines[i]], 
                   b = clines$params$estimate[clines$params$term == "b" & clines$params$snp_index == outlier_clines[i]], 
-                  x), 
-        from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
-        to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+                  -x), 
+        from = range(d_A$abs_lat)[1], 
+        to = range(d_A$abs_lat)[2],
         n = 100,
         col = viridis::viridis(n = 3)[i],
         add = T,
         lwd = 3, 
         lty = 1)
-  points(meta.AR.order.by.lat$lat, 
+  points(abs(meta.AR.order.by.lat$lat), 
          A[outlier_clines[i], meta.AR.order.by.lat$population],
          pch = 20,
          col = viridis::viridis(n = 3)[i])
@@ -2604,15 +2606,15 @@ plot_random_clines(d = clines, n = 100, seed = 200, color = "darkgrey")
 sapply(2:3, function(i){
   curve(logistic3(mu = clines$params$estimate[clines$params$term == "mu" & clines$params$snp_index == outlier_clines[i]], 
                   b = clines$params$estimate[clines$params$term == "b" & clines$params$snp_index == outlier_clines[i]], 
-                  x), 
-        from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
-        to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+                  -x), 
+        from = range(d_A$abs_lat)[1], 
+        to = range(d_A$abs_lat)[2],
         n = 100,
         col = viridis::viridis(n = 3)[i],
         add = T,
         lwd = 3, 
         lty = 1)
-  points(meta.AR.order.by.lat$lat, 
+  points(abs(meta.AR.order.by.lat$lat), 
        A[outlier_clines[i], meta.AR.order.by.lat$population],
        pch = 20,
        col = viridis::viridis(n = 3)[i])
@@ -2625,15 +2627,15 @@ plot_random_clines(d = clines, n = 100, seed = 200, color = "darkgrey")
 sapply(1:3, function(i){
   curve(logistic3(mu = clines$params$estimate[clines$params$term == "mu" & clines$params$snp_index == outlier_clines[i]], 
                   b = clines$params$estimate[clines$params$term == "b" & clines$params$snp_index == outlier_clines[i]], 
-                  x), 
-        from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
-        to = range(d_A$lat[d_A$group == "AR_2018"])[2],
+                  -x), 
+        from = range(d_A$abs_lat)[1], 
+        to = range(d_A$abs_lat)[2],
         n = 100,
         col = viridis::viridis(n = 3)[i],
         add = T,
         lwd = 3, 
         lty = 1)
-  points(meta.AR.order.by.lat$lat, 
+  points(abs(meta.AR.order.by.lat$lat), 
          A[outlier_clines[i], meta.AR.order.by.lat$population],
          pch = 20,
          col = viridis::viridis(n = 3)[i])
