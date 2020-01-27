@@ -2,11 +2,29 @@ library(dplyr)
 library(ggplot2)
 library(bedr)
 library(ggrastr)# to rasterize points but not legends in ggplot graphs
-
+source("../colors.R") # for color palette
+load("../local_ancestry/results/A.RData")
+load("../local_ancestry/results/C.RData")
+load("../local_ancestry/results/M.RData")
 # this script ranks genes & plots them by evidence for selection
 # significance text
 sig_text = data.frame(FDR = c(0.01, 0.05, 0.1, NA),
                       stars = c("***", "**", "*", "n.s."))
+
+# load qtls
+qtl = read.csv("../data/QTL_markers_Hunt_lab/AMEL_QTLS.csv", sep = ",", stringsAsFactors = F)
+
+# load genome metadata
+# Compute chromosome sizes
+chr_lengths <- read.table("../data/honeybee_genome/chr.list", sep = "\t", stringsAsFactors = F)
+head(chr_lengths)
+colnames(chr_lengths) <- c("scaffold", "length", "chr_group", "chr_lg")
+chr_lengths <- chr_lengths %>%
+  mutate(chr = as.numeric(substr(chr_lg, 3, 100))) %>%
+  arrange(chr) %>%
+  mutate(chr_start = cumsum(length) - length,
+         chr_end = cumsum(length)) %>%
+  mutate(chr_midpoint = (chr_start + chr_end)/2)
 
 #-------------------------------------HAv3.1 Analysis------------------------------------------------------------
 
@@ -31,12 +49,12 @@ genes <- bedr(
   check.chr = F
 ) %>%
   data.table::setnames(c(gene_file_columns, colnames(A_AR_CA[c(5,6,13)])))
-
+nrow(genes)
 
 
 # group outliers into contiguous regions
 threshold_extend_region <- 0.1
-threshold_keep_region <- 0.05 # only keep contiguous regions that meet FDR 0.05 cutoff, but extend them out to the 0.1 cutoff
+threshold_keep_region <- 0.1 # only keep contiguous regions that meet FDR 0.05 cutoff, but extend them out to the 0.1 cutoff
 
 # start with high A shared outliers
 high.shared <- A_AR_CA %>%
@@ -45,6 +63,13 @@ high.shared <- A_AR_CA %>%
   rename(chr = scaffold) %>%
   filter(!is.na(FDR_shared_high)) %>%
   filter(FDR_shared_high <= threshold_extend_region)
+high.shared2 <- A_AR_CA %>%
+  dplyr::select(c("scaffold", "start", "end", "snp_id", "AR", "CA", "FDR_AR_high", "FDR_CA_high", "FDR_shared_high")) %>%
+  mutate(FDR_AR_high = as.numeric(FDR_AR_high),
+         FDR_CA_high = as.numeric(FDR_CA_high)) %>%
+  rename(chr = scaffold) %>%
+  filter(!is.na(FDR_AR_high) & !is.na(FDR_CA_high)) %>%
+  filter(FDR_AR_high <= threshold_extend_region & FDR_CA_high <= threshold_extend_region)
 table(is.valid.region(high.shared, check.chr = F))
 length(bedr.merge.region(high.shared, check.chr = F))
 high.shared.outliers <- bedr(
@@ -57,7 +82,34 @@ high.shared.outliers <- bedr(
   mutate(region = rownames(.)) %>%
   data.table::setnames(c("chr", "start", "end", "min_FDR", "region")) %>%
   filter(min_FDR <= threshold_keep_region)
+high.shared.outliers
 
+# high shared outliers defined by BOTH being subthreshold 10% FDR in CA and AR
+threshold_keep_region2 = 0.1
+high.shared2 <- A_AR_CA %>%
+  dplyr::select(c("scaffold", "start", "end", "snp_id", "AR", "CA", "FDR_AR_high", "FDR_CA_high", "FDR_shared_high")) %>%
+  mutate(FDR_AR_high = as.numeric(FDR_AR_high),
+         FDR_CA_high = as.numeric(FDR_CA_high)) %>%
+  rename(chr = scaffold) %>%
+  filter(!is.na(FDR_AR_high) & !is.na(FDR_CA_high)) %>%
+  filter(FDR_AR_high <= threshold_extend_region & FDR_CA_high <= threshold_extend_region)
+table(is.valid.region(high.shared2, check.chr = F))
+length(bedr.merge.region(high.shared2, check.chr = F))
+high.shared.outliers2 <- bedr(
+  engine = "bedtools", 
+  input = list(i = high.shared2), 
+  method = "merge", 
+  params = "-d 10000 -c 7,8 -o min", # merge if within 10kb
+  check.chr = F
+) %>%
+  mutate(region = rownames(.)) %>%
+  data.table::setnames(c("chr", "start", "end", "min_FDR_AR", "min_FDR_CA", "region")) %>%
+  filter(min_FDR_AR <= threshold_keep_region2 & min_FDR_CA <= threshold_keep_region2)
+high.shared.outliers2
+table(high.shared.outliers$min_FDR)
+table(high.shared.outliers2[, c("min_FDR_CA", "min_FDR_AR")])
+table(high.shared.outliers$chr)
+table(high.shared.outliers2$chr)
 
 # low shared outliers -- NONE
 low.shared <- A_AR_CA %>%
@@ -80,7 +132,6 @@ low.shared.outliers <- bedr(
 
 # high CA outliers:
 high.CA <- A_AR_CA %>%
-  filter(., FDR_shared_high %in% c("0.1", "NA")) %>%
   dplyr::select(c("scaffold", "start", "end", "snp_id", "AR", "CA", "FDR_CA_high")) %>%
   mutate(FDR_CA_high = as.numeric(FDR_CA_high)) %>%
   rename(chr = scaffold) %>%
@@ -94,12 +145,12 @@ high.CA <- A_AR_CA %>%
 high.CA.only <- bedr(
   engine = "bedtools", 
   input = list(a = high.CA[ , c("chr", "start", "end")],
-               b = high.shared.outliers[ , c("chr", "start", "end")]), 
+               b = high.shared.outliers2[ , c("chr", "start", "end")]), 
   method = "intersect", 
   params = "-sorted -wao -g ../data/honeybee_genome/chr.lengths", # exclude if it's in a 'shared outlier' region
   check.chr = F
 ) %>%
-  left_join(., high.CA, by = c("chr", "start", "end")) %>%
+  left_join(high.CA, ., by = c("chr", "start", "end")) %>%
   filter(V7 == 0) %>%
   dplyr::select(colnames(high.CA))
 
@@ -118,7 +169,6 @@ high.CA.only.outliers <- bedr(
 
 # high AR outliers:
 high.AR <- A_AR_CA %>%
-  filter(., FDR_shared_high %in% c("0.1", "NA")) %>%
   dplyr::select(c("scaffold", "start", "end", "snp_id", "AR", "CA", "FDR_AR_high")) %>%
   mutate(FDR_AR_high = as.numeric(FDR_AR_high)) %>%
   rename(chr = scaffold) %>%
@@ -129,13 +179,13 @@ high.AR <- A_AR_CA %>%
 high.AR.only <- bedr( # exclude regions that overlap with high shared outliers
   engine = "bedtools", 
   input = list(a = high.AR[ , c("chr", "start", "end")],
-               b = high.shared.outliers[ , c("chr", "start", "end")]), 
+               b = high.shared.outliers2[ , c("chr", "start", "end")]), 
   method = "intersect", 
   params = "-sorted -wao -g ../data/honeybee_genome/chr.lengths", # exclude if it's in a 'shared outlier' region
   check.chr = F
 ) %>%
   #View() # I did a visual check.
-  left_join(., high.AR, by = c("chr", "start", "end")) %>%
+  left_join(high.AR, ., by = c("chr", "start", "end")) %>%
   filter(V7 == 0) %>%
   dplyr::select(colnames(high.AR))
 
@@ -192,13 +242,13 @@ low.AR.only.outliers <- bedr(
 high.CA.intersect <- bedr(
   engine = "bedtools", 
   input = list(a = high.CA[ , c("chr", "start", "end")],
-               b = high.shared.outliers[ , c("chr", "start", "end")]), 
+               b = high.shared.outliers2[ , c("chr", "start", "end")]), 
   method = "intersect", 
   params = "-sorted -wao -g ../data/honeybee_genome/chr.lengths", # exclude if it's in a 'shared outlier' region
   check.chr = F
 ) %>%
   #View() # I did a visual check.
-  left_join(., high.CA, by = c("chr", "start", "end")) %>%
+  left_join(high.CA, ., by = c("chr", "start", "end")) %>%
   mutate(bp_shared_outliers = V7) %>%
   dplyr::select(c(colnames(high.CA), bp_shared_outliers))
 
@@ -212,8 +262,13 @@ high.CA.outliers <- bedr(
 ) %>%
   data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers")) %>%
   mutate(region = rownames(.)) %>%
-  dplyr::select(c("chr", "start", "end", "min_FDR", "region", "bp_shared_outliers")) %>%
-  filter(min_FDR <= threshold_keep_region)
+  mutate(start = as.integer(start),
+         end = as.integer(end),
+         min_FDR = as.numeric(min_FDR),
+         bp_shared_outliers = as.integer(bp_shared_outliers),
+         percent_bp_shared = bp_shared_outliers/(end - start)) %>%
+  dplyr::select(c("chr", "start", "end", "min_FDR", "region", "bp_shared_outliers", "percent_bp_shared")) %>%
+  filter(min_FDR <= threshold_keep_region) # keep only outliers meeting threshold
 
 high.AR.intersect <- bedr(
   engine = "bedtools", 
@@ -224,7 +279,7 @@ high.AR.intersect <- bedr(
   check.chr = F
 ) %>%
   #View() # I did a visual check.
-  left_join(., high.AR, by = c("chr", "start", "end")) %>%
+  left_join(high.AR, ., by = c("chr", "start", "end")) %>%
   mutate(bp_shared_outliers = V7) %>%
   dplyr::select(c(colnames(high.AR), bp_shared_outliers))
 
@@ -238,8 +293,13 @@ high.AR.outliers <- bedr(
 ) %>%
   data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers")) %>%
   mutate(region = rownames(.)) %>%
-  dplyr::select(c("chr", "start", "end", "min_FDR", "region", "bp_shared_outliers")) %>%
-  filter(min_FDR <= threshold_keep_region) # no outliers meeting 10% FDR threshold
+  mutate(start = as.integer(start),
+         end = as.integer(end),
+         min_FDR = as.numeric(min_FDR),
+         bp_shared_outliers = as.integer(bp_shared_outliers),
+         percent_bp_shared = bp_shared_outliers/(end - start)) %>%
+  dplyr::select(c("chr", "start", "end", "min_FDR", "region", "bp_shared_outliers", "percent_bp_shared")) %>%
+  filter(min_FDR <= threshold_keep_region) # keep only outliers meeting threshold
 
 # NA -- no low shared outliers
 #low.AR.intersect <- 
@@ -273,8 +333,26 @@ low.AR.outliers <- low.AR.only.outliers # b/c no shared low outliers
 # write files with outliers regions:
 #outlier_sets <- list(high.shared.outliers, low.shared.outliers, high.AR.outliers, low.AR.outliers, high.CA.outliers)
 #outlier_set_names <- c("high_shared", "low_shared", "high_AR", "low_AR", "high_CA")
-outlier_sets <- list(high.shared.outliers, low.AR.outliers, high.CA.outliers) # only 3 categories of outliers at 5% FDR.
-outlier_set_names <- c("high_shared", "low_AR", "high_CA")
+outlier_columns <- c("chr", "start", "end", "region", "min_FDR", "bp_shared_outliers", "percent_bp_shared", "min_FDR_AR", "min_FDR_CA")
+high.shared.outliers3 <- high.shared.outliers2 %>%
+  mutate(min_FDR_AR = as.numeric(min_FDR_AR),
+         min_FDR_CA = as.numeric(min_FDR_CA),
+         min_FDR = ifelse(min_FDR_AR < min_FDR_CA, min_FDR_CA, min_FDR_AR),
+         bp_shared_outliers = end - start,
+         percent_bp_shared = 1) %>%
+  dplyr::select(outlier_columns)
+low.AR.outliers3 <- low.AR.outliers %>%
+  mutate(min_FDR = as.numeric(min_FDR), min_FDR_AR = min_FDR, min_FDR_CA = NA,
+         bp_shared_outliers = 0, percent_bp_shared = 0) %>%
+  dplyr::select(outlier_columns)
+high.AR.outliers3 <- high.AR.outliers %>%
+  mutate(min_FDR_AR = min_FDR, min_FDR_CA = NA) %>%
+  dplyr::select(outlier_columns)
+high.CA.outliers3 <- high.CA.outliers %>%
+  mutate(min_FDR_CA = min_FDR, min_FDR_AR = NA) %>%
+  dplyr::select(outlier_columns)
+outlier_sets <- list(high.shared.outliers3, low.AR.outliers3, high.AR.outliers3, high.CA.outliers3) # only 3 categories of outliers at 5% FDR.
+outlier_set_names <- c("high_shared2", "low_AR", "high_AR", "high_CA")
 for (i in 1:length(outlier_sets)){
   write.table(outlier_sets[[i]], 
               paste0("results/outlier_regions/", outlier_set_names[i], ".bed"),
@@ -323,7 +401,28 @@ write.table(outliers_all_buffer,
             paste0("results/outlier_regions/all.plus20kb.noHeader.bed"),
             quote = F, col.names = F, row.names = F, sep = "\t")
 
-# WHICH GENES FALL IN OUTLIER REGIONS?
+#******************************************************** WHICH GENES FALL IN OUTLIER REGIONS?
+genes_high_AR <- bedr(
+    engine = "bedtools", 
+    input = list(a = genes,
+                 b = A_AR_CA %>%
+                   mutate(FDR_AR_high = as.numeric(FDR_AR_high)) %>%
+                   filter(!is.na(FDR_AR_high))), 
+    method = "intersect", 
+    params = "-sorted -g ../data/honeybee_genome/chr.lengths",
+    check.chr = F
+  ) 
+
+#-c 8 -o min
+#%>%
+    data.table::setnames(c(gene_file_columns, colnames(outliers_all_genome_sort[c(5,6)]), "overlaps_n_regions")) %>%
+    filter(overlaps_n_regions > 0) %>%
+    left_join(., genes, by = colnames(genes)[1:6])
+  
+)
+
+
+
 gene_outliers <- bedr(
   engine = "bedtools", 
   input = list(a = gene_file,
@@ -733,217 +832,31 @@ top_SNP_outliers_all <- do.call(rbind, top_SNP_outliers)
 
 
 
+# plot top outlier regions
 
-
-
-
-
-
-
-
-
-#################################### OLD ###################################
-# load mean ancestry for genes
-genes0 <- read.table("results/genes_mean_AR_CA_ancestry.bed", stringsAsFactors = F, 
-                     na.strings = c("."), sep = "\t")
-colnames(genes0) <- c("scaffold", "start", "end", "gene_list", "gff3_type", "gene_ID", "AR", "CA")
-
-# load FDR for genes -- which genes are outliers?
 outlier_types <- c("shared_high", "AR_high", "CA_high", # no CA_low outliers
                    "shared_low", "AR_low")
-outlier_genes <- do.call(cbind,
-                         lapply(outlier_types, function(x) 
-                           read.table(paste0("results/outliers_", x, "_genes_mean_AR_CA_ancestry.bed"),
-                                      stringsAsFactors = F, na.strings = c("."))$V9))
-colnames(outlier_genes) <- outlier_types
-genes <- cbind(genes0, outlier_genes) %>%
-  mutate(ID = substr(gene_ID, 4, 100)) %>% # take off the ID= in the gene ID
-  mutate(combined = (AR*21 + CA*17)/(17+21)) # combined average across all pops included
-
-# what does the ancestry distribution across genes look like?
-ggplot(genes0, aes(x = CA, y = AR)) +
-  geom_point() +
-  ggtitle("mean ancestry for all genes")
-# 168 genes have no ancestry calls -- look at later whether they're candidates
-hist(apply(genes0[,c("AR", "CA")], 1, mean))
-
-# how many genes are outliers?
-sapply(outlier_types, function(x)
-  table(genes[ , x]))
-
-
-
-# assess overlap with QTLs. top hits? enrichment?
-# first varroa qtls
-hygeine_QTL <- read.table("../data/honeybee_genome/QTLs/Harpur_2019_social_immunity_hygeine/DatasetS1_PreviousAssociated_hygeine_QTLs.txt",
-                          header = T, sep = "\t", stringsAsFactors = F) %>%
-  mutate(Scaffold_Start = ifelse(is.na(Scaffold_Start), NA, paste0("Group", Scaffold_Start))) %>%
-  mutate(Scaffold_End = ifelse(is.na(Scaffold_End), NA, paste0("Group", Scaffold_End)))
-grooming_QTL <- read.table("results/grooming_QTL_Arechavaleta-Velasco_2012.txt",
-                           header = T, sep = "\t", stringsAsFactors = F) %>%
-  mutate(Outlier_type = "QTL")
-# there's also uncap1, uncap2, and rem1 from Oxley et al. 2010 and hyg1-3 but I don't easily have markers: https://onlinelibrary.wiley.com/doi/full/10.1111/j.1365-294X.2010.04569.x
-# ok hyg1-3 are in the harpur list, only the hyg 1 on chr2 was sig.
-# tentative other QTLs from that study: "2 suggested QTLs for uncapping & 1 for removal"
-#Component 	Uncapping 	Uncapping 	Removal
-#Position 	Chr 9, 218cM 	Chr 16, 0cM 	Chr 10, 98cM
-#Nearest marker 	AT128 	K1601 	AC074 (microsats from Solignac 2007; 155 markers, mean marker spacing 27.7cM)
-# also first half of chromosome 7 has a sig. QTL for suppression of reproduction of varroa; 
-# epistatic effects in Gotland Varroa tolerant honey bees (Behrens 2011 Ecol Evol.)
-varroa_QTL0 <- bind_rows(hygeine_QTL, grooming_QTL) %>%
-  mutate(chr = as.numeric(Chromosome))
-
-# list of genes and regions associated with hygeine from Harpur 2019
-hygeine_genes <- read.table("../data/honeybee_genome/QTLs/Harpur_2019_social_immunity_hygeine/TableS3_hygeine_associated_gene_list.csv",
-                            header = F, sep = "\t", stringsAsFactors = F)$V1
-hygeine_regions <- read.table("../data/honeybee_genome/QTLs/Harpur_2019_social_immunity_hygeine/TableS2_regions_selected_and_associated_with_hygeine.csv",
-                              header = T, sep = "\t", stringsAsFactors = F)
-
-varroa_scaffolds_on_chr <- read.table("../data/honeybee_genome/QTLs/Harpur_2019_social_immunity_hygeine/scaffolds_on_chr.txt",
-                                      sep = "\t", header = T, stringsAsFactors = F)
-
-# any overlap with my outlier gene list? none with these 73 genes
-genes$hygeine_Harpur2019 <- sapply(genes$ID, function(i) i %in% hygeine_genes)
-#genes %>% 
-#  filter(hygeine_Harpur2019) %>% 
-#  View() # no overlap
-table(genes$hygeine_Harpur2019)
-genes %>% # very small number, only 73 genes, this could all be noise.
-  tidyr::gather(., key = "zone", value = "A_ancestry", c("combined", "CA", "AR")) %>%
-  ggplot(., aes(y = A_ancestry, x = zone, fill = hygeine_Harpur2019)) + 
-  geom_boxplot() +
-  ggtitle("A ancestry in hygeine genes (Harpur 2019) vs. all other genes")
-
-# next step: put all sites with ancestry calls on chromosomes in the same order as QTLs listed
-scaff_to_chr_pos <- function(scaffold, pos, mapg = varroa_scaffolds_on_chr){
-  pos_chr <- ifelse(mapg[mapg$scaffold == scaffold, "orientation"] == "-",
-                    mapg[mapg$scaffold == scaffold, "stop"] - (pos - 1), # reverse -
-                    mapg[mapg$scaffold == scaffold, "start"] + (pos - 1)) # forward or unoriented +/0
-  return(pos_chr)
-}
-A_AR_CA$chr_start = sapply(1:nrow(A_AR_CA), function(x) scaff_to_chr_pos(scaffold = A_AR_CA[x, "scaffold"], pos = A_AR_CA[x, "start"]))
-A_AR_CA$chr_end = sapply(1:nrow(A_AR_CA), function(x) scaff_to_chr_pos(scaffold = A_AR_CA[x, "scaffold"], pos = A_AR_CA[x, "end"]))
-A_AR_CA$chr = as.numeric(sapply(A_AR_CA$scaffold, function(s) substr(strsplit(s, split = "[.]")[[1]][1], 6, 100)))
-varroa_QTL0$chr = as.numeric(apply(varroa_QTL0, 1, function(s) ifelse(is.na(s["chr"]), 
-                                                                      as.numeric(substr(strsplit(s["Scaffold_Start"], split = "[.]")[[1]][1], 6, 100)),
-                                                                      s["chr"])))
-varroa_QTL0$chr_start = sapply(1:nrow(varroa_QTL0), function(x) ifelse(is.na(varroa_QTL0[x, "Start"]), 
-                                                                       scaff_to_chr_pos(scaffold = varroa_QTL[x, "Scaffold_Start"], 
-                                                                                        pos = varroa_QTL0[x, "Scaffold_Pos_Start"]),
-                                                                       varroa_QTL0[x, "Start"]))
-varroa_QTL0$chr_end = sapply(1:nrow(varroa_QTL0), function(x) ifelse(is.na(varroa_QTL0[x, "End"]), 
-                                                                     scaff_to_chr_pos(scaffold = varroa_QTL0[x, "Scaffold_End"], 
-                                                                                      pos = varroa_QTL0[x, "Scaffold_Pos_End"]),
-                                                                     varroa_QTL0[x, "End"]))
-
-QTL_names <- unique(varroa_QTL0[c("Reference", "Outlier_type", "Name")])
-QTL_names$name <- c("Varroa-Sensitive Hygiene putative QTL", "Varro-Sensitive Hygiene GWAS SNP", "Varroa-Sensitive Hygiene QTL", "Hygiene QTL", "Self-Grooming QTL")
-QTL_names$source <- c("Spoetter et al. 2012", "Spoetter et al. 2016", "Tsuruda et al. 2012", "Oxley et al. 2008", "Arechavaleta-Velasco et al. 2012")
-varroa_QTL <- left_join(varroa_QTL0, QTL_names, by = c("Reference", "Outlier_type", "Name"))
-
-# plot oultiers on their scaffolds with genes under outliers shown. 
-# I also want a whole-genome view to make sure the genes 'out of range' near the edges of scaffolds (past ancestry calls) 
-# aren't likely ancestry outliers
-A_AR_CA %>%
-  mutate(CA = -1*CA) %>% # flip CA axis
-  #rename(FDR_shared_low = "\n                       FDR_shared_low") %>% # rename one weird column
-  arrange(chr) %>% # sort by chromosome order
-  tidyr::gather(., "zone", "A_ancestry", c("CA", "AR")) %>%
-  mutate(FDR = apply(., 1, function(x) ifelse(x["zone"] == "CA", 
-                                              min(x[c("FDR_shared_high", "FDR_shared_low", 
-                                                      "FDR_CA_high", "FDR_CA_low")], na.rm = T),
-                                              min(x[c("FDR_shared_high", "FDR_shared_low", 
-                                                      "FDR_AR_high", "FDR_AR_low")], na.rm = T)))) %>%
-  ggplot(aes(x = chr_start, y = A_ancestry, color = FDR)) + # I should get true mid position, not start, but ok for now
-  geom_point(size = .2) +
-  facet_wrap(~chr, scales = "free_x") +
-  ggtitle("African ancestry frequency in Argentina (top) and California (mirrored, bottom)")
-ggsave("plots/A_frequency_mirrored_plot_AR_CA_FDR_whole_genome.png",
-       height = 10, width = 12, units = "in", device = "png")
-
-# make a plot 'wide' format 'manhattan style':
-# manhattan style plot
-# Compute chromosome size
-
-#chr_lengths <- varroa_scaffolds_on_chr %>%
-#  mutate(chr = as.numeric(substr(chr, 4, 100))) %>%
-#  group_by(chr) %>%
-#  arrange(chr) %>%
-#  summarise(length = max(stop)) %>%
-#  mutate(chromosome_start = cumsum(length) - length,
-#         chromosome_end = cumsum(length)) %>%
-#  mutate(chromosome_midpoint = (chromosome_start + chromosome_end)/2)
-
-varroa_QTL_cumulative <- varroa_QTL %>%
-  left_join(., chr_lengths, by = "chr") %>%
-  mutate(cum_start = chr_start + chromosome_start,
-         cum_end = chr_end + chromosome_start) %>% # get cumulative chromosome positions
-  mutate(Name = ifelse(Name == "", 
-                       ifelse(Outlier_type == "NCBI_QTLs", "Putative Varroa Removal (unpub.)", 
-                              Outlier_type), Name)) %>%
-  mutate(QTL_length = cum_end - cum_start)
-
 
 # get approximate cumulative positions for all points with ancestry calls
 pretty_label_zone = data.frame(zone = c("CA", "AR"),
                                zone_pretty = c("N. America", "S. America"),
                                #zone_pretty = c("California", "Argentina"),
                                stringsAsFactors = F)
+# buffer for visibility only:
+buffer_4_visibility = 25000*4 # add 50kb for visibility only
 A_AR_CA_cumulative <- A_AR_CA %>%
   mutate(chr_n = as.numeric(substr(chr, 6, 100))) %>% # turn Group11 into 11
   arrange(chr_n) %>% # sort by chromosome order
   tidyr::gather(., "zone", "A_ancestry", c("CA", "AR")) %>%
-  mutate(FDR = apply(., 1, function(x) ifelse(x["zone"] == "CA", 
-                                              min(x[c("FDR_CA_high", "FDR_CA_low")], na.rm = T),
-                                              min(x[c("FDR_AR_high", "FDR_AR_low")], na.rm = T)))) %>%
+  mutate(FDR = sapply(1:nrow(.), function(i) ifelse(.$zone[i] == "CA", 
+                                                    min(.$FDR_CA_high[i], .$FDR_CA_low[i], na.rm = T), 
+                                                    min(.$FDR_AR_high[i], .$FDR_AR_low[i], na.rm = T))),
+         FDR = ifelse(FDR == Inf, NA, FDR)) %>%
   mutate(color_by = ifelse(is.na(FDR), ifelse((chr_n %% 2 == 0), # even chromosomes different color
-                                               "n.s. - even chr", "n.s. - odd chr"), FDR)) %>%
+                                              "n.s. - even chr", "n.s. - odd chr"), FDR)) %>%
   left_join(., pretty_label_zone, by = "zone")
 
-# simple plot of outliers, whole genome
-ggplot() + # raster looks pretty terrible -- I could plot instead every 5th or 10th non-sig point or s.t.
-  ggrastr::geom_point_rast(data = A_AR_CA_cumulative %>%
-               filter(is.na(FDR)), # plot grey points first
-             aes(x = cum_pos, y = A_ancestry, 
-                 color = color_by), size = .02,
-             raster.dpi = 600) +
-             #, raster.height = 5, raster.width = 10) +
-  #ggrastr::geom_point_rast(data = A_AR_CA_cumulative %>%
-  #             filter(!is.na(FDR)), # then plot sig points on top 
-  #           aes(x = cum_pos, y = A_ancestry, 
-  #               color = color_by), size = .02,
-  #           raster.dpi = 600) +
-             #, raster.height = 5, raster.width = 10) +
-  geom_point(data = A_AR_CA_cumulative %>%
-                             filter(!is.na(FDR)), # then plot sig points on top 
-                           aes(x = cum_pos, y = A_ancestry, 
-                               color = color_by), size = .02) +
-  xlab("Position (bp)") +
-  ylab("mean African ancestry") +
-  scale_colour_manual(name = NULL,
-                      values = c("0.01"="red", "0.05"="orange", "0.10"="skyblue", 
-                                 "n.s. - even chr"="darkgrey", 
-                                 "n.s. - odd chr"="grey"),
-                      limits = c("0.01", "0.05", "0.10"),
-                      labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
-  ) + 
-  geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
-                                chr_lengths, by = "scaffold") %>%
-                 #mutate(cum_start = start + chr_start,
-                  #      cum_end = end + chr_start)
-                 filter(outlier_type == "high_shared"),
-               aes(x = start + chr_start - 25000, xend = end + chr_start + 25000, # add 50kb for visibility only
-                   y = 0.7, yend = 0.7, color = min_FDR),
-               lwd = 4) +
-  scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
-  #theme(legend.position = "none") +
-  theme_classic() +
-  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
-  ggtitle("Ancestry outliers across whole genome")
-ggsave("plots/A_frequency_plot_AR_CA_FDR_whole_genome_wide.png",
-       height = 5, width = 10, units = "in", device = "png")
-ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_whole_genome_wide.pdf",
-       height = 5, width = 10, units = "in", device = "pdf")
+
 
 # zoom in on chr1:
 A_AR_CA_cumulative %>%
@@ -956,9 +869,9 @@ A_AR_CA_cumulative %>%
   #table(.$color_by)
   ggplot(.) +
   geom_point(data = . %>%
-                             filter(is.na(FDR)), # plot grey points first, rasterized
-                           aes(x = cum_pos, y = A_ancestry, 
-                               color = color_by), size = .05)+
+               filter(is.na(FDR)), # plot grey points first, rasterized
+             aes(x = cum_pos, y = A_ancestry, 
+                 color = color_by), size = .05)+
   geom_point(data = . %>%
                filter(!is.na(FDR)), # then plot sig points on top 
              aes(x = cum_pos, y = A_ancestry, 
@@ -973,8 +886,8 @@ A_AR_CA_cumulative %>%
                       labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
   ) + 
   geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
-  #geom_segment(data = left_join(rename(high.shared.outliers, scaffold = chr) %>%
-                                  #mutate(outlier_type = "high_shared"),
+                                #geom_segment(data = left_join(rename(high.shared.outliers, scaffold = chr) %>%
+                                #mutate(outlier_type = "high_shared"),
                                 chr_lengths, by = "scaffold") %>%
                  filter(chr_n == 1) %>%
                  filter(outlier_type == "high_shared"),
@@ -1047,9 +960,9 @@ A_AR_CA_cumulative %>%
   filter(., pos > 1.25*10^7) %>%
   ggplot(.) + # raster looks pretty terrible -- I could plot instead every 5th or 10th non-sig point or s.t.
   geom_point(data = . %>%
-                             filter(is.na(FDR)), # plot grey points first
-                           aes(x = pos, y = A_ancestry, 
-                               color = color_by), size = .05) +
+               filter(is.na(FDR)), # plot grey points first
+             aes(x = pos, y = A_ancestry, 
+                 color = color_by), size = .05) +
   geom_point(data = . %>%
                filter(!is.na(FDR)), # then plot sig points on top 
              aes(x = pos, y = A_ancestry, 
@@ -1079,6 +992,134 @@ ggsave("plots/A_frequency_plot_AR_CA_FDR_chr11_outlier.png",
        height = 5, width = 10, units = "in", device = "png")
 ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_chr11_outlier.pdf",
        height = 5, width = 10, units = "in", device = "pdf")
+
+
+#********************************************************************************************************************
+# all 3 ancestries together
+ACM_AR_CA <- A_AR_CA[ , c("scaffold", "start", "end", "chr", "pos", "cum_pos", "snp_id", 
+                          "FDR_shared_high", "FDR_AR_high", "FDR_CA_high", "FDR_AR_low")] %>%
+  mutate(A_AR = meanA_AR, A_CA = meanA_CA,
+         M_AR = meanM_AR, M_CA = meanM_CA,
+         C_AR = meanC_AR, C_CA = meanC_CA) %>%
+  pivot_longer(data = ., cols = c("A_AR", "A_CA", "C_AR", "C_CA", "M_AR", "M_CA"), 
+               values_to = "ancestry_freq", names_to = "ancestry") %>%
+  tidyr::separate(., "ancestry", c("ancestry", "zone")) %>%
+  left_join(., pretty_label_zone, by = "zone")
+ACM_means <- ACM_AR_CA %>%
+  group_by(ancestry, zone, zone_pretty) %>%
+  summarise(ancestry_sd = sd(ancestry_freq),
+            ancestry_freq = mean(ancestry_freq))
+
+# zoom in on chr11:
+ACM_AR_CA %>%
+  filter(chr == "Group11") %>%
+  filter(., pos > 1.3*10^7 & pos < 1.6*10^7) %>%
+  ggplot(.) +
+  geom_point(# then plot sig points on top 
+             aes(x = pos, y = ancestry_freq, 
+                 color = ancestry), size = .05) +
+  xlab("Position (bp)") +
+  ylab("Mean ancestry frequency") +
+  #geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
+  #                              chr_lengths, by = "scaffold") %>%
+  #               filter(outlier_type == "low_AR") %>%
+  #               filter(chr == 11),
+  #             aes(xmin = start, xend = end,
+  #                 y = 0.7, yend = 0.7),
+  #             lwd = 4) +
+  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+                                chr_lengths, by = "scaffold") %>%
+                 filter(outlier_type == "low_AR") %>%
+                 filter(chr == 11) %>% 
+              mutate(zone = "SA", zone_pretty = "S. America"),
+               aes(xmin = start, xmax = end,
+                   ymin = -Inf, ymax = Inf),
+            alpha = .2) +
+  geom_hline(data = ACM_means, aes(yintercept = ancestry_freq, color = ancestry),
+             linetype = "solid") + # dashed
+
+  #geom_rect(data = ACM_means,
+  #             aes(xmin = 1.3*10^7, xmax = 1.6*10^7,
+  #                 ymin = ancestry_freq - 2*ancestry_sd, ymax = ancestry_freq + 2*ancestry_sd,
+  #                 fill = ancestry),
+  #          alpha = .2) +
+  scale_color_manual(values = col_ACM, name = "Ancestry") +
+  scale_fill_manual(values = col_ACM, name = "Ancestry") +
+  #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
+  #theme(legend.position = "none") +
+  theme_classic() +
+  facet_wrap(~zone_pretty, nrow = 2, ncol = 1)
+ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM.png",
+       height = 4, width = 6, units = "in", device = "png")
+ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr11_outlier.tiff",
+       height = 4, width = 6, units = "in", dpi = 600, device = "tiff")
+
+# chr1
+A_AR_CA[which.max(meanA),]
+top_pos_shared_high = A_AR_CA[which.max(meanA),]$pos
+mean(meanA)
+ACM_AR_CA %>%
+  filter(chr == "Group1") %>%
+  filter(., pos > 1*10^7 & pos < 1.25*10^7) %>%
+  ggplot(.) +
+  geom_vline(xintercept = top_pos_shared_high) + # vertical line at top SNP (w/ cline plotted in other panel)
+  geom_point(# then plot sig points on top 
+    aes(x = pos, y = ancestry_freq, 
+        color = ancestry), size = .05) +
+  xlab("Position (bp)") +
+  ylab("Mean ancestry frequency") +
+  #geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
+  #                              chr_lengths, by = "scaffold") %>%
+  #               filter(outlier_type == "high_shared2") %>%
+  #               filter(chr == 1),
+  #             aes(xmin = start, xend = end,
+  #                 y = 0.7, yend = 0.7),
+  #             lwd = 4) +
+  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+                             chr_lengths, by = "scaffold") %>%
+              filter(outlier_type == "high_shared2") %>%
+              filter(chr == 1),
+            aes(xmin = start, xmax = end,
+                ymin = -Inf, ymax = Inf),
+            alpha = .2) +
+  #geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+  #                           chr_lengths, by = "scaffold") %>%
+  #            filter(outlier_type == "high_AR") %>%
+  #            filter(chr == 1 & start > 1*10^7 & end < 1.25*10^7) %>%
+  #            mutate(zone_pretty = "S. America"),
+  #          aes(xmin = start, xmax = end,
+  #              ymin = -Inf, ymax = Inf),
+  #          alpha = .2) +
+  #geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+  #                           chr_lengths, by = "scaffold") %>%
+  #            filter(outlier_type == "high_CA") %>%
+  #            filter(chr == 1 & start > 1*10^7 & end < 1.25*10^7) %>%
+  #            mutate(zone_pretty = "N. America"),
+  #          aes(xmin = start, xmax = end,
+  #              ymin = -Inf, ymax = Inf),
+  #          alpha = .2) +
+  geom_hline(data = ACM_means, aes(yintercept = ancestry_freq, color = ancestry),
+             linetype = "solid") +
+  #geom_rect(data = ACM_means,
+  #             aes(xmin = 1.3*10^7, xmax = 1.6*10^7,
+  #                 ymin = ancestry_freq - 2*ancestry_sd, ymax = ancestry_freq + 2*ancestry_sd,
+  #                 fill = ancestry),
+  #          alpha = .2) +
+  scale_color_manual(values = col_ACM, name = "Ancestry") +
+  scale_fill_manual(values = col_ACM, name = "Ancestry") +
+  #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
+  #theme(legend.position = "none") +
+  theme_classic() +
+  facet_wrap(~zone_pretty, nrow = 2, ncol = 1)
+ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM.png",
+       height = 4, width = 6, units = "in", device = "png")
+ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr1_outlier.tiff",
+       height = 4, width = 6, units = "in", dpi = 600, device = "tiff")
+
+
+
+
+
 
 
 # plot with QTLs for varroa on top of 
@@ -1170,6 +1211,210 @@ ggsave("plots/A_frequency_plot_AR_CA_FDR_chr1_wide_VarroaQTL.png",
 varroa_QTL_cumulative %>%
   group_by(Outlier_type, Reference) %>% 
   summarise(sum = sum(QTL_length))
+
+
+
+
+
+
+
+
+
+
+#################################### OLD ###################################
+# load mean ancestry for genes
+genes0 <- read.table("results/genes_mean_AR_CA_ancestry.bed", stringsAsFactors = F, 
+                     na.strings = c("."), sep = "\t")
+colnames(genes0) <- c("scaffold", "start", "end", "gene_list", "gff3_type", "gene_ID", "AR", "CA")
+
+# load FDR for genes -- which genes are outliers?
+
+outlier_genes <- do.call(cbind,
+                         lapply(outlier_types, function(x) 
+                           read.table(paste0("results/outliers_", x, "_genes_mean_AR_CA_ancestry.bed"),
+                                      stringsAsFactors = F, na.strings = c("."))$V9))
+colnames(outlier_genes) <- outlier_types
+genes <- cbind(genes0, outlier_genes) %>%
+  mutate(ID = substr(gene_ID, 4, 100)) %>% # take off the ID= in the gene ID
+  mutate(combined = (AR*21 + CA*17)/(17+21)) # combined average across all pops included
+
+# what does the ancestry distribution across genes look like?
+ggplot(genes0, aes(x = CA, y = AR)) +
+  geom_point() +
+  ggtitle("mean ancestry for all genes")
+# 168 genes have no ancestry calls -- look at later whether they're candidates
+hist(apply(genes0[,c("AR", "CA")], 1, mean))
+
+# how many genes are outliers?
+sapply(outlier_types, function(x)
+  table(genes[ , x]))
+
+
+# assess overlap with QTLs. top hits? enrichment?
+# first varroa qtls
+hygeine_QTL <- read.table("../data/honeybee_genome/Amel_4.5/QTLs/Harpur_2019_social_immunity_hygeine/DatasetS1_PreviousAssociated_hygeine_QTLs.txt",
+                          header = T, sep = "\t", stringsAsFactors = F) %>%
+  mutate(Scaffold_Start = ifelse(is.na(Scaffold_Start), NA, paste0("Group", Scaffold_Start))) %>%
+  # note: typo, should be Oxley 2010 (2008 was a study on QTLs for worker sterility)
+  mutate(Scaffold_End = ifelse(is.na(Scaffold_End), NA, paste0("Group", Scaffold_End)))
+grooming_QTL <- read.table("Amel4.5_results/grooming_QTL_Arechavaleta-Velasco_2012.txt",
+                           header = T, sep = "\t", stringsAsFactors = F) %>%
+  mutate(Outlier_type = "QTL")
+# Using the conservatively chosen confidence intervals forHyg1,2and3, a  total  of 339  known and  putative  geneswere  identified.  Of  these,  218  had  orthologs  with  GeneOntology  annotations  (The  Gene  Ontology  Consortium2000).
+# v3 snp file (with seq. next to it? 250bp..) plus positions of putative QTLs Spoetter 2012: https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.1755-0998.2011.03106.x
+
+# there's also uncap1, uncap2, and rem1 from Oxley et al. 2010 and hyg1-3 but I don't easily have markers: https://onlinelibrary.wiley.com/doi/full/10.1111/j.1365-294X.2010.04569.x
+# ok hyg1-3 are in the harpur list, only the hyg 1 on chr2 was sig.
+# tentative other QTLs from that study: "2 suggested QTLs for uncapping & 1 for removal"
+#Component 	Uncapping 	Uncapping 	Removal
+#Position 	Chr 9, 218cM 	Chr 16, 0cM 	Chr 10, 98cM
+#Nearest marker 	AT128 	K1601 	AC074 (microsats from Solignac 2007; 155 markers, mean marker spacing 27.7cM)
+# also first half of chromosome 7 has a sig. QTL for suppression of reproduction of varroa; 
+# epistatic effects in Gotland Varroa tolerant honey bees (Behrens 2011 Ecol Evol.)
+varroa_QTL0 <- bind_rows(hygeine_QTL, grooming_QTL) %>%
+  mutate(chr = as.numeric(Chromosome))
+
+# list of genes and regions associated with hygeine from Harpur 2019
+hygeine_genes <- read.table("../data/honeybee_genome/QTLs/Harpur_2019_social_immunity_hygeine/TableS3_hygeine_associated_gene_list.csv",
+                            header = F, sep = "\t", stringsAsFactors = F)$V1
+hygeine_regions <- read.table("../data/honeybee_genome/QTLs/Harpur_2019_social_immunity_hygeine/TableS2_regions_selected_and_associated_with_hygeine.csv",
+                              header = T, sep = "\t", stringsAsFactors = F)
+
+varroa_scaffolds_on_chr <- read.table("../data/honeybee_genome/QTLs/Harpur_2019_social_immunity_hygeine/scaffolds_on_chr.txt",
+                                      sep = "\t", header = T, stringsAsFactors = F)
+
+# any overlap with my outlier gene list? none with these 73 genes
+genes$hygeine_Harpur2019 <- sapply(genes$ID, function(i) i %in% hygeine_genes)
+#genes %>% 
+#  filter(hygeine_Harpur2019) %>% 
+#  View() # no overlap
+table(genes$hygeine_Harpur2019)
+genes %>% # very small number, only 73 genes, this could all be noise.
+  tidyr::gather(., key = "zone", value = "A_ancestry", c("combined", "CA", "AR")) %>%
+  ggplot(., aes(y = A_ancestry, x = zone, fill = hygeine_Harpur2019)) + 
+  geom_boxplot() +
+  ggtitle("A ancestry in hygeine genes (Harpur 2019) vs. all other genes")
+
+# next step: put all sites with ancestry calls on chromosomes in the same order as QTLs listed
+scaff_to_chr_pos <- function(scaffold, pos, mapg = varroa_scaffolds_on_chr){
+  pos_chr <- ifelse(mapg[mapg$scaffold == scaffold, "orientation"] == "-",
+                    mapg[mapg$scaffold == scaffold, "stop"] - (pos - 1), # reverse -
+                    mapg[mapg$scaffold == scaffold, "start"] + (pos - 1)) # forward or unoriented +/0
+  return(pos_chr)
+}
+A_AR_CA$chr_start = sapply(1:nrow(A_AR_CA), function(x) scaff_to_chr_pos(scaffold = A_AR_CA[x, "scaffold"], pos = A_AR_CA[x, "start"]))
+A_AR_CA$chr_end = sapply(1:nrow(A_AR_CA), function(x) scaff_to_chr_pos(scaffold = A_AR_CA[x, "scaffold"], pos = A_AR_CA[x, "end"]))
+A_AR_CA$chr = as.numeric(sapply(A_AR_CA$scaffold, function(s) substr(strsplit(s, split = "[.]")[[1]][1], 6, 100)))
+varroa_QTL0$chr = as.numeric(apply(varroa_QTL0, 1, function(s) ifelse(is.na(s["chr"]), 
+                                                                      as.numeric(substr(strsplit(s["Scaffold_Start"], split = "[.]")[[1]][1], 6, 100)),
+                                                                      s["chr"])))
+varroa_QTL0$chr_start = sapply(1:nrow(varroa_QTL0), function(x) ifelse(is.na(varroa_QTL0[x, "Start"]), 
+                                                                       scaff_to_chr_pos(scaffold = varroa_QTL[x, "Scaffold_Start"], 
+                                                                                        pos = varroa_QTL0[x, "Scaffold_Pos_Start"]),
+                                                                       varroa_QTL0[x, "Start"]))
+varroa_QTL0$chr_end = sapply(1:nrow(varroa_QTL0), function(x) ifelse(is.na(varroa_QTL0[x, "End"]), 
+                                                                     scaff_to_chr_pos(scaffold = varroa_QTL0[x, "Scaffold_End"], 
+                                                                                      pos = varroa_QTL0[x, "Scaffold_Pos_End"]),
+                                                                     varroa_QTL0[x, "End"]))
+
+QTL_names <- unique(varroa_QTL0[c("Reference", "Outlier_type", "Name")])
+QTL_names$name <- c("Varroa-Sensitive Hygiene putative QTL", "Varro-Sensitive Hygiene GWAS SNP", "Varroa-Sensitive Hygiene QTL", "Hygiene QTL", "Self-Grooming QTL")
+QTL_names$source <- c("Spoetter et al. 2012", "Spoetter et al. 2016", "Tsuruda et al. 2012", "Oxley et al. 2008", "Arechavaleta-Velasco et al. 2012")
+varroa_QTL <- left_join(varroa_QTL0, QTL_names, by = c("Reference", "Outlier_type", "Name"))
+
+# plot oultiers on their scaffolds with genes under outliers shown. 
+# I also want a whole-genome view to make sure the genes 'out of range' near the edges of scaffolds (past ancestry calls) 
+# aren't likely ancestry outliers
+A_AR_CA %>%
+  mutate(CA = -1*CA) %>% # flip CA axis
+  #rename(FDR_shared_low = "\n                       FDR_shared_low") %>% # rename one weird column
+  arrange(chr) %>% # sort by chromosome order
+  tidyr::gather(., "zone", "A_ancestry", c("CA", "AR")) %>%
+  mutate(FDR = apply(., 1, function(x) ifelse(x["zone"] == "CA", 
+                                              min(x[c("FDR_shared_high", "FDR_shared_low", 
+                                                      "FDR_CA_high", "FDR_CA_low")], na.rm = T),
+                                              min(x[c("FDR_shared_high", "FDR_shared_low", 
+                                                      "FDR_AR_high", "FDR_AR_low")], na.rm = T)))) %>%
+  ggplot(aes(x = chr_start, y = A_ancestry, color = FDR)) + # I should get true mid position, not start, but ok for now
+  geom_point(size = .2) +
+  facet_wrap(~chr, scales = "free_x") +
+  ggtitle("African ancestry frequency in Argentina (top) and California (mirrored, bottom)")
+ggsave("plots/A_frequency_mirrored_plot_AR_CA_FDR_whole_genome.png",
+       height = 10, width = 12, units = "in", device = "png")
+
+# make a plot 'wide' format 'manhattan style':
+# manhattan style plot
+
+
+varroa_QTL_cumulative <- varroa_QTL %>%
+  left_join(., chr_lengths, by = "chr") %>%
+  mutate(cum_start = chr_start + chromosome_start,
+         cum_end = chr_end + chromosome_start) %>% # get cumulative chromosome positions
+  mutate(Name = ifelse(Name == "", 
+                       ifelse(Outlier_type == "NCBI_QTLs", "Putative Varroa Removal (unpub.)", 
+                              Outlier_type), Name)) %>%
+  mutate(QTL_length = cum_end - cum_start)
+
+
+# get QTLs:
+QTL = qtl %>%
+  left_join(., chr_lengths, by = c("AMEL_CHR"="scaffold")) %>%
+  # start is the lower one, end is the higher endpoint
+  mutate(start = apply(., 1, function(x) min(as.integer(x[["Start"]]), as.integer(x[["End"]]))),
+         end = apply(., 1, function(x) max(as.integer(x[["Start"]]), as.integer(x[["End"]]))))
+
+# simple plot of outliers, whole genome
+ggplot() + # raster looks pretty terrible -- I could plot instead every 5th or 10th non-sig point or s.t.
+  #ggrastr::geom_point_rast(data = A_AR_CA_cumulative %>%
+  #             filter(is.na(FDR)), # plot grey points first
+  #           aes(x = cum_pos, y = A_ancestry, 
+  #               color = color_by), size = .02,
+  #           raster.dpi = 600) +
+  geom_point(data = (A_AR_CA_cumulative %>% # plot grey points first; every 10th point only
+                       filter(is.na(FDR)))[c(T, rep(F, 9)), ], 
+             aes(x = cum_pos, y = A_ancestry, 
+                 color = color_by), size = .02) +
+  geom_point(data = A_AR_CA_cumulative %>%
+               filter(!is.na(FDR)), # then plot sig points on top 
+             aes(x = cum_pos, y = A_ancestry, 
+                 color = color_by), size = .02) +
+  xlab("Position (bp)") +
+  ylab("mean African ancestry") +
+  #scale_colour_manual(name = NULL,
+  #                    values = c("0.01"="red", "0.05"="orange", "0.10"="skyblue", 
+  #                               "n.s. - even chr"="darkgrey", 
+  #                               "n.s. - odd chr"="grey"),
+  #                    limits = c("0.01", "0.05", "0.10"),
+  #                    labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
+  #) + 
+  geom_segment(data = left_join(rename(outliers_all, scaffold = chr) %>%
+                                  rename(., length_outlier = length), 
+                                chr_lengths, by = "scaffold") %>%
+                 #mutate(cum_start = start + chr_start,
+                 #      cum_end = end + chr_start)
+                 filter(outlier_type == "high_shared"),
+               aes(x = start + chr_start - buffer_4_visibility, 
+                   xend = end + chr_start + buffer_4_visibility, # add 50kb for visibility only
+                   y = 0.7, yend = 0.7, color = min_FDR),
+               lwd = 4) +
+  # add in QTLs:
+  geom_segment(data = QTL,
+               aes(x = start + chr_start - buffer_4_visibility, # add 50kb for visibility only
+                   xend = end + chr_start + buffer_4_visibility, 
+                   y = 0.7, yend = 0.7, color = Publication),
+               lwd = 4) +
+  scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
+  #theme(legend.position = "none") +
+  theme_classic() +
+  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
+  ggtitle("Ancestry outliers across whole genome")
+ggsave("plots/A_frequency_plot_AR_CA_FDR_whole_genome_wide.png",
+       height = 5, width = 10, units = "in", device = "png")
+ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_whole_genome_wide.pdf",
+       height = 5, width = 10, units = "in", device = "pdf")
+
+
+
 
 
 # to do later: better idea is to color the shared outliers and to draw threshold lines for the ind zone outliers
