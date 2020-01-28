@@ -16,10 +16,10 @@ dark2 <- brewer.pal(n = 8, "Dark2")
 #col_NA_SA_both <- col_ibm[c(1, 2, 7)]
 col_ACM = dark2[c(4,3,1)]
 names(col_ACM) = c("A", "C", "M")
-col_ACM_all = dark2[c(4,3,1,2)] 
-names(col_ACM_all) <- c("A", "C", "M", "Combined")
-col_NA_SA_both <- dark2[c(6, 5, 8)]
-names(col_NA_SA_both) <- c("N. America", "S. America", "Combined")
+col_ACM_all = dark2[c(2,4,3,1)] 
+names(col_ACM_all) <- c("Combined", "A", "C", "M")
+col_NA_SA_both <- dark2[c(8, 6, 5)]
+names(col_NA_SA_both) <- c("Combined", "N. America", "S. America")
 #viridisLite::viridis(3)
 # alternatively I could use plasma colors for ancestry
 brewer.pal(n = 5, "Paired") # paired is color-blind friendly
