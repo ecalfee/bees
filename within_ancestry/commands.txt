@@ -337,7 +337,9 @@ within_ancestry$ sleep 2000; nohup parallel --noswap --jobs 1 --joblog logs/calc
 
 # BOOTSTRAP PI WITHIN ANCESTRY ESTIMATES FOR EACH POPULATION:
 within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/bootstrap_pi_within_ancestry.log 'Rscript ./bootstrap_pi_within.R {1} 100' ::: A C M Combined &> logs/bootstrap_pi_within_ancestry.out &
-[1] 4635 -- RUNNING 1.27.20
+[1] 4635 -- COMPLETED 1.27.20. BUT A didn't run properly. Trying again:
+within_ancestry$ nohup parallel --noswap --joblog logs/bootstrap_pi_within_ancestry_A_retry.log 'Rscript ./bootstrap_pi_within.R {1} 100' ::: A &> logs/bootstrap_pi_within_ancestry_A_retry.out &
+[1] 5719 - RUNNING 1.27.20. If dies, likely memory. Break up by population to rerun.
 
 
 ## (!) NOTE: By breaking the task up into pieces, I may indeed be able to get whole genome SFS estimates for each population,

@@ -3,6 +3,7 @@ library(dplyr)
 library(reshape2)
 library(viridis)
 library(gridExtra)
+library(boot)
 source("../colors.R") # get color palette
 # this script takes the population allele frequencies
 # from combine_pop_allele_freqs.R
@@ -309,6 +310,28 @@ d_het %>% # (!) no small pop correction yet!
   facet_wrap(~zone, scales = "free_x") +
   geom_abline(data = ACM_het, aes(intercept = combined, slope = 0, color = ancestry))
 table(is.na(freqs_AA[, "AR01"]))
+
+# load bootstrap results for pi within ancestry:
+# still need to multiply for % of sites that are SNPs
+load("results/bootstrap_pi_within_M_100_boots.RData") # loads 'boots'
+bootsM = boots
+load("results/bootstrap_pi_within_C_100_boots.RData") # loads 'boots'
+bootsC = boots
+load("results/bootstrap_pi_within_Combined_100_boots.RData") # loads 'boots'
+bootsCombined = boots
+ci_M = sapply(bootsM, function(b) boot.ci(b, conf = 0.95, type = "basic")$basic[4:5])
+ci_Combined = sapply(bootsCombined, function(b) boot.ci(b, conf = 0.95, type = "basic")$basic[4:5])
+ci_C = sapply(bootsC, function(b){
+  if(is.null(b)){
+    c(NA, NA) # no bootstrap b/c no data for this pop
+    }else{
+    boot.ci(b, conf = 0.95, type = "basic")$basic[4:5]}})
+ci_Combined
+ci_C
+ci_M
+str(boot.ci(bootsM[[1]], conf = 0.95, type = "basic"))
+boot.ci(bootsC[[1]], conf = 0.95, type = "basic")
+hist(bootsM[[40]]$t)
 
 # what do we expect pi to be for these admixed populations?
 # first I need admixture data for each population:
