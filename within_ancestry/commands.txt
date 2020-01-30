@@ -340,6 +340,14 @@ within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/bootstrap_pi_wit
 [1] 4635 -- COMPLETED 1.27.20. BUT A didn't run properly. Trying again:
 within_ancestry$ nohup parallel --noswap --joblog logs/bootstrap_pi_within_ancestry_A_retry.log 'Rscript ./bootstrap_pi_within.R {1} 100' ::: A &> logs/bootstrap_pi_within_ancestry_A_retry.out &
 [1] 5719 - COMPLETED 1.27.20.
+# try a larger bootstrap now (1000):
+within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/bootstrap_pi_within_ancestry_1000.log 'Rscript ./bootstrap_pi_within.R {1} 1000' ::: A C M Combined &> logs/bootstrap_pi_within_ancestry_1000.out &
+[1] 29292 - TOO BIG. CAN'T ALLOCATE MEMORY. SPLIT INTO 9 additional BOOTSTRAPS OF SIZE 100 (name & seed diff) 1.30.20
+# 4th argument now sets random seed (1st time seed=100)
+within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/bootstrap_pi_within_ancestry_900.log 'Rscript ./bootstrap_pi_within.R {1} 100 {2}' ::: A C M Combined ::: {101..109} &> logs/bootstrap_pi_within_ancestry_900.out &
+[1] 29404 - STOPPED JOBS WERE GETTING KILLED 1.30.20. Reduce overlap of jobs:
+within_ancestry$ nohup parallel --noswap --delay 10s --jobs 2 --joblog logs/bootstrap_pi_within_ancestry_900.log 'Rscript ./bootstrap_pi_within.R {2} 100 {1}' ::: {101..109} ::: A C M Combined &> logs/bootstrap_pi_within_ancestry_900.out &
+[1] 29793 - RUNNING 1.30.20
 
 
 ## (!) NOTE: By breaking the task up into pieces, I may indeed be able to get whole genome SFS estimates for each population,

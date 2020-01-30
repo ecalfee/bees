@@ -149,7 +149,9 @@ results$ cat genes_within_outlier_regions.txt | grep 'BEEBASE' | cut -f6 | tr \;
 # a single chalkbrood resistance QTL, on chr11 
 # https://pdfslide.net/documents/association-of-single-nucleotide-polymorphisms-to-association-of-single.html
 # defined by SNPs on Amel4.5 at 13636.1kb and 13698.3kb
-
+# NCBI and orthodb gene lookups possible https://www.orthodb.org/?level=&species=&query=6878at34735
+https://www.ncbi.nlm.nih.gov/gene/?term=GB41047#general-gene-info
+# also maybe look more in depth at : apis mellifera multidrug resistance-associated protein 4-like (LOC725051) -- can't remember which outlier set now. But this gene is overexpressed in the brains of non-hygeinic bees (all within-italian variation using freeze-killed brood): https://core.ac.uk/download/pdf/81873565.pdf. Also this same paper (https://core.ac.uk/download/pdf/81873565.pdf) has coordinates for hygeine QTLs on Amel4.5
 
 ### -------- Getting Amel HAv3.1 QTL positions using BLASTN ------- ####
 First I followed instructions to ftp download blast+ software suite from ncbi:
