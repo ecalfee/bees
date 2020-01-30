@@ -140,7 +140,7 @@ if (load_new_data) {
                         lapply(1:16, function(i) read.table(paste0("results/combined_sept19/combined/allele_freq/Group", i, 
                                                                    "/pops_included_every_SNP.nInd"),
                                                                    #"/pops_included_every", n_snp, "th_SNP.nInd"),
-                                                            header = T, stringsAsFactors = F)))*2
+                                                            header = T, stringsAsFactors = F)))*2 # times 2 for diploid
   ns_ACM <- do.call(rbind, 
                        lapply(1:16, function(i) read.table(paste0("results/combined_sept19/combined/allele_freq/Group", i, 
                                                                   "/ACM_every_SNP.nInd"),

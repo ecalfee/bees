@@ -1,0 +1,13 @@
+wrong_label	correct_label	note
+RW-A-CA1512-11-07-18	RW-A-CA1312-11-07-18	misslabel
+RW-R-CA1501-10-31-18	RW-T-CA1503-10-31-18	misslabel
+RW-U-CA1309-11-28-18	RW-U-CA0309-11-28-18	misslabel
+RW-V-CA1220-01-29-19	RW-V-CA1120-01-29-19	misslabel
+RW-W-CA1216-01-29-19	repeat_measurement	same_wing_ignore_2nd
+LW-C-CA0913-01-29-19	repeat_measurement	same_wing_ignore_2nd
+RW-A-CA0501-03-14-19	unclear_handwriting_exlude_both?	not_genotyped
+LW-G-CA0424-02-15-19	no_picture_of_left_wing_likely_repeat_measure_of_right	?
+RW-Z-CA0112-03-14-19	unclear_exclude_both	ok_2_include_CA0112_just_partial_label_in_pic
+RW-Y-AR1410-03-14-19	RW-Y-CA1410-03-14-19	misslabel
+RW-U-CA0113-05-30-19	RW-U-AR0113-05030-19	misslabel
+RW-G-AR1103-05-30-19	unknown_RW-G-CA1103-05-30-19	taken_at_same_time_as_CA1103_pics_but_already_have_other_wing_from_CA1103
