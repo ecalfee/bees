@@ -1,5 +1,6 @@
 # script to plot clines in ancestry, e.g. with latitude and environment
 library(sp)
+library(gridExtra)
 library(raster)
 library(geosphere)
 library(rethinking)
@@ -16,6 +17,7 @@ library(nls.multstart)
 source("../local_ancestry/calc_FDRs.R")
 load("../local_ancestry/results/pops_by_lat.RData") # contains objects pops_by_lat meta.pop and meta.AR.order.by.lat 
 load("../local_ancestry/results/A.RData") # ancestry data for each pop
+old.par <- par() # save default
 
 #retrieve_data_new <- T
 retrieve_data_new <- F
@@ -210,23 +212,21 @@ d_A %>%
 logistic3 <- function(x, mu, b){
   1/(1 + exp(-b*(x - mu)))
 }
-logistic4 <- function(x, mu, b, asym){
-  asym/(1 + exp(-b*(x - mu)))
+logistic4 <- function(x, mu, b, K){ # K is the maximum value
+  K/(1 + exp(-b*(x - mu)))
 } # add asymptote free parameter
-
+# why K?
 # because bees in brazil have ~ 84% A ancestry, the true
 # asymptote is 84% A not 100% A for the cline, so
 # I can optionally use this to rescale the inferred logistic curves
-rescale1 = .84
-#rescale1 = 1
-d_A <- mutate(d_A, rescale = rescale1)
+
 
 # fit_d just has distance brazil
 # fit_lat just has latitude
-start_lat <- getInitial(alpha/rescale ~ SSlogis(abs_lat, Asym, 
+start_lat <- getInitial(alpha ~ SSlogis(abs_lat, Asym, 
                                    xmid, scal), 
                        d = d_A)
-fit_lat0 <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, mu = mu),
+fit_lat0 <- nls(alpha ~ logistic3(x = abs_lat, b = b, mu = mu),
               start = list(b = 1/unname(start_lat["scal"]),
                            mu = unname(start_lat["xmid"])),
               data = d_A,
@@ -241,7 +241,7 @@ info_lat0 <- c(converged = sum_lat0$convInfo$isConv,
 
 
 
-fit_lat <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
+fit_lat <- nls_multstart(alpha ~ logistic3(x = abs_lat, 
                                               b = b, mu = mu),
                             start_lower = list(b = -1, mu = 25),
                             start_upper = list(b = 1, mu = 40),
@@ -265,7 +265,7 @@ cor(d_A$alpha[d_A$S_America == 0], predict(fit_lat, newdata = d_A[d_A$S_America 
 
 #plot
 with(d_A, plot(abs_lat, alpha))
-curve(rescale1*logistic3(x, b = coef_lat$b, mu = coef_lat$mu), 
+curve(logistic3(x, b = coef_lat$b, mu = coef_lat$mu), 
       from = min(d_A$abs_lat), to = max(d_A$abs_lat), add = T,
       col = "blue", lwd = 3)
 # can do the same w/ 'predict()' but need to sort data
@@ -296,16 +296,16 @@ max(max_pos)/nrow(x) # mean distance gained per year
 (2018-1970)/2 # ~24 generations if you think of time since reaching current cline center
 # how do I add other predictors to an nls() model?
 # start by just fitting separate clines for NA and SA based on lat.
-start_lat_NA <- getInitial(alpha/rescale ~ SSlogis(abs_lat, Asym, 
+start_lat_NA <- getInitial(alpha ~ SSlogis(abs_lat, Asym, 
                                         xmid, scal), 
                         d = d_A[d_A$S_America == 0, ])
-fit_lat_NA0 <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, mu = mu),
+fit_lat_NA0 <- nls(alpha ~ logistic3(x = abs_lat, b = b, mu = mu),
                start = list(b = 1/unname(start_lat_NA["scal"]),
                             mu = unname(start_lat_NA["xmid"])),
               trace = F,
               data = d_A[d_A$S_America == 0, ])
 # can alternatively fit w/ multstart
-fit_lat_NA <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
+fit_lat_NA <- nls_multstart(alpha ~ logistic3(x = abs_lat, 
                               b = b, mu = mu),
                 start_lower = list(b = -1, mu = 25),
                 start_upper = list(b = 1, mu = 40),
@@ -317,10 +317,10 @@ glance(fit_lat_NA)
 summary(fit_lat_NA)
 coef(fit_lat_NA0)
 
-start_lat_SA <- getInitial(alpha/rescale ~ SSlogis(abs_lat, Asym, 
+start_lat_SA <- getInitial(rescale ~ SSlogis(abs_lat, Asym, 
                                            xmid, scal), 
                            d = d_A[d_A$S_America == 1, ])
-fit_lat_SA <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
+fit_lat_SA <- nls_multstart(alpha ~ logistic3(x = abs_lat, 
                                                             b = b, mu = mu),
                                           start_lower = list(b = -1, mu = 25),
                                           start_upper = list(b = 1, mu = 40),
@@ -365,7 +365,7 @@ coef_lat_zone_mu_b
 fit_lat_zone_mu_and_b_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
                                                                      b = b + b_SA*S_America, 
                                                                      mu = mu + mu_SA*S_America,
-                                                             asym = 0.84),
+                                                             K = 0.84),
                                            start_lower = list(b = -1, mu = 25, b_SA = -1, mu_SA = -5),
                                            start_upper = list(b = 1, mu = 40, b_SA = 1, mu_SA = 5),
                                            supp_errors = 'Y',
@@ -374,33 +374,27 @@ fit_lat_zone_mu_and_b_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat,
                                            data = d_A) #%>%
 #filter(year != 2014))
 summary(fit_lat_zone_mu_and_b_.84) # b_SA is not significant, drop:
+tidy(fit_lat_zone_mu_and_b_.84)
+glance(fit_lat_zone_mu_and_b)
+glance(fit_lat_zone_mu_and_b_.84)
+
 coef_lat_zone_mu_b_.84 = tidy(fit_lat_zone_mu_and_b_.84) %>%
   dplyr::select(., term, estimate) %>%
   spread(., term, estimate)
 coef_lat_zone_mu_b_.84
+sum(coef_lat_zone_mu_b_.84[ , c("mu", "mu_SA")])
 coef_lat_zone_mu_b
-# at what latitude does it cross the 50% A ancestry frequency?
-
-
-
-# allow for free asymptote parameter:
-fit_lat_zone_mu_and_b_asym <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
-                                                                 b = b + b_SA*S_America, 
-                                                                 mu = mu + mu_SA*S_America,
-                                                              asym = asym_NA*(1-S_America) + asym_SA*S_America),
-                                       start_lower = list(b = -1, mu = 25, b_SA = -1, mu_SA = -5, asym_NA = 0.1, asym_SA = 0.1),
-                                       start_upper = list(b = 1, mu = 40, b_SA = 1, mu_SA = 5, asym_NA = 1, asym_SA = 1),
-                                       supp_errors = 'Y',
-                                       iter = 250,
-                                       convergence_count = 100,
-                                       data = d_A) #%>%
-#filter(year != 2014))
-summary(fit_lat_zone_mu_and_b_asym) # b_SA is not significant, drop:
-coef_lat_zone_mu_b_asym = tidy(fit_lat_zone_mu_and_b_asym) %>%
-  dplyr::select(., term, estimate) %>%
-  spread(., term, estimate)
-coef_lat_zone_mu_b_asym
-
+# at what latitude do these clines cross the 50% A ancestry frequency?
+find_x <- function(mu, K, A, b){ # solve cline equation to get x
+  log(0.84/A - 1)/-b + mu
+}
+fifty_perc_lat <- c(CA = find_x(mu = coef_lat_zone_mu_b_.84$mu, 
+                                K = 0.84, A = 0.5, 
+                                b = coef_lat_zone_mu_b_.84$b),
+                    AR = find_x(mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA, 
+                                K = 0.84, A = 0.5, 
+                                b = coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA))
+fifty_perc_lat
 
 
 # only fit different centers
@@ -513,37 +507,48 @@ legend("topright", c("N. America", "S. America"), pch = c(1, 1), col = col_NA_SA
 
 dev.off()
 
+
 # plot wing cline and genomic cline together:
 png("../wing_analysis/plots/fit_wing_A_clines.png", height = 6, width = 8, units = "in", res = 300)
 par(mfrow = c(2,1))
+par(mar=c(5.1, 4.1, 4.1, 8.1))
 plot(alpha ~ abs_lat, data = d_A, 
      col = NULL,
      ylim = c(0, 1), 
      xlab = "Degrees latitude from equator",
-     ylab = "A ancestry proportion")
+     ylab = "African ancestry proportion")
 points(alpha ~ abs_lat, data = d_A, # plot points again on top
        col = ifelse(d_A$continent == "S. America", 
                     col_NA_SA_both["S. America"], 
                     col_NA_SA_both["N. America"]))
 # plot MAP line from model coefficients:
-curve(logistic3(x, b = coef_lat_zone_mu_b$b + coef_lat_zone_mu_b$b_SA, 
-                         mu = coef_lat_zone_mu_b$mu + coef_lat_zone_mu_b$mu_SA), 
+curve(logistic4(x, b = coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA, 
+                         mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA,
+                K = 0.84), 
       range(d_A$abs_lat), n = 1000,
       col = col_NA_SA_both["S. America"], 
       lwd = 2, lty = 1, add = T)
-curve(logistic3(x, b = coef_lat_zone_mu_b$b, mu = coef_lat_zone_mu_b$mu), 
+#abline(h=0.84, lty = 2) # clutters plot
+curve(logistic4(x, b = coef_lat_zone_mu_b_.84$b, 
+                mu = coef_lat_zone_mu_b_.84$mu,
+                K = 0.84), 
       range(d_A$abs_lat), n = 1000,
       col = col_NA_SA_both["N. America"], 
       lwd = 2, lty = 1, add = T)
-curve(0.84*logistic3(x, b = coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA, 
-                         mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA), 
-      range(d_A$abs_lat), n = 1000,
-      col = col_NA_SA_both["S. America"], 
-      lwd = 2, lty = 3, add = T)
-curve(0.84*logistic3(x, b = coef_lat_zone_mu_b_.84$b, mu = coef_lat_zone_mu_b_.84$mu), 
-      range(d_A$abs_lat), n = 1000,
-      col = col_NA_SA_both["N. America"], 
-      lwd = 2, lty = 3, add = T)
+# lines for 50% theshold
+abline(v = fifty_perc_lat, lty = 2,
+       col = col_NA_SA_both[c("N. America", "S. America")])
+# lines for c, cline center
+#abline(v = c(coef_lat_zone_mu_b_.84$mu, coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA), 
+#       lty = 2,
+#       col = col_NA_SA_both[c("N. America", "S. America")])
+# legend
+legend(39, 0.6, c("N. America", "S. America"), xpd = TRUE,
+       pch = c(1, 1), col = col_NA_SA_both[c("N. America", "S. America")])
+legend("topright", c("N. America", "S. America"),
+       pch = c(1, 1), col = col_NA_SA_both[c("N. America", "S. America")])
+
+# 2nd plot
 plot(alpha ~ abs_lat, data = d_A, 
      col = NULL,
      ylim = c(0, 1), 
@@ -566,10 +571,173 @@ curve(1-logistic3(x, b = coef_wing_lat_zone_mu_b$b + coef_wing_lat_zone_mu_b$b_S
       col = col_NA_SA_both["S. America"], 
       lwd = 2, lty = 2, add = T)
 
-legend("topright", c("N. America", "S. America"), pch = c(1, 1), col = col_NA_SA_both[c("N. America", "S. America")])
 
 dev.off()
 par(mfrow = c(1,1))
+par(old.par)
+
+# ggplot version
+p_A_cline_loess <-
+  ggplot(filter(d_A, year == 2018), aes(x = abs_lat, y = alpha)) +
+  geom_smooth(data = filter(d_A, year == 2018), aes(fill = continent), lty = 2, lwd = 0) +
+  #geom_point(aes(color = continent, shape = continent), size = 1) +
+  geom_point(aes(color = continent), shape = 1, size = 2) +
+  xlab("Degrees latitude from equator") +
+  ylab("Proportion African ancestry") +
+  scale_x_continuous(position = "bottom", breaks = c(30, 32, 34, 36, 38), labels = waiver()) +
+  scale_color_manual(values = col_NA_SA_both, name = NULL) +
+  ylim(c(0,1)) +
+  theme_classic() +
+  stat_function(fun = function(x) logistic4(x, 
+                                            b = coef_lat_zone_mu_b_.84$b, 
+                                            mu = coef_lat_zone_mu_b_.84$mu,
+                                            K = 0.84),
+                color = col_NA_SA_both["N. America"],
+                size = 1) +
+  stat_function(fun = function(x) logistic4(x, 
+                                            b = coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA, 
+                                            mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA,
+                                            K = 0.84),
+                color = col_NA_SA_both["S. America"],
+                size = 1) +
+  geom_vline(data = data.frame(continent = c("N. America", "S. America"),
+                               abs_lat = fifty_perc_lat), 
+             aes(xintercept = abs_lat),
+             color = col_NA_SA_both[c("N. America", "S. America")],
+             lty = 2) +
+  #stat_smooth(data = filter(d_A, continent == "S. America"), 
+  #  method = "lm", se = TRUE, fill = NA,
+  #            formula = y ~ poly(x, 3, raw = TRUE))#,
+              #aes(color = "continent"))
+  scale_fill_manual(values = col_NA_SA_both) +
+  guides(fill = "none", 
+         color = guide_legend(override.aes = list(shape = 15))) +
+  theme(legend.position="top") #+
+  #scale_shape_manual(values = c(24, 25), name = NULL)
+  #geom_hline( yintercept = 0.84, color = "black", lty = 2)
+p_A_cline_loess
+ggsave("plots/A_cline_prediction_vs_loess.tiff", height = 3, width = 4.5)
+
+
+# put genetic and phenotypic (wing) clines together:
+p_A_cline <-
+  ggplot(filter(d_A, year == 2018), aes(x = abs_lat, y = alpha)) +
+  geom_point(aes(color = continent), shape = 1, size = 2) +
+  xlab("Degrees latitude from equator") +
+  ylab("Proportion African ancestry") +
+  scale_x_continuous(position = "bottom", breaks = c(30, 32, 34, 36, 38), labels = waiver()) +
+  scale_color_manual(values = col_NA_SA_both, name = NULL) +
+  ylim(c(0,1)) +
+  theme_classic() +
+  stat_function(fun = function(x) logistic4(x, 
+                                            b = coef_lat_zone_mu_b_.84$b, 
+                                            mu = coef_lat_zone_mu_b_.84$mu,
+                                            K = 0.84),
+                color = col_NA_SA_both["N. America"],
+                size = 1) +
+  stat_function(fun = function(x) logistic4(x, 
+                                            b = coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA, 
+                                            mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA,
+                                            K = 0.84),
+                color = col_NA_SA_both["S. America"],
+                size = 1) +
+  geom_vline(data = data.frame(continent = c("N. America", "S. America"),
+                               abs_lat = fifty_perc_lat), 
+             aes(xintercept = abs_lat),
+             color = col_NA_SA_both[c("N. America", "S. America")],
+             lty = 2) +
+  scale_fill_manual(values = col_NA_SA_both) +
+  guides(fill = "none", 
+         color = guide_legend(override.aes = list(shape = 15))) +
+  theme(legend.position="top")
+p_A_cline
+
+p_wing_cline_pops <- 
+  d_A %>%
+  mutate(., wing_length_mm = wing_cm*10) %>%
+  filter(!is.na(wing_length_mm)) %>%
+  group_by(., population) %>%
+  summarise(wing_length_mm = mean(wing_length_mm, na.rm = T),
+            abs_lat = mean(abs_lat)) %>%
+  left_join(., meta.pop, by = "population") %>%
+  rename(continent = zone) %>%
+  ggplot(., aes(x = abs_lat, y = wing_length_mm)) +
+  ylab("Wing (mm)") +
+  scale_color_manual(values = col_NA_SA_both, name = NULL) +
+  theme_classic() +
+  geom_point(aes(shape = continent, fill = continent, color = continent), size = 2) + # shape = 17
+  scale_x_continuous(position = "top", breaks = c(30, 32, 34, 36), 
+                     labels = waiver()) +
+  theme(axis.title.x=element_blank()) +
+  scale_y_continuous(position = "left", breaks = c(8.0, 8.5, 9.0), labels = c("8.00", "8.50", "9.00"), limits = c(8,9)) +
+  guides(color = "none", shape = "none", fill = "none") +
+  scale_shape_manual(values = c(24, 25)) +
+  scale_fill_manual(values = col_NA_SA_both)
+p_wing_cline_pops
+grid.arrange(p_A_cline, p_wing_cline_pops, nrow = 2, heights = c(5,1.5))
+ggsave("plots/A_and_wing_clines.png", 
+       plot = grid.arrange(p_A_cline, p_wing_cline_pops, 
+                           nrow = 2, heights = c(5,1.5)),
+       height = 5, width = 6, units = "in")
+ggsave("../../bee_manuscript/figures/A_and_wing_clines.tiff", 
+       plot = grid.arrange(p_A_cline, p_wing_cline_pops, 
+                           nrow = 2, heights = c(5,1.5)),
+       height = 5, width = 6, units = "in")
+
+
+  
+# plot predicted wing cline
+p_wing_cline_loess <- 
+  d_A %>%
+  #pivot_longer(data = ., cols = c("wing_cm", "model_predicted_cm"),
+  #             names_to = "type", values_to = "wing_length") %>%
+  mutate(., negative_wing_mm = wing_cm*-10) %>%
+  group_by(., population) %>%
+  summarise(negative_wing_mm = mean(negative_wing_mm), 
+            abs_lat = mean(abs_lat),
+            continent = mode(continent)) %>%
+  ggplot(., aes(x = abs_lat, y = negative_wing_mm)) +
+  geom_smooth(aes(fill = continent), color = "black", lwd = 0, lty = 2) +
+  geom_point(aes(color = continent), shape = 1, size = 2) +
+  xlab("Degrees latitude from equator") +
+  ylab("Negative wing length (mm)") +
+  scale_color_manual(values = col_NA_SA_both, name = NULL) +
+  theme_classic() +
+  stat_function(fun = function(x) -10*(logistic4(x, 
+                                            b = coef_lat_zone_mu_b_.84$b, 
+                                            mu = coef_lat_zone_mu_b_.84$mu,
+                                            K = 0.84)*coefficients(m_wing)[2] +
+                  coefficients(m_wing)[1]),
+                color = col_NA_SA_both["N. America"],
+                size = 1) +
+  stat_function(fun = function(x) -10*(logistic4(x, 
+                                            b = coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA, 
+                                            mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA,
+                                            K = 0.84)*coefficients(m_wing)[2] +
+                  coefficients(m_wing)[1]),
+                color = col_NA_SA_both["S. America"],
+                size = 1) +
+
+  #stat_smooth(data = filter(d_A, continent == "S. America") %>%
+  #              mutate(negative_wing_mm = wing_cm*-10), 
+  #            method = "lm", se = TRUE, fill = NA,
+  #            formula = y ~ poly(x, 3, raw = TRUE),
+  #            color = col_NA_SA_both["S. America"]) +
+  #stat_smooth(data = filter(d_A, continent == "N. America") %>%
+  #              mutate(negative_wing_mm = wing_cm*-10), 
+  #            method = "lm", se = TRUE, fill = NA,
+  #            formula = y ~ poly(x, 3, raw = TRUE),
+  #            color = col_NA_SA_both["N. America"]) +
+  scale_fill_manual(values = col_NA_SA_both) +
+  guides(fill = "none")
+p_wing_cline_loess
+ggsave("plots/wing_cline_prediction_vs_loess.tiff", height = 3, width = 5)
+
+
+
+
+
+
 
 # overlapping plots:
 png("../wing_analysis/plots/fit_wing_A_clines_1_plot_together.png", height = 6, width = 8, units = "in", res = 300)

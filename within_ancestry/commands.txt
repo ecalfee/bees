@@ -347,7 +347,9 @@ within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/bootstrap_pi_wit
 within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/bootstrap_pi_within_ancestry_900.log 'Rscript ./bootstrap_pi_within.R {1} 100 {2}' ::: A C M Combined ::: {101..109} &> logs/bootstrap_pi_within_ancestry_900.out &
 [1] 29404 - STOPPED JOBS WERE GETTING KILLED 1.30.20. Reduce overlap of jobs:
 within_ancestry$ nohup parallel --noswap --delay 10s --jobs 2 --joblog logs/bootstrap_pi_within_ancestry_900.log 'Rscript ./bootstrap_pi_within.R {2} 100 {1}' ::: {101..109} ::: A C M Combined &> logs/bootstrap_pi_within_ancestry_900.out &
-[1] 29793 - RUNNING 1.30.20
+[1] 29793 - RUNNING 1.30.20. REPEATING THOSE 3 THAT FAILED DUE TO MEMORY CONSTRAINT:
+within_ancestry$ nohup parallel --noswap --delay 10s --jobs 1 --joblog logs/bootstrap_pi_within_ancestry_900__failed.log 'Rscript ./bootstrap_pi_within.R {2} 100 {1}' ::: 108 108 109 :::+ A A Combined &> logs/bootstrap_pi_within_ancestry_900_failed.out &
+[1] 4437
 
 
 ## (!) NOTE: By breaking the task up into pieces, I may indeed be able to get whole genome SFS estimates for each population,

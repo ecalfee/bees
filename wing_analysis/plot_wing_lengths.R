@@ -1,6 +1,7 @@
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(broom)
 source("../colors.R") # get color palette
 
 # bees
@@ -40,7 +41,8 @@ acm.wings <- filter(acm.measurements, type == "forewing") %>%
          bee_id = as.integer(bee_id),
          subspecies_code = as.integer(subspecies_code)) %>%
   left_join(., subspecies_codes, by = "subspecies_code") %>%
-  left_join(., acm.meta, by = c("pop_id"="CASEID"))
+  left_join(., acm.meta, by = c("pop_id"="CASEID")) %>%
+  filter(!is.na(ACM))
 table(acm.wings$ACM == acm.wings$ACM_group)
 
 # groups separate by length_cm
@@ -115,34 +117,65 @@ wings.meta %>%
   geom_point() +
   theme_classic()+
   geom_smooth() +
-  geom_hline(data = acm.wing.lengths, aes(yintercept = mean_cm))
+  geom_hline(data = acm.summary, aes(yintercept = mean_cm))
 
 cor(wings.meta$wing_cm, wings.meta$A)
-m_wing <- lm(wings.meta$wing_cm ~ wings.meta$A)
+m_wing <- with(wings.meta, lm(wing_cm ~ A))
 summary(m_wing)
+glance(m_wing)
+tidy(m_wing)
+
+m_wing2 <- with(d_A, lm(wing_cm ~ alpha)) # same as m_wing
+m_wing_temp <- with(d_A, lm(wing_cm ~ alpha + AnnualMeanTemp))
+m_wing_lat <- with(d_A, lm(wing_cm ~ alpha + lat))
+m_wing_min_cold <- with(d_A, lm(wing_cm ~ alpha + MinTempColdestMonth))
+m_wing_mean_cold <- with(d_A, lm(wing_cm ~ alpha + MeanTempColdestQuarter))
+m_wing_precip <- with(d_A, lm(wing_cm ~ alpha + AnnualPrecip))
+summary(m_wing_lat)
+summary(m_wing_temp)
+summary(m_wing_min_cold)
+summary(m_wing_mean_cold)
+summary(m_wing_precip)
+glance(m_wing2)
+glance(m_wing_temp)
 # plot
 # wing length predicted by mean genomewide ancestry
 wings.meta %>%
   mutate(zone = ifelse(geographic_location == "Argentina", "S. America", "N. America")) %>%
   ggplot(., aes(x = A, y = wing_cm*10)) + 
-  geom_point(data = acm.wings %>% # reference bees
-               left_join(., data.frame(ACM = c("A", "C", "M"), 
-                                       A = c(1, 0, 0), # African ancestry ref pops.
-                                       by = "ACM", stringsAsFactors = F),
-                         by = "ACM"), size = 1, alpha = 0.75, aes(color = ACM)) +
+  # background
+  annotate("rect", xmin = 0, xmax = 1, # linear fit on range 0,1
+                ymin = 7.5, ymax = 9.5, fill = "grey", alpha = .2) +
+  
   #geom_smooth(data = acm.wings %>% # reference bees
   #             left_join(., data.frame(ACM = c("A", "C", "M"), 
   #                                     A = c(1, 0, 0), # African ancestry ref pops.
   #                                     by = "ACM", stringsAsFactors = F),
   #                       by = "ACM"), method = "lm", type = 2, color = "black") +
   geom_point(size = 1, alpha = .75, aes(color = zone)) + # hybrid zone bees
-  theme_classic()+
-  geom_abline(aes(intercept = 10*coefficients(m_wing)["(Intercept)"],
-                  slope = 10*coefficients(m_wing)["wings.meta$A"])) +
+  theme_classic() +
+  #geom_abline(aes(intercept = 10*coefficients(m_wing)["(Intercept)"],
+  #                slope = 10*coefficients(m_wing)["wings.meta$A"])) +
+  #geom_segment(aes(x = 0, xend = 1, # linear fit on range 0,1
+  #                 y = 10*coefficients(m_wing)["(Intercept)"],
+  #                 yend = 10*(coefficients(m_wing)["(Intercept)"] + 
+  #                              coefficients(m_wing)["wings.meta$A"])),
+  #             lwd = .1) +
+  geom_line(data = data.frame(A = c(0, 1), # linear fit on range 0,1
+                   wing_cm = c(coefficients(m_wing)["(Intercept)"],
+                   coefficients(m_wing)["(Intercept)"] + 
+                                coefficients(m_wing)["wings.meta$A"])),
+               color = "black") +
   #ylim(c(0,10)) +
   #xlim(c(0,1)) +
   xlab("African ancestry proportion") +
   ylab("Wing length (mm)") +
+  geom_jitter(data = acm.wings %>% # reference bees
+               left_join(., data.frame(ACM = c("A", "C", "M"), 
+                                       A = c(1.03, -0.03, -.03), # African ancestry ref pops.
+                                       by = "ACM", stringsAsFactors = F),
+                         by = "ACM"), width = 0.015, size = 1, alpha = 0.75, aes(color = ACM)) +
+  
   scale_color_manual(values = c(col_NA_SA_both, col_ACM), name = "")
   
 ggsave("plots/wing_length_by_A_ancestry.png", height = 3, width = 6)
@@ -169,16 +202,18 @@ A_wings_mean <- apply(A_wings_wide, 2, mean)
 #dplyr::select(meta.ind$Bee_ID)
 save(A_wings_wide, file = "results/A_wings_wide.RData")
 # counts, rather than marginalizing over the posterior:
+
 A_wings_wide_counts <- do.call(cbind, 
                         lapply(d.wings$Bee_ID, function(id) 
                           read.table(paste0("../local_ancestry/results/ancestry_hmm/combined_sept19/posterior/anc_count/", 
                                             id, ".A.count"), stringsAsFactors = F)))
 colnames(A_wings_wide_counts) <- d.wings$Bee_ID
+A_wings_wide_counts <- as.matrix(A_wings_wide_counts)
 save(A_wings_wide_counts, file = "results/A_wings_wide_counts.RData")
 
 # alt. initial regression model uses mean of local ancestry genomewide rather than global ancestry estimate;
 # choice of global estimate or mean of local ancestry estimate makes no difference, which is expected:
-A_wings_wide_counts <- as.matrix(A_wings_wide_counts)
+
 A_wings_counts_mean <- apply(A_wings_wide_counts, 2, mean)
 cor(d.wings$wing_cm, A_wings_mean)
 m_wing2 <- lm(d.wings$wing_cm ~ A_wings_mean)
@@ -193,22 +228,34 @@ abline(0,1,col="blue")
 # admixture mapping of residuals after fitting prediction of wing length from global ancestry
 fits <- t(sapply(1:nrow(A_wings_wide), function(i){
                   m <- lm(d.wings$model_residual_cm ~ A_wings_wide[i, ])
-                  summary(m)$coefficients[2, c(1,4)]
+                  cf <- summary(m)$coefficients
+                  results <- c(cf[2,], cf[1,])
+                  names(results) <- c("b", "se", "t.value", "p.value",
+                                      "intercept", "intercept_se", 
+                                      "intercept_t.value", "intercept_p.value")
+                  return(results)
                 }))
 
 save(fits, file = "results/ancestry_mapping_wing_length.RData")
-summary(fits[ , 2]) # lowest p-value is .001
-hist(fits[ , 2])
+summary(fits[ , "p.value"]) # lowest p-value is .001
+hist(fits[ , "p.value"])
 
-# fit to counts
+# a better way to do this is to fit to counts, because using the posterior MAP
+# doesn't have undesirable shrinkage like using the posterior mean
+# should be otherwise very similar
 fits_counts <- t(sapply(1:nrow(A_wings_wide_counts), function(i){
   m <- lm(d.wings$model_residual_cm ~ A_wings_wide_counts[i, ])
-  summary(m)$coefficients[2, c(1,4)]
+  cf <- summary(m)$coefficients
+  results <- c(cf[2,], cf[1,])
+  names(results) <- c("b", "se", "t.value", "p.value",
+                      "intercept", "intercept_se", 
+                      "intercept_t.value", "intercept_p.value")
+  return(results)
 }))
 
 save(fits_counts, file = "results/ancestry_mapping_wing_length_counts.RData")
-summary(fits_counts[ , 2])
-hist(fits_counts[ , 2])
+summary(fits_counts[ , "p.value"])
+hist(fits_counts[ , "p.value"])
 
 # plot results across genome
 # get SNP sites where ancestry was called
@@ -226,8 +273,7 @@ chr_lengths <- cbind(read.table("../data/honeybee_genome/chr.names", stringsAsFa
 sites <- left_join(sites0, chr_lengths[ , c("chr", "scaffold", "chr_n", "chr_start")], by = "scaffold") %>%
   mutate(cum_pos = pos + chr_start)
 
-cbind(sites, data.frame(fits_counts, stringsAsFactors = F) %>% 
-        data.table::setnames(c("b", "p.value"))) %>%
+cbind(sites, data.frame(fits_counts, stringsAsFactors = F)) %>%
   mutate(even_chr = (chr_n %% 2 == 1)) %>%
   #mutate(row_n = 1:nrow(.)) %>%  filter(-log10(p.value) > 1 | row_n %% 5 == 1) %>% # only plot every 10th point under 2 
   ggplot(., aes(x = cum_pos, y = -log10(p.value), color = even_chr)) +
@@ -241,8 +287,7 @@ cbind(sites, data.frame(fits_counts, stringsAsFactors = F) %>%
 ggsave("plots/admixture_mapping_wing_length.png", height = 2, width = 6)
 ggsave("../../bee_manuscript/figures/admixture_mapping_wing_length.tiff", height = 2, width = 6)
 
-cbind(sites, data.frame(fits, stringsAsFactors = F) %>% 
-        data.table::setnames(c("b", "p.value"))) %>%
+cbind(sites, data.frame(fits, stringsAsFactors = F)) %>%
   mutate(even_chr = (chr_n %% 2 == 1)) %>%
   #mutate(row_n = 1:nrow(.)) %>%  filter(-log10(p.value) > 2 | row_n %% 10 == 1) %>% # only plot every 10th point under 2 
   ggplot(., aes(x = cum_pos, y = -log10(p.value), color = even_chr), 
