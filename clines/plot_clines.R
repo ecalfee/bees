@@ -578,56 +578,17 @@ par(old.par)
 
 # ggplot version
 p_A_cline_loess <-
-  ggplot(filter(d_A, year == 2018), aes(x = abs_lat, y = alpha)) +
-  geom_smooth(data = filter(d_A, year == 2018), aes(fill = continent), lty = 2, lwd = 0) +
-  #geom_point(aes(color = continent, shape = continent), size = 1) +
+  ggplot(data = d_A, aes(x = abs_lat, y = alpha)) +
+  geom_smooth(data = filter(d_A, !is.na(alpha)), aes(fill = continent), 
+              method = "loess",
+              lty = 2, lwd = 0,
+              fullrange = T) +
   geom_point(aes(color = continent), shape = 1, size = 2) +
-  xlab("Degrees latitude from equator") +
+  xlab("Degrees latitude from the equator") +
   ylab("Proportion African ancestry") +
   scale_x_continuous(position = "bottom", breaks = c(30, 32, 34, 36, 38), labels = waiver()) +
   scale_color_manual(values = col_NA_SA_both, name = NULL) +
-  ylim(c(0,1)) +
-  theme_classic() +
-  stat_function(fun = function(x) logistic4(x, 
-                                            b = coef_lat_zone_mu_b_.84$b, 
-                                            mu = coef_lat_zone_mu_b_.84$mu,
-                                            K = 0.84),
-                color = col_NA_SA_both["N. America"],
-                size = 1) +
-  stat_function(fun = function(x) logistic4(x, 
-                                            b = coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA, 
-                                            mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA,
-                                            K = 0.84),
-                color = col_NA_SA_both["S. America"],
-                size = 1) +
-  geom_vline(data = data.frame(continent = c("N. America", "S. America"),
-                               abs_lat = fifty_perc_lat), 
-             aes(xintercept = abs_lat),
-             color = col_NA_SA_both[c("N. America", "S. America")],
-             lty = 2) +
-  #stat_smooth(data = filter(d_A, continent == "S. America"), 
-  #  method = "lm", se = TRUE, fill = NA,
-  #            formula = y ~ poly(x, 3, raw = TRUE))#,
-              #aes(color = "continent"))
-  scale_fill_manual(values = col_NA_SA_both) +
-  guides(fill = "none", 
-         color = guide_legend(override.aes = list(shape = 15))) +
-  theme(legend.position="top") #+
-  #scale_shape_manual(values = c(24, 25), name = NULL)
-  #geom_hline( yintercept = 0.84, color = "black", lty = 2)
-p_A_cline_loess
-ggsave("plots/A_cline_prediction_vs_loess.tiff", height = 3, width = 4.5)
-
-
-# put genetic and phenotypic (wing) clines together:
-p_A_cline <-
-  ggplot(filter(d_A, year == 2018), aes(x = abs_lat, y = alpha)) +
-  geom_point(aes(color = continent), shape = 1, size = 2) +
-  xlab("Degrees latitude from equator") +
-  ylab("Proportion African ancestry") +
-  scale_x_continuous(position = "bottom", breaks = c(30, 32, 34, 36, 38), labels = waiver()) +
-  scale_color_manual(values = col_NA_SA_both, name = NULL) +
-  ylim(c(0,1)) +
+  ylim(c(-0.05, 1)) +
   theme_classic() +
   stat_function(fun = function(x) logistic4(x, 
                                             b = coef_lat_zone_mu_b_.84$b, 
@@ -650,8 +611,11 @@ p_A_cline <-
   guides(fill = "none", 
          color = guide_legend(override.aes = list(shape = 15))) +
   theme(legend.position="top")
-p_A_cline
+p_A_cline_loess
+ggsave("plots/A_cline_prediction_vs_loess.png", height = 3, width = 5.2)
 
+
+# phenotypic wing clines for comparison:
 p_wing_cline_pops <- 
   d_A %>%
   mutate(., wing_length_mm = wing_cm*10) %>%
@@ -662,48 +626,53 @@ p_wing_cline_pops <-
   left_join(., meta.pop, by = "population") %>%
   rename(continent = zone) %>%
   ggplot(., aes(x = abs_lat, y = wing_length_mm)) +
-  ylab("Wing (mm)") +
+  ylab("Wing length (mm)") +
   scale_color_manual(values = col_NA_SA_both, name = NULL) +
   theme_classic() +
   geom_point(aes(shape = continent, fill = continent, color = continent), size = 2) + # shape = 17
-  scale_x_continuous(position = "top", breaks = c(30, 32, 34, 36), 
+  scale_x_continuous(position = "top", breaks = c(30, 32, 34, 36, 38),
+                     limits = range(d_A$abs_lat),
                      labels = waiver()) +
   theme(axis.title.x=element_blank()) +
-  scale_y_continuous(position = "left", breaks = c(8.0, 8.5, 9.0), labels = c("8.00", "8.50", "9.00"), limits = c(8,9)) +
+  #scale_y_continuous(
+  #  position = "left", 
+  #  breaks = c(8.0, 8.5, 9.0), 
+  #  labels = c("8.00", "8.50", "9.00"), 
+  #  limits = c(8,9)) +
+  scale_y_reverse(
+    position = "left", 
+    breaks = c(9.0, 8.5, 8.0), 
+    labels = c("9.00", "8.50", "8.00"), 
+    limits = c(9,8)) +
+  
   guides(color = "none", shape = "none", fill = "none") +
   scale_shape_manual(values = c(24, 25)) +
-  scale_fill_manual(values = col_NA_SA_both)
+  scale_fill_manual(values = col_NA_SA_both) #+
+#  xlim(range(d_A$abs_lat))
 p_wing_cline_pops
-grid.arrange(p_A_cline, p_wing_cline_pops, nrow = 2, heights = c(5,1.5))
-ggsave("plots/A_and_wing_clines.png", 
-       plot = grid.arrange(p_A_cline, p_wing_cline_pops, 
-                           nrow = 2, heights = c(5,1.5)),
-       height = 5, width = 6, units = "in")
-ggsave("../../bee_manuscript/figures/A_and_wing_clines.tiff", 
-       plot = grid.arrange(p_A_cline, p_wing_cline_pops, 
-                           nrow = 2, heights = c(5,1.5)),
-       height = 5, width = 6, units = "in")
-
-
   
 # plot predicted wing cline
 p_wing_cline_loess <- 
   d_A %>%
-  #pivot_longer(data = ., cols = c("wing_cm", "model_predicted_cm"),
-  #             names_to = "type", values_to = "wing_length") %>%
-  mutate(., negative_wing_mm = wing_cm*-10) %>%
-  group_by(., population) %>%
-  summarise(negative_wing_mm = mean(negative_wing_mm), 
-            abs_lat = mean(abs_lat),
-            continent = mode(continent)) %>%
-  ggplot(., aes(x = abs_lat, y = negative_wing_mm)) +
-  geom_smooth(aes(fill = continent), color = "black", lwd = 0, lty = 2) +
+  mutate(., wing_length = wing_cm*10) %>%
+  ggplot(., aes(x = abs_lat, y = wing_length)) +
+
+  geom_smooth(aes(fill = continent), method = "loess", 
+              color = "black", lwd = 0, lty = 2) +
   geom_point(aes(color = continent), shape = 1, size = 2) +
-  xlab("Degrees latitude from equator") +
-  ylab("Negative wing length (mm)") +
+  xlab("Degrees latitude from the equator") +
+  ylab("Wing length (mm)") +
   scale_color_manual(values = col_NA_SA_both, name = NULL) +
   theme_classic() +
-  stat_function(fun = function(x) -10*(logistic4(x, 
+  scale_y_reverse(
+    position = "left", 
+    breaks = c(9.0, 8.5, 8.0), 
+    labels = c("9.00", "8.50", "8.00"), 
+    limits = c(9, 8)) +
+  scale_x_continuous(position = "top", breaks = c(30, 32, 34, 36, 38),
+                     limits = range(d_A$abs_lat),
+                     labels = waiver()) +
+  stat_function(fun = function(x) -10*(logistic4(x, # need to plot negative because not affected by reverse y scale
                                             b = coef_lat_zone_mu_b_.84$b, 
                                             mu = coef_lat_zone_mu_b_.84$mu,
                                             K = 0.84)*coefficients(m_wing)[2] +
@@ -717,21 +686,44 @@ p_wing_cline_loess <-
                   coefficients(m_wing)[1]),
                 color = col_NA_SA_both["S. America"],
                 size = 1) +
-
-  #stat_smooth(data = filter(d_A, continent == "S. America") %>%
-  #              mutate(negative_wing_mm = wing_cm*-10), 
-  #            method = "lm", se = TRUE, fill = NA,
-  #            formula = y ~ poly(x, 3, raw = TRUE),
-  #            color = col_NA_SA_both["S. America"]) +
-  #stat_smooth(data = filter(d_A, continent == "N. America") %>%
-  #              mutate(negative_wing_mm = wing_cm*-10), 
-  #            method = "lm", se = TRUE, fill = NA,
-  #            formula = y ~ poly(x, 3, raw = TRUE),
-  #            color = col_NA_SA_both["N. America"]) +
   scale_fill_manual(values = col_NA_SA_both) +
-  guides(fill = "none")
+  guides(fill = "none", color = "none") +
+  theme(axis.title.x=element_blank())
 p_wing_cline_loess
-ggsave("plots/wing_cline_prediction_vs_loess.tiff", height = 3, width = 5)
+ggsave("plots/wing_cline_prediction_vs_loess.png", 
+       height = 4, width = 5.2, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures/wing_cline_prediction_vs_loess.png", 
+       height = 4, width = 5.2, units = "in", dpi = 600)
+
+# combine plots -- put genetic and phenotypic (wing) clines together:
+#grid.arrange(p_A_cline_loess, p_wing_cline_pops, nrow = 2, heights = c(5,1.5))
+grid.arrange(p_A_cline_loess, p_wing_cline_pops, nrow = 2, heights = c(5,3))
+ggsave("plots/A_and_wing_pop_clines.png", 
+       plot = grid.arrange(p_A_cline_loess, p_wing_cline_pops, 
+                           nrow = 2, heights = c(2,1)),
+       height = 8, width = 5.2, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures_main/A_and_wing_pop_clines.tiff", 
+       plot = grid.arrange(p_A_cline_loess, p_wing_cline_pops, 
+                           nrow = 2, heights = c(2,1)),
+       height = 8, width = 5.2, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures/A_and_wing_pop_clines.png", 
+       plot = grid.arrange(p_A_cline_loess, p_wing_cline_pops, 
+                           nrow = 2, heights = c(2,1)),
+       height = 8, width = 5.2, units = "in", dpi = 600)
+# alt. version:
+grid.arrange(p_A_cline_loess, p_wing_cline_loess, nrow = 2, heights = c(5,3))
+ggsave("plots/A_and_wing_clines.png", 
+       plot = grid.arrange(p_A_cline_loess, p_wing_cline_loess, 
+                           nrow = 2, heights = c(3,2.5)),
+       height = 8, width = 5.2, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures_main/A_and_wing_clines.tiff", 
+       plot = grid.arrange(p_A_cline_loess, p_wing_cline_loess, 
+                           nrow = 2, heights = c(3,2.5)),
+       height = 8, width = 5.2, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures/A_and_wing_clines.png", 
+       plot = grid.arrange(p_A_cline_loess, p_wing_cline_loess, 
+                           nrow = 2, heights = c(3,2.5)),
+       height = 8, width = 5.2, units = "in", dpi = 600)
 
 
 

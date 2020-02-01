@@ -124,6 +124,12 @@ m_wing <- with(wings.meta, lm(wing_cm ~ A))
 summary(m_wing)
 glance(m_wing)
 tidy(m_wing)
+m_wing_SA <- with(wings.meta %>%
+                    mutate(SA = as.numeric(geographic_location == "Argentina")), 
+                  lm(wing_cm ~ A*SA))
+summary(m_wing_SA)
+glance(m_wing_SA)
+tidy(m_wing_SA)
 
 m_wing2 <- with(d_A, lm(wing_cm ~ alpha)) # same as m_wing
 m_wing_temp <- with(d_A, lm(wing_cm ~ alpha + AnnualMeanTemp))

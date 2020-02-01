@@ -415,7 +415,49 @@ pi_ACM_estimates_small_sample  <- data.frame(ancestry = ACM, pi_SA = het_anc_mea
                                              pi_combined_NA_SA = het_anc_mean_small_sample)
 write.table(pi_ACM_estimates_small_sample, "results/pi_ACM_estimates_with_small_sample_correction.txt", col.names = T, row.names = F, quote = F, sep = "\t")
 
+# compare drift within A ancestry to drift for A ancestry:
+# load zAnc_bees:
+load("../local_ancestry/results/zAnc.RData")
+# heterozygosity for ancestry:
 
+H0_anc <- 2*zAnc_bees$alpha*(1-zAnc_bees$alpha) # assume starts with full heterozygosity or randomly mating admix pop 
+Ht_anc <- H0_anc - diag(zAnc_bees$K)
+Fst_Ast_pops <- 1 - Ht_anc/H0_anc # or more directly, the observed ancestry covariance/expected: diag(zAnc_bees$K)/H0_anc
+Fst_Ast_pops
+# what should I do about small sample size corrections??
+
+# size of initial bottleneck??
+
+# summary(Fst_Ast-diag(zAnc_bees$K)/H0_anc)
+# heterozygosity within A ancestry:
+H0_A <- pi_ACM_estimates_small_sample$pi_ref[pi_ACM_estimates_small_sample$ancestry == "A"]
+Ht_A <- left_join(data.frame(population = names(zAnc_bees$alpha), 
+                            stringsAsFactors = F), d_het_small_sample,
+                  by = "population")$A
+Fst_A_pops <- 1 - Ht_A/H0_A
+plot(Fst_Ast_pops, Fst_A_pops,
+     xlab = "Ancestry Fst",
+     ylab = "within Ancestry Fst")
+abline(lm(Fst_A_pops~ Fst_Ast_pops), col = "blue")
+summary(lm(Fst_A_pops ~ Fst_Ast_pops))
+head(het_small_sample_mean_by_ancestry)
+hist(Fst_A_pops)
+# solve for N if there are t=60 generations:
+# Ht = e^{-t/(2N)}H0
+N_from_Fst <- function(t, Fst){
+  -t/(2*log(1-Fst))
+} 
+Ne_Ast_60 <- N_from_Fst(t = 60, Fst = Fst_Ast_pops) # ~ 500-1000 (229 for Avalon)
+Ne_Ast_30 <- N_from_Fst(t = 30, Fst = Fst_Ast_pops)
+Ne_Ast_120 <- N_from_Fst(t = 120, Fst = Fst_Ast_pops)
+Ne_A <- N_from_Fst(t = 60, Fst = Fst_A_pops) # all over the place & some negative
+plot(Ne_Ast_60, Ne_A/zAnc_bees$alpha)
+# covariance N and S America -- use to estimate initial bottleneck
+cov_N_S_America <- cov(meanA_AR, meanA_CA)
+Fst_N_S_America <- cov_N_S_America/(mean(meanA_AR)*(1 - mean(meanA_CA)) + 
+                                      (1 - mean(meanA_AR))*mean(meanA_CA))
+N_from_Fst(t = 60, Fst = Fst_N_S_America)
+N_from_Fst(t = 1, Fst = Fst_N_S_America)
 
 
 # predict frequencies from within-ancestry allele frequencies for N and S America separately

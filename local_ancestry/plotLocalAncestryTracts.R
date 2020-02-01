@@ -488,13 +488,15 @@ admix_times %>%
   #ggtitle("Inferred time of admixture pulses from HMM") +
   ylab("Time (generations)") +
   xlab("Degrees latitude from the equator") +
-  labs(shape = "Collection") +
+  labs(shape = "Year") +
   theme_classic() +
   scale_shape_manual(values = c(17, 19))
 ggsave("plots/time_of_admixture_vs_latitude.png",
-       height = 3, width = 6, units = "in")
-ggsave("../../bee_manuscript/figures/time_of_admixture_vs_latitude.pdf",
-       height = 3, width = 6, units = "in", device = "pdf")
+       height = 3, width = 5.2, units = "in")
+ggsave("../../bee_manuscript/figures/time_of_admixture_vs_latitude.png",
+       height = 3, width = 5.2, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures_supp/time_of_admixture_vs_latitude.tiff",
+       height = 3, width = 5.2, units = "in", dpi = 600)
 
 # compare California and Argentina: 
 # For the same ancestry proportions, do they have similar inferred times of admixture?
@@ -511,13 +513,15 @@ admix_times %>%
   scale_color_manual(values = col_NA_SA_both, name = "Hybrid zone") +
   ylab("Time (generations in the past)") +
   xlab("Admixture proportion") +
-  labs(color = "Hybrid Zone", shape = "Collection") +
+  labs(color = "Hybrid Zone", shape = "Year") +
   theme_classic() +
   scale_shape_manual(values = c(17, 19))
 ggsave("plots/California_has_shorter_ancestry_blocks.png",
        height = 3, width = 6, units = "in")
-ggsave("../../bee_manuscript/figures/California_has_shorter_ancestry_blocks.pdf",
-       height = 3, width = 6, units = "in", device = "pdf")
+ggsave("../../bee_manuscript/figures/California_has_shorter_ancestry_blocks.png",
+       height = 3, width = 5.2, units = "in", dpi = 600, device = "pdf")
+ggsave("../../bee_manuscript/figures_supp/California_has_shorter_ancestry_blocks.tiff",
+       height = 3, width = 5.2, units = "in", dpi = 600)
 
 
 #test_id <- read.table("results/SNPs/thin1kb_common3/included.snplist", stringsAsFactors = F,
@@ -712,6 +716,7 @@ ggsave("plots/mean_A_ancestry_CA_and_AR_Group1_scaffolds_20-23.png",
 # plot K matrix (! order by latitude!)
 zAnc_bees = make_K_calcs(t(A[ , pops_by_lat]))
 
+save(file = "results/zAnc.RData", list = "zAnc_bees")
 # what are mean correlations?
 # within CA
 # within AR S
