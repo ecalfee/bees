@@ -29,6 +29,15 @@ mafs_11 <- cbind(left_join(mafs_11_list[[1]][ , c("scaffold", "pos", "type")],
                          lapply(mafs_11_list, function(m) m[ , 4]))) %>% # take just pop freq
   rename(chr = scaffold) %>%
   mutate(pos = as.numeric(pos), start = pos - 1, end = pos)
+  
+AR_11 <- mafs_11 %>%
+  filter(type == "phat") %>%
+  dplyr::select(meta.pop$population[meta.pop$zone == "S. America"]) %>%
+  . %*% meta.pop$n_bees[meta.pop$zone == "S. America"]
+  sapply(1:nrow(.), function(i)
+  sum(.[i, meta.pop$population[meta.pop$zone == "S. America"]] * 
+        meta.pop$n_bees[meta.pop$zone == "S. America"])/
+    sum(meta.pop$n_bees[meta.pop$zone == "S. America"]))
 overlap_aims_low_M_outliers_11 <- bedr(
   engine = "bedtools", 
   input = list(a = mafs_11[ , c("chr", "start", "end")] %>%
