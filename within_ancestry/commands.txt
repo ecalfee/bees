@@ -351,6 +351,10 @@ within_ancestry$ nohup parallel --noswap --delay 10s --jobs 2 --joblog logs/boot
 within_ancestry$ nohup parallel --noswap --delay 10s --jobs 1 --joblog logs/bootstrap_pi_within_ancestry_900__failed.log 'Rscript ./bootstrap_pi_within.R {2} 100 {1}' ::: 108 108 109 :::+ A A Combined &> logs/bootstrap_pi_within_ancestry_900_failed.out &
 [1] 4437
 
+# REDO BOOTRAP FOR PI WITH A BLOCK BOOTSTRAP:
+within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/block_bootstrap_pi_within_ancestry.log 'Rscript ./block_bootstrap_pi_within.R {1} 10000 100' ::: A C M Combined &> logs/block_bootstrap_pi_within_ancestry.out &
+[1] 3816 - RUNNING 2.7.20
+
 
 ## (!) NOTE: By breaking the task up into pieces, I may indeed be able to get whole genome SFS estimates for each population,
 # within ancestry and across all ancestries. I can create diff saf.idx sites separately for diff regions. I can 
