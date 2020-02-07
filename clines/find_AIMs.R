@@ -38,7 +38,7 @@ find_AIMs_by_chr <- function(chr){
   # A ancestry:
   AIMs_A = GL %>%
     filter(abs(freq_A - freq_M) > .95 & abs(freq_A - freq_C) > .95)
- 
+  
   write.table(AIMs_A, paste0("results/AIMs/A/Group", chr, ".ACM.freqs"),
               col.names = T, row.names = F, quote = F, sep = "\t")
   # write sites file for ANGSD

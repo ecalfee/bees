@@ -1054,14 +1054,14 @@ ACM_means <- ACM_AR_CA %>%
 # AIMs for all 3 ancestries
 get_aim_freq <- function(zone, ancestry, chr_n){
   # sites
-  s <-  read.table(paste0("results/AIMs/", ancestry, "/Group", chr_n, ".ACM.freqs"), 
+  s <-  read.table(paste0("../clines/results/AIMs/", ancestry, "/Group", chr_n, ".ACM.freqs"), 
                    header = T)
   # get maf all pops
   mafs <- do.call(cbind, 
                   lapply(meta.pop$population[meta.pop$zone == zone], 
                          function(pop) # for all sites, get pop freq
                            left_join(s[ , c("scaffold", "pos", "major", "minor")], 
-                                     read.table(paste0("results/AIMs/", ancestry, "/Group", chr_n, 
+                                     read.table(paste0("../clines/results/AIMs/", ancestry, "/Group", chr_n, 
                                                        "/", pop, ".mafs.gz"), header = T),
                                      by = c("scaffold"="chromo", "pos"="position", "major", "minor")) %>%
                            dplyr::select(phat)))
@@ -1091,8 +1091,26 @@ aims <- do.call(rbind,
 aims$flip = sapply(1:nrow(aims), function(i) aims[i, paste0("freq_", aims$AIM_ancestry[i])] < 0.5) # flip if freq M for an M aim is low (not high)
 aims$freq_polarized <- ifelse(aims$flip, 1 - aims$freq, aims$freq) 
 aims$chr = paste0("Group", aims$chr_n)
+aims <- aims %>% # add filter for whether all pops have some coverage/data
+  pivot_wider(data = ., id_cols = c("scaffold", "pos", "AIM_ancestry"), 
+              names_from = "zone", values_from = "freq_polarized") %>%
+  mutate(all_pops_have_data = !is.na(`N. America` + `S. America`)) %>%
+  dplyr::select(scaffold, pos, AIM_ancestry, all_pops_have_data) %>%
+  left_join(aims, ., by = c("scaffold", "pos", "AIM_ancestry")) %>%
+  left_join(., A_AR_CA[ , c("scaffold", "pos", "snp_id")], # identify snps also used for ancestry_hmm 
+            by = c("scaffold", "pos")) %>%
+  mutate(hmm_marker = !is.na(snp_id))
 
-dim(aims) # ~76k
+nrow(aims)/2 # ~38k
+aims %>%
+  filter(all_pops_have_data) %>%
+  group_by(zone, AIM_ancestry) %>%
+  summarise(n = n())
+aims %>%
+  filter(all_pops_have_data) %>%
+  summarise(sum(hmm_marker)/n())
+
+table(aims$all_pops_have_data)
 plot(aims$freq[aims$zone == "S. America" & aims$AIM_ancestry == "M"], aims$freq[aims$zone == "N. America" & aims$AIM_ancestry == "M"])
 plot(aims$freq[aims$zone == "S. America" & aims$AIM_ancestry == "C"], aims$freq[aims$zone == "N. America" & aims$AIM_ancestry == "C"])
 plot(aims$freq[aims$zone == "S. America" & aims$AIM_ancestry == "A"], aims$freq[aims$zone == "N. America" & aims$AIM_ancestry == "A"])
@@ -1107,6 +1125,16 @@ aims %>%
   facet_wrap(~AIM_ancestry)
 plot(aims$freq[aims$zone == "S. America" & aims$AIM_ancestry == "C"], aims$freq[aims$zone == "N. America" & aims$AIM_ancestry == "C"])
 
+aims %>% 
+  filter(!is.na(freq_polarized)) %>%
+  group_by(zone, AIM_ancestry) %>%
+  summarise(n = n())
+
+
+filter(zone == "S. America")
+table(is.na(aims$freq_polarized))
+
+
 aims %>%
   filter(chr_n == 11) %>%
   filter(., pos > 1.3*10^7 & pos < 1.6*10^7) %>%
@@ -1115,29 +1143,86 @@ aims %>%
     aes(x = pos, y = freq_polarized, color = AIM_ancestry), size = .05) +
   facet_wrap(~zone)
 
-AIMS_ACM_AR_CA <- full_join(ACM_AR_CA, rename(aims, ancestry = AIM_ancestry, zone_pretty = zone), 
-                  by = c("scaffold", "pos", "ancestry", "zone_pretty", "chr")) %>%
+AIMS_ACM_AR_CA <- aims %>%
+  rename(., ancestry = AIM_ancestry, zone_pretty = zone) %>%
+  filter(all_pops_have_data) %>% # filter out any aims without data for all pops in N and S America
+  rename(frequency = freq_polarized) %>%
   dplyr::select(-freq) %>%
-  pivot_longer(data = ., cols = c("freq_polarized", "ancestry_freq"), names_to = "type", values_to = "frequency") %>%
+  mutate(type = "freq_polarized") %>%
+  bind_rows(.,
+            rename(ACM_AR_CA, frequency = ancestry_freq) %>%
+              mutate(type = "ancestry_freq")) %>%
+  #pivot_longer(data = ., cols = c("freq_polarized", "ancestry_freq"), names_to = "type", values_to = "frequency") %>%
   left_join(., data.frame(type = c("ancestry_freq", "freq_polarized"), 
-                          type_pretty = factor(c("Local ancestry", "AIM"), 
-                                               levels = c("Local ancestry", "AIM"),
+                          type_pretty = factor(c("Local ancestry", "AIMs"), 
+                                               levels = c("Local ancestry", "AIMs"),
                                                order = T),
                           stringsAsFactors = F), by = "type") %>%
   mutate(pos_Mb = pos/10^6)
-
+AIMS_ACM_AR_CA %>%
+  group_by(ancestry, type, hmm_marker) %>%
+  summarise(n = n())
+aims %>%
+  filter(all_pops_have_data) %>%
+  group_by(AIM_ancestry, hmm_marker) %>%
+  summarise(n = n())
 
 # zoom in on chr11:
 col_ACM_chr11_outliers = c(col_ACM, overlap_aims_low_M_outliers_11$color)
 names(col_ACM_chr11_outliers) = c(names(col_ACM), overlap_aims_low_M_outliers_11$AIM)
-
 AIMS_ACM_AR_CA %>%
   filter(chr == "Group11") %>%
   filter(., pos > 1.3*10^7 & pos < 1.6*10^7) %>%
+  filter(., type == "ancestry_freq") %>%
   ggplot(.) +
+  geom_hline(data = ACM_means, aes(yintercept = ancestry_freq, color = ancestry),
+             linetype = "solid") + # dashed
+  geom_point(# then plot sig points on top 
+    aes(x = pos_Mb, y = frequency, 
+        color = ancestry, size = type)) + 
+  xlab("Position on chromosome 11 (Mb)") +
+  ylab("Ancestry frequency") +
+  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+                             chr_lengths, by = "scaffold") %>%
+              filter(outlier_type == "low_AR") %>%
+              filter(chr == 11) %>% 
+              mutate(zone = "SA", zone_pretty = "S. America"),
+            aes(xmin = start/10^6, xmax = end/10^6,
+                ymin = -Inf, ymax = Inf),
+            alpha = .2) +
+
+  
+  scale_color_manual(values = col_ACM, name = "Ancestry") +
+  scale_fill_manual(values = col_ACM, name = "Ancestry") +
+  #scale_size_manual(values = c(ancestry_freq = 1, freq_polarized = 1), guide = F) +
+  scale_size_manual(values = c(ancestry_freq = 0.05, freq_polarized = 0.05), guide = F) +
+  guides(fill = "none", 
+         #color = guide_legend(override.aes = list(shape = 15, linetype = "blank"))) +
+         color = guide_legend(override.aes = list(linetype = "blank"))) +
+  theme_classic() +
+  facet_grid(zone_pretty ~ .)
+
+ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM.png",
+       height = 5, width = 7.5, units = "in", device = "png")
+ggsave("../../bee_manuscript/figures_main/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM.tiff",
+       height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff")
+ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM.png",
+       height = 5, width = 7.5, units = "in", dpi = 600, device = "png")
+
+
+# now with AIMs too:
+AIMS_ACM_AR_CA %>%
+  filter(chr == "Group11") %>%
+  filter(., pos > 1.3*10^7 & pos < 1.6*10^7) %>%
+  #filter(!hmm_marker | type == "ancestry_freq") %>%
+  ggplot(.) +
+  geom_hline(data = ACM_means, aes(yintercept = ancestry_freq, color = ancestry),
+             linetype = "solid") + # dashed
   geom_point(# then plot sig points on top 
              aes(x = pos_Mb, y = frequency, 
-                 color = ancestry, size = type)) +
+                 color = ancestry, size = type,
+                 shape = ifelse((hmm_marker | type == "ancestry_freq"), 
+                                                               "overlap", "indep"))) +
   xlab("Position on chromosome 11 (Mb)") +
   ylab("Frequency") +
   geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
@@ -1149,12 +1234,12 @@ AIMS_ACM_AR_CA %>%
                 ymin = -Inf, ymax = Inf),
             alpha = .2) +
 
-  geom_hline(data = ACM_means, aes(yintercept = ancestry_freq, color = ancestry),
-             linetype = "solid") + # dashed
-
   scale_color_manual(values = col_ACM, name = "Ancestry") +
   scale_fill_manual(values = col_ACM, name = "Ancestry") +
-  scale_size_manual(values = c(ancestry_freq = 0.05, freq_polarized = 0.05), guide = F) +
+  scale_shape_manual(values = c(indep = 4, overlap = 1), 
+                     labels = c("AIM only", "HMM marker"), 
+                     name = "Marker overlap") +
+  scale_size_manual(values = c(ancestry_freq = 0.05, freq_polarized = 0.2), guide = F) +
   guides(fill = "none", 
          #color = guide_legend(override.aes = list(shape = 15, linetype = "blank"))) +
          color = guide_legend(override.aes = list(linetype = "blank"))) +
@@ -1177,18 +1262,31 @@ ACM_AR_CA %>%
   summarise(mean = mean(ancestry_freq, na.rm = T),
             max = max(ancestry_freq, na.rm = T),
             min = min(ancestry_freq, na.rm = T))
+# what percentile is the peak for M ancestry in N. America?
 quantile(ACM_AR_CA$ancestry_freq[ACM_AR_CA$zone == "AR" & ACM_AR_CA$ancestry == "M"], 0.98)
+# largest peak of M in N. America within selected region in S. America
 ACM_AR_CA %>%
   filter(zone == "AR" & ancestry == "M") %>%
-  summarise(percent_over_0.402 = sum(ancestry_freq >= 0.402, na.rm = T)/sum(!is.na(ancestry_freq)))
+  summarise(percent_over_0.402 = sum(ancestry_freq >= 0.402, na.rm = T)/sum(!is.na(ancestry_freq))) 
+# 2nd largest peak of M in N. America in the selected region in S. America
+ACM_AR_CA %>%
+  filter(zone == "CA" & ancestry == "M", chr == "Group11", pos == 14366137) %>%
+  dplyr::select(scaffold, chr, pos, ancestry, zone, ancestry_freq, zone_pretty)
+ACM_AR_CA %>%
+  filter(zone == "AR" & ancestry == "M") %>%
+  summarise(percent_over_0.402 = sum(ancestry_freq >= 0.381, na.rm = T)/sum(!is.na(ancestry_freq))) 
 
 AIMS_ACM_AR_CA %>%
   filter(chr == "Group1") %>%
   filter(., pos > 1.025*10^7 & pos < 1.225*10^7) %>%
   ggplot(.) +
+  geom_hline(data = ACM_means, aes(yintercept = ancestry_freq, color = ancestry),
+             linetype = "solid") + # dashed
   geom_point(# then plot sig points on top 
     aes(x = pos_Mb, y = frequency, 
-        color = ancestry, size = type)) +
+        color = ancestry, size = type,
+        shape = ifelse((hmm_marker | type == "ancestry_freq"), 
+                       "overlap", "indep"))) +
   xlab("Position on chromosome 1 (Mb)") +
   ylab("Frequency") +
   geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
@@ -1209,31 +1307,33 @@ AIMS_ACM_AR_CA %>%
             aes(xmin = start/10^6, xmax = end/10^6,
                 ymin = -Inf, ymax = Inf),
             alpha = .2) +
-  #geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
-  #                           chr_lengths, by = "scaffold") %>%
-  #            filter(outlier_type == "high_AR") %>%
-  #            filter(chr == 1) %>% 
-  #            filter(., end > 1*10^7 & start < 1.25*10^7) %>%
-  #            mutate(zone = "AR", zone_pretty = "S. America"),
-  #          aes(xmin = start/10^6, xmax = end/10^6,
-  #              ymin = -Inf, ymax = Inf),
-  #          alpha = .2) +
-  #geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
-  #                           chr_lengths, by = "scaffold") %>%
-  #            filter(outlier_type == "high_CA") %>%
-  #            filter(chr == 1) %>% 
-  #            filter(., end > 1*10^7 & start < 1.25*10^7) %>%
-  #            mutate(zone = "CA", zone_pretty = "N. America"),
-  #          aes(xmin = start/10^6, xmax = end/10^6,
-  #              ymin = -Inf, ymax = Inf),
-  #          alpha = .2) +
+  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+                             chr_lengths, by = "scaffold") %>%
+              filter(outlier_type == "high_AR") %>%
+              filter(chr == 1) %>% 
+              filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
+              mutate(zone = "AR", zone_pretty = "S. America"),
+            aes(xmin = start/10^6, xmax = end/10^6,
+                ymin = -Inf, ymax = Inf),
+            alpha = 0) + # do not draw
+  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+                             chr_lengths, by = "scaffold") %>%
+              filter(outlier_type == "high_CA") %>%
+              filter(chr == 1) %>% 
+              filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
+              mutate(zone = "CA", zone_pretty = "N. America"),
+            aes(xmin = start/10^6, xmax = end/10^6,
+                ymin = -Inf, ymax = Inf),
+            alpha = 0) + # do not draw
   
-  geom_hline(data = ACM_means, aes(yintercept = ancestry_freq, color = ancestry),
-             linetype = "solid") + # dashed
+
   
   scale_color_manual(values = col_ACM, name = "Ancestry") +
   scale_fill_manual(values = col_ACM, name = "Ancestry") +
-  scale_size_manual(values = c(ancestry_freq = 0.05, freq_polarized = 0.05), guide = F) +
+  scale_shape_manual(values = c(indep = 4, overlap = 1), 
+                     labels = c("AIM only", "HMM marker"), 
+                     name = "Marker overlap") +
+  scale_size_manual(values = c(ancestry_freq = 0.05, freq_polarized = 0.2), guide = F) +
   guides(fill = "none", 
          #color = guide_legend(override.aes = list(shape = 15, linetype = "blank"))) +
          color = guide_legend(override.aes = list(linetype = "blank"))) +
@@ -1245,8 +1345,8 @@ ggsave("../../bee_manuscript/figures_supp/ACM_frequency_plot_AR_CA_FDR_chr1_outl
        height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff")
 ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr1_outlier2.png",
        height = 5, width = 7.5, units = "in", dpi = 600, device = "png")
-  
-
+#table(is.na(AIMS_ACM_AR_CA$rpos[AIMS_ACM_AR_CA$type == "ancestry_freq"]))  
+#table(is.na(AIMS_ACM_AR_CA$rpos[AIMS_ACM_AR_CA$type == "freq_polarized"]))  
 
 aims %>%
   ggplot(., aes(x = freq_polarized, color = AIM_ancestry))+
@@ -1265,68 +1365,72 @@ names(col_ACM_shared_outliers) = c(names(col_ACM), overlap_aims_shared_outliers$
 left_join(overlap_aims_shared_outliers, A_AR_CA, by = c("chr"="scaffold", "pos"))
 sapply(overlap_aims_shared_outliers$pos, function(x) x %in% A_AR_CA[A_AR_CA$chr == "Group1", "pos"])
 # none of these markers are in the original ancestry calling set.
-ACM_AR_CA %>%
+
+AIMS_ACM_AR_CA %>%
   filter(chr == "Group1") %>%
-  filter(., pos > 1*10^7 & pos < 1.25*10^7) %>%
+  filter(., pos > 1.025*10^7 & pos < 1.225*10^7) %>%
+  filter(., type == "ancestry_freq") %>%
   ggplot(.) +
-  geom_vline(data = overlap_aims_shared_outliers, 
-             aes(xintercept = pos, color = AIM)) +
+  geom_hline(data = ACM_means, aes(yintercept = ancestry_freq, color = ancestry),
+             linetype = "solid") + # dashed
   geom_point(# then plot sig points on top 
-    aes(x = pos, y = ancestry_freq, 
-        color = ancestry), size = .05) +
-  xlab("Position (bp)") +
-  ylab("Mean ancestry frequency") +
-  #geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
-  #                              chr_lengths, by = "scaffold") %>%
-  #               filter(outlier_type == "high_shared2") %>%
-  #               filter(chr == 1),
-  #             aes(xmin = start, xend = end,
-  #                 y = 0.7, yend = 0.7),
-  #             lwd = 4) +
+    aes(x = pos_Mb, y = frequency, 
+        color = ancestry, size = type)) +
+  xlab("Position on chromosome 11 (Mb)") +
+  ylab("Ancestry frequency") +
   geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
                              chr_lengths, by = "scaffold") %>%
               filter(outlier_type == "high_shared2") %>%
-              filter(chr == 1),
-            aes(xmin = start, xmax = end,
+              filter(chr == 1) %>% 
+              filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
+              mutate(zone = "AR", zone_pretty = "S. America"),
+            aes(xmin = start/10^6, xmax = end/10^6,
                 ymin = -Inf, ymax = Inf),
-            alpha = .2) +
-  #geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
-  #                           chr_lengths, by = "scaffold") %>%
-  #            filter(outlier_type == "high_AR") %>%
-  #            filter(chr == 1 & start > 1*10^7 & end < 1.25*10^7) %>%
-  #            mutate(zone_pretty = "S. America"),
-  #          aes(xmin = start, xmax = end,
-  #              ymin = -Inf, ymax = Inf),
-  #          alpha = .2) +
-  #geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
-  #                           chr_lengths, by = "scaffold") %>%
-  #            filter(outlier_type == "high_CA") %>%
-  #            filter(chr == 1 & start > 1*10^7 & end < 1.25*10^7) %>%
-  #            mutate(zone_pretty = "N. America"),
-  #          aes(xmin = start, xmax = end,
-  #              ymin = -Inf, ymax = Inf),
-  #          alpha = .2) +
-  geom_hline(data = ACM_means, aes(yintercept = ancestry_freq, color = ancestry),
-             linetype = "solid") +
-  #geom_rect(data = ACM_means,
-  #             aes(xmin = 1.3*10^7, xmax = 1.6*10^7,
-  #                 ymin = ancestry_freq - 2*ancestry_sd, ymax = ancestry_freq + 2*ancestry_sd,
-  #                 fill = ancestry),
-  #          alpha = .2) +
-  scale_color_manual(values = col_ACM_shared_outliers, name = "Ancestry") +
-  scale_fill_manual(values = col_ACM_shared_outliers, name = "Ancestry") +
-  #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
-  #theme(legend.position = "none") +
+            alpha = 0) +
+  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+                             chr_lengths, by = "scaffold") %>%
+              filter(outlier_type == "high_shared2") %>%
+              filter(chr == 1) %>% 
+              filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
+              mutate(zone = "CA", zone_pretty = "N. America"),
+            aes(xmin = start/10^6, xmax = end/10^6,
+                ymin = -Inf, ymax = Inf),
+            alpha = 0) +
+  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+                             chr_lengths, by = "scaffold") %>%
+              filter(outlier_type == "high_AR") %>%
+              filter(chr == 1) %>% 
+              filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
+              mutate(zone = "AR", zone_pretty = "S. America"),
+            aes(xmin = start/10^6, xmax = end/10^6,
+                ymin = -Inf, ymax = Inf),
+            alpha = 0.2) +
+  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+                             chr_lengths, by = "scaffold") %>%
+              filter(outlier_type == "high_CA") %>%
+              filter(chr == 1) %>% 
+              filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
+              mutate(zone = "CA", zone_pretty = "N. America"),
+            aes(xmin = start/10^6, xmax = end/10^6,
+                ymin = -Inf, ymax = Inf),
+            alpha = 0.2) +
+
+  
+  scale_color_manual(values = col_ACM, name = "Ancestry") +
+  scale_fill_manual(values = col_ACM, name = "Ancestry") +
+  scale_size_manual(values = c(ancestry_freq = 0.05, freq_polarized = 0.05), guide = F) +
+  guides(fill = "none", 
+         #color = guide_legend(override.aes = list(shape = 15, linetype = "blank"))) +
+         color = guide_legend(override.aes = list(linetype = "blank"))) +
   theme_classic() +
-  facet_wrap(~zone_pretty, nrow = 2, ncol = 1)
+  facet_grid(zone_pretty ~ .)
+
 ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM.png",
-       height = 4, width = 6, units = "in", device = "png")
-ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr1_outlier.tiff",
-       height = 4, width = 6, units = "in", dpi = 600, device = "tiff")
-
-
-
-
+       height = 5, width = 7.5, units = "in", device = "png")
+ggsave("../../bee_manuscript/figures_main/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM.tiff",
+       height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff")
+ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM.png",
+       height = 5, width = 7.5, units = "in", dpi = 600, device = "png")
 
 
 
