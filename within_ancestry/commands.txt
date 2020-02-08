@@ -353,7 +353,8 @@ within_ancestry$ nohup parallel --noswap --delay 10s --jobs 1 --joblog logs/boot
 
 # REDO BOOTRAP FOR PI WITH A BLOCK BOOTSTRAP:
 within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/block_bootstrap_pi_within_ancestry.log 'Rscript ./block_bootstrap_pi_within.R {1} 10000 100' ::: A C M Combined &> logs/block_bootstrap_pi_within_ancestry.out &
-[1] 3816 - RUNNING 2.7.20
+[1] 3816 - FAILED 2.7.20 because of edge cases with no data. RERUNNING:
+[1] 4231 - RUNNING 2.7.20
 
 
 ## (!) NOTE: By breaking the task up into pieces, I may indeed be able to get whole genome SFS estimates for each population,

@@ -45,22 +45,23 @@ one_boot <- function(d){
   sum(d$n*d$het_per_snp)/sum(d$n) # mean het per snp over all snps
 }
 # bootstrap function
-bootstrap <- function(x, boot_size = BOOT_SIZE){
+bootstrap <- function(x, boot_size = BOOT_SIZE, pop){
   x0 = x[!is.na(x$het_per_snp), ] # single bootstrap sample size will be equal to the non-NA sample size of SNP allele frequencies
-  if (length(x0) == 0){
-    return(NULL) # no data, no bootstrap
+  if (nrow(x0) == 0){ # no data, no bootstrap
+    return(data.frame(pop = pop, estimate = NA, lower = NA, upper = NA, 
+                      chr = 0, n_bins = 0, stringsAsFactors = F))
   }else{
     # original estimate
     estimate <- one_boot(d = x0)
     
     # number of bins and chromosomes with data
     n_bins <- nrow(x0)
-    n_chr <- length(unique(x$scaffold))
+    n_chr <- length(unique(x0$scaffold))
     
     # bootstrapping replicates - resample all rows to same size as original data
     boots <- sapply(1:boot_size, function(i) one_boot(d = dplyr::sample_frac(x0, 1, replace = TRUE)))
     ci = estimate - quantile(boots - estimate, c(0.975, 0.025))
-    return(data.frame(estimate = estimate, lower = ci[1], upper = ci[2], 
+    return(data.frame(pop = pop, estimate = estimate, lower = ci[1], upper = ci[2], 
                       chr = n_chr, n_bins = n_bins, stringsAsFactors = F))
   }
 }
@@ -68,7 +69,9 @@ bootstrap <- function(x, boot_size = BOOT_SIZE){
 # set random seed and run bootstrap:
 set.seed(SEED)
 POPS = colnames(hets)
-boots = do.call(rbind, lapply(POPS, function(p) bootstrap(x = hets_by_bin(p), boot_size = BOOT_SIZE) %>%
-                        mutate(pop = p)))
+boots = do.call(rbind, lapply(POPS, function(p) bootstrap(x = hets_by_bin(p), boot_size = BOOT_SIZE, pop = p)))
+
 # save results
-save(list = "boots", file = paste0("results/bootstrap_pi_within_", ANCESTRY, "_", SEED, "_boots.RData"))
+write.table(boots, file = paste0("results/block_bootstrap_pi_within_", ANCESTRY, "_boots.txt"),
+            sep = "\t", quote = F, col.names = T, row.names = F)
+
