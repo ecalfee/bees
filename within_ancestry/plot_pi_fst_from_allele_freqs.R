@@ -30,6 +30,7 @@ ACM <- c("A", "C", "M")
 ACM_pops <- c(ACM, pops)
 ancestries <- ACM
 ancestries_combined <- c(ancestries, "combined")
+ancestries_Combined <- c(ancestries, "Combined")
 
 # get bee population meta data
 bees <- do.call(rbind, 
@@ -312,28 +313,16 @@ d_het %>% # (!) no small pop correction yet!
 table(is.na(freqs_AA[, "AR01"]))
 
 # load bootstrap results for pi within ancestry:
-if (load_new_data){
-  load("results/bootstrap_pi_within_M_100_boots.RData") # loads 'boots'
-  bootsM = boots
-  load("results/bootstrap_pi_within_C_100_boots.RData") # loads 'boots'
-  bootsC = boots
-  load("results/bootstrap_pi_within_A_100_boots.RData") # loads 'boots'
-  bootsA = boots
-  load("results/bootstrap_pi_within_Combined_100_boots.RData") # loads 'boots'
-  bootsCombined = boots
-  ci_M = sapply(bootsM, function(b) boot.ci(b, conf = 0.95, type = "basic")$basic[4:5])
-  ci_A = sapply(bootsA, function(b) boot.ci(b, conf = 0.95, type = "basic")$basic[4:5])
-  ci_Combined = sapply(bootsCombined, function(b) boot.ci(b, conf = 0.95, type = "basic")$basic[4:5])
-  ci_C = sapply(bootsC, function(b){
-    if(is.null(b)){
-      c(NA, NA) # no bootstrap b/c no data for this pop
-      }else{
-      boot.ci(b, conf = 0.95, type = "basic")$basic[4:5]}})
-  ci_bootstrap_pi_ACM_Combined = lapply(list(ci_A, ci_C, ci_M, ci_Combined), function(x) x*frac_snps)
-  save(list = "ci_bootstrap_pi_ACM_Combined", file = "results/ci_bootstrap_pi_ACM_Combined.RData")
-  }else{
-  load("results/ci_bootstrap_pi_ACM_Combined.RData")  
-  }
+bootstrap_pi <- do.call(rbind, lapply(c("Combined", ACM), function(a) 
+  read.table(paste0("results/block_bootstrap_pi_within_", a, "_boots.txt"),
+             header = T, sep = "\t", stringsAsFactors = F) %>%
+    mutate(ancestry = a))) %>%
+  # scale heterozygosity estimates per snp to het per bp
+  mutate(estimate = frac_snps*estimate,
+         lower = frac_snps*lower,
+         upper = frac_snps*upper) %>%
+  mutate(ancestry = factor(ancestry, levels = c("Combined", ACM), ordered = T)) # for better plot order
+
 
 # what do we expect pi to be for these admixed populations?
 # first I need admixture data for each population:
@@ -568,6 +557,7 @@ ggsave("../../bee_manuscript/figures/pi_observed_and_predicted_from_admixture.pd
 ggsave("../../bee_manuscript/figures/pi_observed_and_predicted_from_admixture.tiff", device = "tiff",
        width = 6, height = 4)
 
+# old plot:
 d_het_small_sample %>%
   filter(population != "MX10") %>%
   filter(!ref_pop) %>%
@@ -590,13 +580,46 @@ d_het_small_sample %>%
   scale_color_manual(values = c(col_ACM_all, "Predicted" = dark2[8]), name = "Ancestry") +
   labs(shape = "Year") + 
   guides(shape = guide_legend(order = 2), color = guide_legend(order = 1)) # set order of legend so Ancestry type comes first
-  #theme(legend.title = element_blank())
+#theme(legend.title = element_blank())
+
+# new plot (w/ bootstrap):
+bootstrap_pi %>%
+  left_join(., meta.pop, by = c("pop"="population")) %>%
+  filter(chr >= 15, n_bins >= 75) %>%
+  filter(!(pop %in% ACM)) %>%
+  ggplot(., aes(x = abs(lat), y = estimate, color = ancestry, 
+                shape = factor(year, levels = c("2018", "2014"), ordered = T))) +
+  #geom_point(alpha = 0) + # has to come before abline to get legend correct
+  # but want to draw points after so that they show up over the lines
+  geom_hline(data = filter(bootstrap_pi,
+                            pop %in% ACM & ancestry == pop) %>%
+               arrange(ancestry) %>%
+               head(n = 3),
+              aes(yintercept = estimate), color = c(col_ACM, col_ACM), # manually set. double for upper & lower panel 
+             alpha = 0.75, show.legend = F) +
+  geom_point(size = 1, alpha = .75, aes(color = ancestry)) +
+  geom_linerange(aes(ymin = lower, ymax = upper), lwd = 0.25) +
+  xlab("Degrees latitude from the equator") +
+  ylab(expression(pi)) + # pi symbol
+  facet_grid(zone ~ ., scales = "free_x") +
+  theme_classic() +
+  scale_color_manual(values = c(col_ACM_all)[c("Combined", ACM)], name = "Ancestry") +
+  scale_shape_manual(values = c(1, 2)) +
+  labs(shape = "Year") + 
+  #geom_vline(aes(xintercept = 34.5), alpha = 0.5, linetype = "dashed") +
+  guides(shape = guide_legend(order = 2), 
+         color = guide_legend(order = 1,
+                              override.aes = list(shape = 15, linetype = "blank"))) # set order of legend so Ancestry type comes first
+
 ggsave("plots/pi_by_latitude.png", device = "png",
-       width = 6, height = 4)
-ggsave("../../bee_manuscript/figures/pi_by_latitude.pdf", device = "pdf",
-       width = 6, height = 4)
-ggsave("../../bee_manuscript/figures/pi_by_latitude.tiff", device = "tiff",
-       width = 6, height = 4)
+       width = 5.2, height = 3)
+ggsave("../../bee_manuscript/figures/pi_by_latitude.png", device = "png",
+       width = 5.2, height = 3, dpi = 600)
+ggsave("../../bee_manuscript/figures_main/pi_by_latitude.tiff", device = "tiff",
+       width = 5.2, height = 3, dpi = 600)
+
+
+
 
 # write out mean small sample corrected within ancestry, combined, and predicted heterozygosities:
 d_het_small_sample %>%
