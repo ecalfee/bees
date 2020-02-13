@@ -322,7 +322,12 @@ bootstrap_pi <- do.call(rbind, lapply(c("Combined", ACM), function(a)
          lower = frac_snps*lower,
          upper = frac_snps*upper) %>%
   mutate(ancestry = factor(ancestry, levels = c("Combined", ACM), ordered = T)) # for better plot order
-
+# excluding points for too little within-ancestry sites:
+bootstrap_pi %>%
+  left_join(., meta.pop, by = c("pop"="population")) %>%
+  filter(chr < 15 | n_bins < 75) %>%
+  group_by(ancestry, zone) %>%
+  summarise(n = n())
 
 # what do we expect pi to be for these admixed populations?
 # first I need admixture data for each population:
@@ -597,8 +602,9 @@ bootstrap_pi %>%
                head(n = 3),
               aes(yintercept = estimate), color = c(col_ACM, col_ACM), # manually set. double for upper & lower panel 
              alpha = 0.75, show.legend = F) +
-  geom_point(size = 1, alpha = .75, aes(color = ancestry)) +
-  geom_linerange(aes(ymin = lower, ymax = upper), lwd = 0.25) +
+  geom_point(size = 1, alpha = .75, aes(color = ancestry)) + #, position = position_dodge2(width = 0.05)) +
+  geom_linerange(aes(ymin = lower, ymax = upper), lwd = 0.25) +#, position = position_dodge2(width = 0.05)) +
+  
   xlab("Degrees latitude from the equator") +
   ylab(expression(pi)) + # pi symbol
   facet_grid(zone ~ ., scales = "free_x") +
@@ -617,7 +623,6 @@ ggsave("../../bee_manuscript/figures/pi_by_latitude.png", device = "png",
        width = 5.2, height = 3, dpi = 600)
 ggsave("../../bee_manuscript/figures_main/pi_by_latitude.tiff", device = "tiff",
        width = 5.2, height = 3, dpi = 600)
-
 
 
 

@@ -192,14 +192,16 @@ d_A %>%
   xlab("Degrees latitude from the equator") + 
   theme(legend.position="bottom") + 
   labs(color = "") +
-  scale_shape_manual(values = c(17, 19)) +
-  scale_color_manual(values = col_NA_SA_both) +
+  scale_shape_manual(values = c(17, 19), name = "Year") +
+  scale_color_manual(values = col_NA_SA_both, name = "Continent") +
   theme_classic()
 ggsave("plots/climate_variables_across_latitude.png", 
        height = 5, width = 5, units = "in")
 # save in figures for manuscript:
-ggsave("../../bee_manuscript/figures/climate_variables_across_latitude.pdf", 
-       height = 5, width = 5, units = "in")
+ggsave("../../bee_manuscript/figures/climate_variables_across_latitude.png", 
+       height = 5.2, width = 5, units = "in", device = "png", dpi = 600)
+ggsave("../../bee_manuscript/figures_supp/climate_variables_across_latitude.tiff", 
+       height = 5.2, width = 5, units = "in", device = "tiff", dpi = 600)
 
 # A ancestry vs. latitude:
 d_A %>%
@@ -395,7 +397,26 @@ fifty_perc_lat <- c(CA = find_x(mu = coef_lat_zone_mu_b_.84$mu,
                                 K = 0.84, A = 0.5, 
                                 b = coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA))
 fifty_perc_lat
+twenty_perc_lat <- c(CA = find_x(mu = coef_lat_zone_mu_b_.84$mu, 
+                                K = 0.84, A = 0.2, 
+                                b = coef_lat_zone_mu_b_.84$b),
+                    AR = find_x(mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA, 
+                                K = 0.84, A = 0.2, 
+                                b = coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA))
 
+png("results/sigma_from_est_cline_width.png")
+# approximate cline width = slope at steepest part near center:
+width_SA = diff(sapply(c(0.41, 0.43), function(p) find_x(mu = coef_lat_zone_mu_b_.84$mu, 
+       K = 0.84, A = p, 
+       b = coef_lat_zone_mu_b_.84$b)))/-.02 * 111 # 111km/degree
+# estimate sigma from a neutral diffusion model of cline width:
+curve(width_SA/sqrt(2*pi*x), from = 20, to = 120, n = 100,
+      ylim = c(0, 80),
+      xlab = "generations t", ylab = "sigma (km/gen)", 
+      main = "cline width = sqrt(2*pi*sigma^2*t)")
+curve(500/sqrt(2*pi*x), from = 20, to = 120, n = 100, col = "blue", add = T)
+legend("topright", legend = c(paste0(round(width_SA), "km"), "500km"), lty = 1, col = c("black", "blue"))
+dev.off()
 
 # only fit different centers
 fit_lat_zone <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
@@ -650,7 +671,8 @@ p_wing_cline_pops <-
   scale_fill_manual(values = col_NA_SA_both) #+
 #  xlim(range(d_A$abs_lat))
 p_wing_cline_pops
-  
+sqrt((500^2)/2/pi/50)
+
 # plot predicted wing cline
 p_wing_cline_loess <- 
   d_A %>%
@@ -1143,13 +1165,21 @@ table(mvn$info$isConv)
 table(mvn_zero$info$isConv)
 table(clines$info$isConv)
 
-# spread of simulated clines
+# plot density plot to visualize spread of simulated clines
 rbind(mutate(mvn_zero$params, data = "MVN_sim_zero_bounded"), 
       mutate(mvn$params, data = "MVN_sim_bounded"), 
       mutate(clines$params, data = "observed")) %>%
-  ggplot(., aes(x = estimate, fill = data)) +
-  geom_histogram() +
-  facet_wrap(~term, scales = "free_x")
+  ggplot(., aes(x = estimate, fill = data, color = data)) +
+  geom_density(alpha = 0.25) +
+  facet_wrap(~term, scales = "free_x") +
+  geom_vline(data = data.frame(term = c("b", "mu", "b", "mu"),
+                               model = c("0.84 A asym", "0.84 A asym", "0.0 A asym", "0.0 A asym"),
+                               estimate = -1*c(coef_lat_zone_mu_b_.84$b_SA + coef_lat_zone_mu_b_.84$b,
+                                               coef_lat_zone_mu_b_.84$mu_SA + coef_lat_zone_mu_b_.84$mu,
+                                               coef_lat_zone_mu_b$b_SA + coef_lat_zone_mu_b$b,
+                                               coef_lat_zone_mu_b$mu_SA + coef_lat_zone_mu_b$mu)),
+             aes(xintercept = estimate, linetype = model))
+ggsave("plots/compare_ind_snp_to_genomewide_cline_model_estimates.png", height = 3, width = 7.5, units = "in", dpi = 600, device = "png")
 qqplot(mvn_zero$params$estimate[mvn_zero$params$term == "mu"], clines$params$estimate[clines$params$term == "mu"])
 #qqplot(mvn_zero$params$estimate[mvn_zero$params$term == "mu"], mvn$params$estimate[mvn$params$term == "mu"])
 abline(a = 0, b = 1, col = "blue")
@@ -1845,3 +1875,106 @@ cbind(sites_r, clines$params[clines$params$term == "b", ]) %>%
   ggplot(.) +
   geom_point(aes(x = pos, y = AR, color = r_bin5_factor)) +
   facet_wrap(~chr)
+
+load("../local_ancestry/results/A.RData")
+A_mean <- apply(A, 2, mean)
+A_CA <- apply(A[ , meta.pop$population[meta.pop$zone == "N. America"]], 1, mean)
+A_CA_2018 <- apply(A[ , meta.pop$population[meta.pop$year == 2018 & meta.pop$zone == "N. America"]], 1, mean)
+A_CA_most_northern <- apply(A[ , meta.pop$population[meta.pop$lat >= 35 & meta.pop$zone == "N. America"]], 1, mean)
+summary(A_CA)
+summary(A_CA_2018)
+summary(A_CA_most_northern)
+# low in top 1/4 AR and CA?
+A_CA_top <- apply(A[ , meta.pop$population[meta.pop$lat >= twentyfive_perc_lat["CA"] & meta.pop$zone == "N. America"]], 1, mean)
+A_AR_top <- apply(A[ , meta.pop$population[abs(meta.pop$lat) >= twentyfive_perc_lat["AR"] & meta.pop$zone == "S. America"]], 1, mean)
+plot(A_CA_top, A_AR_top, pch = 20, col = alpha("black", 0.1), xlim = c(0,1), ylim = c(0,1))
+abline(1, 0, col = "blue")
+abline(v = 0, col = "red")
+abline(h = 0, col = "orange")
+A_AR_tophalf <- apply(A[ , meta.pop$population[abs(meta.pop$lat) >= fifty_perc_lat["AR"] & meta.pop$zone == "S. America"]], 1, mean)
+plot(A_CA, A_AR_tophalf, pch = 20, col = alpha("black", 0.1), xlim = c(0,1), ylim = c(0,1), main = "all CA vs. lower half Arg")
+abline(0, 1, col = "blue")
+abline(v = 0, col = "red")
+abline(h = 0, col = "orange")
+summary(A_CA_top)
+summary(A_AR_top)
+summary(A_AR_tophalf)
+
+
+# more complicated cline with 2 exponential tails:
+cline_barton_szymura <- nls_multstart(alpha ~ ifelse(abs_lat > 35, 0.1, 
+                                                     logistic4(x = abs_lat,
+                                                         b = b,
+                                                         mu = mu,
+                                                         K = 0.84)), 
+    data = filter(d_A, continent == "S. America"), 
+    start_lower = list(b = -1, mu = 25),
+    start_upper = list(b = 0, mu = 40),
+    iter = 100)
+cline_barton_szymura <- nls_multstart((1 - alpha) ~ ifelse(abs_lat > 34.25, 
+                                                           1 - szymura_barton_edge(x = abs_lat, 
+                                                                                   theta = 1, 
+                                                                                   w = w), 
+                                                           szymura_barton_center(x = abs_lat, 
+                                                                           y = y, 
+                                                                           w = w)), 
+                                      data = filter(d_A, continent == "S. America"), 
+                                      start_lower = list(y = 25, w = 0),
+                                      start_upper = list(y = 40, w = 20), # width here is in degrees latitude
+                                      iter = 100)
+with(filter(d_A, continent == "S. America"), plot(alpha ~ abs_lat))
+curve(1 - szymura_barton_center(x, 
+                                y = coefficients(cline_barton_szymura)["y"], 
+                                w = coefficients(cline_barton_szymura)["w"]), 
+      from = 25, to = 38, col = "blue", add = T)
+curve(1 - szymura_barton_center(x, 
+                                y = coefficients(center_cline_barton_szymura)["y"], 
+                                w = coefficients(center_cline_barton_szymura)["w"]), 
+      from = 25, to = 38, col = "orange", add = T)
+curve(szymura_barton_edge(x, 
+                          theta = 1,
+                          w = coefficients(cline_barton_szymura)["w"]), 
+      from = 34.25, to = 50, col = "red", add = T)
+
+szymura_barton_center <- function(x, y, w){
+  p = (1 + tanh(2*(x-y)/w))/2
+  return(p)
+}
+szymura_barton_center2 <- function()
+
+szymura_barton_edge <- function(x, theta, w){ # correct formula in text of 1986 (but NOT fig 5) and in text 1991 paper (w/ correction stated for fig 5)
+  p = exp(-4*x*sqrt(theta)/w)
+  return(p)
+}
+curve(szymura_barton_center(x, y = 0, w = 10), from = -10, to = 10)
+curve(1-szymura_barton_edge(x, theta = 1, w = 10), from = 5, to = 10, col = "blue", add = T)
+curve(szymura_barton_edge(abs(x), theta = 1, w = 10), from = -10, to = -5, col = "red", add = T)
+cline_barton_szymura
+logistic4 <- function(x, mu, b, K){ # K is the maximum value
+  K/(1 + exp(-b*(x - mu)))
+} # add asymptote free parameter
+# why K?
+# because bees in brazil have ~ 84% A ancestry, the true
+# asymptote is 84% A not 100% A for the cline, so
+# I can optionally use this to rescale the inferred logistic curves
+fit_lat_zone_mu_and_b_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
+                                                             b = b + b_SA*S_America, 
+                                                             mu = mu + mu_SA*S_America,
+                                                             K = 0.84),
+                                           start_lower = list(b = -1, mu = 25, b_SA = -1, mu_SA = -5),
+                                           start_upper = list(b = 1, mu = 40, b_SA = 1, mu_SA = 5),
+                                           supp_errors = 'Y',
+                                           iter = 250,
+                                           convergence_count = 100,
+                                           data = d_A) #%>%
+#filter(year != 2014))
+summary(fit_lat_zone_mu_and_b_.84) # b_SA is not significant, drop:
+tidy(fit_lat_zone_mu_and_b_.84)
+glance(fit_lat_zone_mu_and_b)
+glance(fit_lat_zone_mu_and_b_.84)
+
+coef_lat_zone_mu_b_.84 = tidy(fit_lat_zone_mu_and_b_.84) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate)
+coef_lat_zone_mu_b_.84
+
