@@ -15,156 +15,13 @@ source("../colors.R") # get color palette
 #install.packages("nls.multstart")
 library(nls.multstart)
 source("../local_ancestry/calc_FDRs.R")
-load("../local_ancestry/results/pops_by_lat.RData") # contains objects pops_by_lat meta.pop and meta.AR.order.by.lat 
-load("../local_ancestry/results/A.RData") # ancestry data for each pop
 old.par <- par() # save default
-
-#retrieve_data_new <- T
-retrieve_data_new <- F
-#res_bioclim <- 2.5
-res_bioclim <- 0.5 # res 2.5 is about 4.5 km^2 at the equator; 0.5 is < 1 km^2
-
-# get admixture data
-#prefix <- "CA_AR_MX_harpur_sheppard_kohn_wallberg"
-
-# get ID's for PCA data (CAUTION - bam list order and admix results MUST MATCH!)
-IDs <- read.table(paste0("../bee_samples_listed/combined_sept19.list"), stringsAsFactors = F,
-                  header = F)
-colnames(IDs) <- c("Bee_ID")
-K = 3 # 3 admixing populations
-n = 250 # snps thinned to 1 every nth
-#prefix1 = paste0("ordered_scaffolds_", prefix, "_prunedBy", n)
-#name = paste0("K", K, "_", prefix1)
-name = "K3_combined_sept19_chr_prunedBy250"
-file = paste0("../global_ancestry/results/NGSAdmix/", name, ".qopt")
-admix <- read.table(file)
-colnames(admix) <- paste0("anc", 1:K) #c("anc1", "anc2", "anc3)
-# get meta data for all individuals included in NGSadmix analysis (plus extras)
-ids.pops <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F, 
-                       header = T, sep = "\t") %>%
-  dplyr::select(Bee_ID, population)
-admix2 <- bind_cols(IDs, admix) %>%
-  left_join(ids.pops, by = "Bee_ID")
-# label ancestries
-anc_labels <- data.frame(ancestry = colnames(admix),
-                         ancestry_label = sapply(colnames(admix), 
-                                                 function(x) names(which.max(tapply(admix2[ , x], admix2$population, sum)))),
-                         stringsAsFactors = F)
-
-# load wing length data
-wings <- read.table(file = "../wing_analysis/results/bee_wing_lengths_cm_1.28.20.txt",
-            header = T, sep = "\t", stringsAsFactors = F)
-
-# get climate data - bioclim1.4 with climatic variable averages 1960-1990
-# Bioclimatic variables: https://www.worldclim.org/bioclim . 
-# monthly data also available here: http://worldclim.org/version2
-bioclim19_names <- c("AnnualMeanTemp", "MeanDiurnal", "Isothermality", "TempSeasonality",
-                     "MaxTempWarmestMonth", "MinTempColdestMonth", "TempAnnualRange",
-                     "MeanTempWettestQuarter", "MeanTempDriestQuarter",
-                     "MeanTempWarmestQuarter", "MeanTempColdestQuarter",
-                     "AnnualPrecip", "PrecipWettestMonth", "PrecipDriestMonth",
-                     "PrecipSeasonality", "PrecipWettestQuarter", "PrecipDriestQuarter",
-                     "PrecipWarmestQuarter", "PrecipColdestQuarter")
-if (retrieve_data_new){
-  # first get bee lat/long
-  meta.ind <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
-    left_join(ids.pops, ., by = c("Bee_ID", "population"))
-  meta.ind.included <- meta.ind[meta.ind$population %in% c("Avalon_2014", "Placerita_2014", "Riverside_2014",
-                                                           "Stanislaus_2014", "Stebbins_2014", "MX10") |
-                                  meta.ind$group %in% c("CA_2018", "AR_2018"), ]
-  # load and merge rasters (merging is slow!)
-  # rasters for argentina:
-  ar1 = getData('worldclim', var = "bio", res = res_bioclim, 
-                lon = -70, 
-                lat = -50)
-  ar2 = getData('worldclim', var = "bio", res = res_bioclim, 
-                lon = -50, 
-                lat = -20)
-  ar3 = getData('worldclim', var = "bio", res = res_bioclim, 
-                lon = -50, 
-                lat = -50)
-  ar4 = getData('worldclim', var = "bio", res = res_bioclim, 
-                lon = -70, 
-                lat = -20)
-  # rasters for ca:
-  ca1 = getData('worldclim', var = "bio", res = res_bioclim, 
-                lon = -120, 
-                lat = 30)
-  ca2 = getData('worldclim', var = "bio", res = res_bioclim, 
-                lon = -120, 
-                lat = 50)
-  ca3 = getData('worldclim', var = "bio", res = res_bioclim, 
-                lon = -150, 
-                lat = 50)
-  #sapply(list(ca1, ca2, ca3), function(x) names(x)[1])
-  #plot(merge(ca1[[1]], ca2[[1]], ca3[[1]]))
-  #plot(merge(ar1[[1]], ar2[[1]], ar3[[1]], ar4[[1]]))
-  keep_bioclim <- c(1,6,11,12) # variables of interest
-  raster_SA = merge(ar1[[keep_bioclim]], ar2[[keep_bioclim]], ar3[[keep_bioclim]], ar4[[keep_bioclim]])
-  raster_NA = merge(ca1[[keep_bioclim]], ca2[[keep_bioclim]], ca3[[keep_bioclim]])
-  bees.clim <- do.call(rbind,
-          lapply(1:nrow(meta.ind.included), function(i) {if (meta.ind.included$group[i] == "AR_2018") {
-            # avg. within 5km buffer radius. divide output by 10 for more intuitive units
-            raster::extract(raster_SA, SpatialPoints(meta.ind.included[i, c("long", "lat")]), buffer = 5000, fun = mean)/10}
-            else{ # north america raster
-              raster::extract(raster_NA, SpatialPoints(meta.ind.included[i, c("long", "lat")]), buffer = 5000, fun = mean)/10
-            }})) %>%
-    data.frame(., stringsAsFactors = F) %>%
-    data.table::setnames(., bioclim19_names[keep_bioclim]) %>%
-    bind_cols(meta.ind.included, .)
-  
-  # add distance to sao paulo, Brazil
-  # Rio Claro, Sao Paulo Brazil: 22.4149° S, 47.5651° W (Google maps)
-  sao_paulo <- data.frame(long = -47.5651, lat = -22.4149)
-  bees.clim$km_from_sao_paulo <- apply(bees.clim[ , c("long", "lat")], 1,
-                                       function(x) distm(x, sao_paulo, 
-                                                         fun = distGeo))/1000
-  
-  # write data
-  write.table(bees.clim, 
-              paste0("results/BioclimVar_bees_", res_bioclim, "min.txt"), sep = "\t",
-              quote = F, col.names = T, row.names = F)
-} else{ # read in data already processed
-  # read in admixture data
-  #load("../global_ancestry/results/NGSAdmix/ACM_K3_combined_sept19_chr_prunedBy250.rData")
-  # read in climate data
-  bees.clim <- read.table(paste0("results/BioclimVar_bees_", res_bioclim, "min.txt"), 
-                          sep = "\t",
-                          header = T, stringsAsFactors = F)
-}
-
-# 'tidy' formatted data
-d <- bees.clim %>%
-  left_join(admix2, ., by = c("Bee_ID", "population")) %>% 
-  tidyr::gather(., "ancestry", "alpha", colnames(admix)) %>%
-  left_join(., anc_labels, by = "ancestry") %>%
-  mutate(continent = ifelse(geographic_location == "Argentina", "S. America", "N. America"))
-
-
-# make some new variables, standardized for better model fitting
-d_A <- d %>%
-  filter(geographic_location != "Mexico") %>% # filter out mexico
-  # limit to A ancestry
-  filter(ancestry_label == "A") %>%
-  # absolute latitude
-  mutate(abs_lat = abs(lat)) %>%
-  # mean absolute latitude, centered
-  mutate(abs_lat_c = abs(lat) - mean(abs(lat))) %>%
-  # distance from sao paulo, centered, and in units of 1000km
-  mutate(dist_c = (km_from_sao_paulo - mean(km_from_sao_paulo))/1000) %>%
-  mutate(S_America = ifelse(continent == "S. America", 1, 0)) %>%
-  mutate(S_America_c = S_America - mean(S_America)) %>% # center for better fit and reduce correlation with mu estimates
-  mutate(temp_c = AnnualMeanTemp - mean(AnnualMeanTemp)) %>%
-  mutate(cold_c = MeanTempColdestQuarter - mean(MeanTempColdestQuarter)) %>%
-  mutate(precip_c = AnnualPrecip - mean(AnnualPrecip)) %>%
-  mutate(from2014 = year - 2014) %>% # any evidence the hybrid zone has moved 2014 to 2018?
-  mutate(from2014_c = from2014 - mean(from2014)) %>%
-  mutate(year = factor(year)) %>%
-  left_join(., wings[ , c("Bee_ID", "wing_cm")], by = "Bee_ID") # add wing length data
+source("cline_functions.R") # loads logistic and stepped clines etc.
+load("results/d_A.RData") # load data
 
 iHot <- which.max(d_A$AnnualMeanTemp)
 iCold <- which.min(d_A$AnnualMeanTemp)
-bees.clim[c(iHot, iCold), ]
+
 distm(d_A[iHot, c("long", "lat")], d_A[iCold, c("long", "lat")], 
       fun = distGeo)/1000 # distance in km between hottest and coldest site (CA mountains and desert)
 
@@ -210,18 +67,6 @@ d_A %>%
   scale_color_manual(values = col_NA_SA_both)
 
 ############-----logistic clines w/ nls()------#########
-# define logistic curve
-logistic3 <- function(x, mu, b){
-  1/(1 + exp(-b*(x - mu)))
-}
-logistic4 <- function(x, mu, b, K){ # K is the maximum value
-  K/(1 + exp(-b*(x - mu)))
-} # add asymptote free parameter
-# why K?
-# because bees in brazil have ~ 84% A ancestry, the true
-# asymptote is 84% A not 100% A for the cline, so
-# I can optionally use this to rescale the inferred logistic curves
-
 
 # fit_d just has distance brazil
 # fit_lat just has latitude
@@ -1911,48 +1756,408 @@ cline_barton_szymura <- nls_multstart(alpha ~ ifelse(abs_lat > 35, 0.1,
     start_lower = list(b = -1, mu = 25),
     start_upper = list(b = 0, mu = 40),
     iter = 100)
-cline_barton_szymura <- nls_multstart((1 - alpha) ~ ifelse(abs_lat > 34.25, 
-                                                           1 - szymura_barton_edge(x = abs_lat, 
-                                                                                   theta = 1, 
-                                                                                   w = w), 
-                                                           szymura_barton_center(x = abs_lat, 
-                                                                           y = y, 
-                                                                           w = w)), 
+
+
+curve(szymura_barton_center(x, y = 0, w = 10), from = -10, to = 10)
+curve(1-szymura_barton_edge(x, y = 0, theta = 1, w = 10), from = 0, to = 10, col = "blue", add = T)
+curve(szymura_barton_edge(x, y = 0, theta = 1, w = -10), from = -10, to = 0, col = "red", add = T)
+curve(szymura_barton_center(x, y = -30, w = 7), from = -40, to = -25)
+curve(1 - szymura_barton_edge(x, y = -30, theta = 1, w = 7), from = -30, to = -25, col = "blue", add = T)
+curve(szymura_barton_edge(x, y = -30, theta = 1, w = -7), from = -40, to = -30, col = "red", add = T)
+# closer to scenario here:
+curve(szymura_barton_center(x, y = -30, w = 7), from = -40, to = -25)
+curve(1 - szymura_barton_edge(x, y = -30, theta = 1, w = 7), from = -30, to = -25, col = "blue", add = T)
+curve(szymura_barton_edge(x, y = -30, theta = 1, w = -7), from = -40, to = -30, col = "red", add = T)
+
+
+curve(stepped_cline_center(x, y = 0, w = 10) - .5, from = -10, to = 10)
+curve(szymura_barton_center(x, y = 0, w = 10) - .5, from = -10, to = 10, add = T, col = "purple", lty = 2)
+abline(a = 0, b = 1/10, col = "blue") # just to confirm expected slope
+
+# draw clines with tails
+curve(stepped_cline_center(x, y = -30, w = 7), from = -40, to = -25, col = "purple")
+curve(szymura_barton_center(x, y = -30, w = 7), from = -40, to = -25, add = T, col = "white", lty = 2)
+#curve(szymura_barton_edge(x, y = -30, theta = 1, w = -7), from = -40, to = -30, col = "red", add = T)
+curve(stepped_cline_edge(x, y = -30, theta = 1/2, w = 7, d = -2), #left tail
+      from = -40, to = -32, col = "red", lty = 2, add = T)
+curve(1 - stepped_cline_edge(x, y = -30, theta = 1/2, w = -7, d = 2), # right tail
+      from = -28, to = -25, col = "blue", lty = 2, add = T)
+
+# try to fit 3-part cline model:
+# full cline:
+# symmetric:
+fit_stepped_cline_symmetric <- function(data, rescale = 0.84){
+  cline_stepped <- nls_multstart(alpha_rescaled ~ ifelse(lat > y + d,
+                                                     1 - stepped_cline_edge(x = lat, 
+                                                                            y = y, 
+                                                                            theta = theta, 
+                                                                            w = -w, 
+                                                                            d = d),
+                                                     ifelse(lat < y - d,
+                                                            stepped_cline_edge(x = lat, 
+                                                                               y = y, 
+                                                                               theta = theta, 
+                                                                               w = w, 
+                                                                               d = -d),
+                                                            stepped_cline_center(x = lat, 
+                                                                                 y = y, 
+                                                                                 w = w))), 
+                                 data =  data %>%
+                                   mutate(alpha_rescaled = alpha/rescale), 
+                                 lower = c(y = -40, d = 0, theta = 0, w = 0),
+                                 upper = c(y = -25, d = 5, theta = 1, w = 15),
+                                 start_lower = list(y = -40, d = 0, theta = 0, w = 0),
+                                 start_upper = list(y = -25, d = 5, theta = 1, w = 15), # width here is in degrees latitude
+                                 iter = 100)
+  return(cline_stepped)
+}
+
+# constrain theta = 1
+fit_stepped_cline_symmetric_theta1 <- function(d_thresh, data, rescale = 0.84){
+  cline_stepped <- nls_multstart(alpha_rescaled ~ ifelse(lat > y + d,
+                                                     1 - stepped_cline_edge(x = lat, 
+                                                                            y = y, 
+                                                                            theta = 1, 
+                                                                            w = -w, 
+                                                                            d = d),
+                                                     ifelse(lat < y - d,
+                                                            stepped_cline_edge(x = lat, 
+                                                                               y = y, 
+                                                                               theta = 1, 
+                                                                               w = w, 
+                                                                               d = -d),
+                                                            stepped_cline_center(x = lat, 
+                                                                                 y = y, 
+                                                                                 w = w))), 
+                                 data =  data %>%
+                                   mutate(alpha_rescaled = alpha/rescale), 
+                                 lower = c(y = -40, d = 0, w = 0),
+                                 upper = c(y = -25, d = 5, w = 15),
+                                 start_lower = list(y = -40, d = 0, w = 0),
+                                 start_upper = list(y = -25, d = 5, w = 15), # width here is in degrees latitude
+                                 iter = 100)
+  return(cline_stepped)
+}
+
+# non-symmetric
+fit_stepped_cline <- function(dL, dR, data, rescale = 0.84){
+  cline_stepped <- nls_multstart(alpha_rescaled ~ ifelse(lat > y + dR,
+                                                     1 - stepped_cline_edge(x = lat, 
+                                                                            y = y, 
+                                                                            theta = thetaR, 
+                                                                            w = -w, 
+                                                                            d = dR),
+                                                     ifelse(lat < y - dL,
+                                                            stepped_cline_edge(x = lat, 
+                                                                               y = y, 
+                                                                               theta = thetaL, 
+                                                                               w = w, 
+                                                                               d = -dL),
+                                                            stepped_cline_center(x = lat, 
+                                                                                 y = y, 
+                                                                                 w = w))), 
+                                 data =  data %>%
+                                   mutate(dL = dL) %>%
+                                   mutate(dR = dR) %>%
+                                   mutate(alpha_rescaled = alpha/rescale), 
+                                 lower = c(y = -40, thetaR = 0, w = 0, thetaL = 0),
+                                 upper = c(y = -25, thetaR = 1, w = 15, thetaL = 1),
+                                 start_lower = list(y = -40, thetaR = 0, w = 0, thetaL = 0),
+                                 start_upper = list(y = -25, thetaR = 1, w = 15, thetaL = 1), # width here is in degrees latitude
+                                 iter = 100)
+  return(cline_stepped)
+}
+
+# fit d also:
+fit_stepped_cline_d <- function(data, rescale = 0.84, supp_errors = 'N'){
+  cline_stepped <- nls_multstart(alpha_rescaled ~ ifelse(lat > y + dR,
+                                                         1 - stepped_cline_edge(x = lat, 
+                                                                                y = y, 
+                                                                                theta = thetaR, 
+                                                                                w = -w, 
+                                                                                d = dR),
+                                                         ifelse(lat < y - dL,
+                                                                stepped_cline_edge(x = lat, 
+                                                                                   y = y, 
+                                                                                   theta = thetaL, 
+                                                                                   w = w, 
+                                                                                   d = -dL),
+                                                                stepped_cline_center(x = lat, 
+                                                                                     y = y, 
+                                                                                     w = w))), 
+                                 data =  data %>%
+                                   mutate(alpha_rescaled = alpha/rescale), 
+                                 lower = c(y = -40, dR = 0, thetaR = 0, w = 0, dL = 0, thetaL = 0),
+                                 upper = c(y = -25, dR = 5, thetaR = 1, w = 15, dL = 5, thetaL = 1),
+                                 start_lower = list(y = -40, dR = 0, thetaR = 0, w = 0, dL = 0, thetaL = 0),
+                                 start_upper = list(y = -25, dR = 5, thetaR = 1, w = 15, dL = 5, thetaL = 1), # width here is in degrees latitude
+                                 iter = 100,
+                                 supp_errors = supp_errors)
+  return(cline_stepped)
+}
+
+
+
+# simple center cline only
+fit_stepped_cline_center <- function(data, rescale = 0.84){
+  stepped_cline <- nls_multstart(alpha_rescaled ~ stepped_cline_center(x = lat, 
+                                                                        y = y, 
+                                                                        w = w), 
+                                 data =  data %>%
+                                   mutate(alpha_rescaled = alpha/rescale), 
+                                 lower = c(y = -40, w = 0),
+                                 upper = c(y = -25, w = 40),
+                                 start_lower = list(y = -40, w = 0),
+                                 start_upper = list(y = -25, w = 15), # width here is in degrees latitude
+                                 iter = 100)
+  return(stepped_cline)
+}
+
+d_A_SA <- filter(d_A, continent == "S. America")
+cline_stepped_center <- fit_stepped_cline_center(data = d_A_SA)
+cline_stepped_center_1 <- fit_stepped_cline_center(data = d_A_SA, rescale = 1)
+cline_stepped_symmetric <- fit_stepped_cline_symmetric(data = d_A_SA)
+cline_stepped_symmetric_1 <- fit_stepped_cline_symmetric(data = d_A_SA, rescale = 1)
+cline_stepped_symmetric_theta1 <- fit_stepped_cline_symmetric_theta1(data = d_A_SA)
+cline_stepped <- fit_stepped_cline(dL = 2, dR = 2, data = d_A_SA)
+cline_stepped_1 <- fit_stepped_cline(dL = 2, dR = 2, data = d_A_SA, rescale = 1)
+cline_stepped_d <- fit_stepped_cline_d(data = d_A_SA, rescale = 0.84)
+cline_stepped_d_1 <- fit_stepped_cline_d(data = d_A_SA, rescale = 1)
+# only fit middle of the data:
+cline_stepped_center_truncated <- nls_multstart(alpha_0.84 ~ stepped_cline_center(x = lat, 
+                                                                                  y = y, 
+                                                                                  w = w), 
+                                                data =  filter(d_A, continent == "S. America") %>%
+                                                  mutate(alpha_0.84 = alpha/0.84) %>%
+                                                  filter(lat > -35 & lat < -30), 
+                                                lower = c(y = -40, w = 0),
+                                                upper = c(y = -25, w = 40),
+                                                start_lower = list(y = -40, w = 0),
+                                                start_upper = list(y = -25, w = 15), # width here is in degrees latitude
+                                                iter = 100)
+
+
+coefficients(cline_stepped_center)
+coefficients(cline_stepped_center_1)
+coefficients(cline_stepped_symmetric_theta1)
+coefficients(cline_stepped_symmetric)
+coefficients(cline_stepped)
+coefficients(cline_stepped_1)
+coefficients(cline_stepped_center_truncated)
+coefficients(cline_stepped_d)
+coefficients(cline_stepped_d_1)
+
+# plot residuals of cline_stepped_center
+with(d_A_SA, plot(lat, alpha - 0.84*predict(cline_stepped_symmetric),
+     ylab = "residuals", main = "stepped cline symmetric"))
+with(d_A_SA, plot(lat, alpha - 0.84*predict(cline_stepped_d),
+                  ylab = "residuals", main = "stepped cline unconstrained"))
+with(d_A_SA, plot(lat, alpha - 0.84*predict(cline_stepped_center),
+                  ylab = "residuals", main = "center cline"))
+plot(nlsResiduals(cline_stepped_d))
+test.nlsResiduals(nlsResiduals(cline_stepped_d))
+plot(nlsResiduals(cline_stepped_symmetric))
+test.nlsResiduals(nlsResiduals(cline_stepped_symmetric))
+plot(nlsResiduals(cline_stepped_center))
+test.nlsResiduals(nlsResiduals(cline_stepped_center))
+cont <- nlstools::nlsContourRSS(cline_stepped_d)
+# test model fits:
+# cline with two different tails fits the best. BUT the right 'tail' starts at the center of the cline, which is nonstandard and complicates interpretation.
+anova(cline_stepped_d, cline_stepped_center, test = "F") # sig.
+anova(cline_stepped_symmetric, cline_stepped_center, test = "F") # not sig.
+anova(cline_stepped_symmetric, cline_stepped_d, test = "F") # sig.
+
+AIC(cline_stepped_d, cline_stepped_d_1, cline_stepped_symmetric, cline_stepped_symmetric_1, cline_stepped_center, cline_stepped_center_1)
+# plot cline results:
+png(filename = "plots/SA_stepped_cline_fits.png", height = 5, width = 5.2, units = "in", res = 600)
+with(filter(d_A, continent == "S. America"), 
+     plot(lat, alpha,
+          xlim = c(-37, -27), ylim = c(0,1),
+          main = "S. American genomewide cline",
+          ylab = "A ancestry proportion"))
+# 1 cline
+curve(0.84*stepped_cline_center(x, 
+                                y = coefficients(cline_stepped_center)["y"], 
+                                w = coefficients(cline_stepped_center)["w"]), 
+      from = -40, to = -25, 
+      col = "purple", lwd = 2, add = T)
+# stepped cline
+# symmetric
+curve(0.84*ifelse(x > coefficients(cline_stepped_symmetric)["y"] + coefficients(cline_stepped_symmetric)["d"],
+                  1 - stepped_cline_edge(x, 
+                                         y = coefficients(cline_stepped_symmetric)["y"], 
+                                         theta = coefficients(cline_stepped_symmetric)["theta"], 
+                                         w = -coefficients(cline_stepped_symmetric)["w"], 
+                                         d = coefficients(cline_stepped_symmetric)["d"]),
+                  ifelse(x < coefficients(cline_stepped_symmetric)["y"] - coefficients(cline_stepped_symmetric)["d"],
+                         stepped_cline_edge(x, 
+                                            y = coefficients(cline_stepped_symmetric)["y"], 
+                                            theta = coefficients(cline_stepped_symmetric)["theta"], 
+                                            w = coefficients(cline_stepped_symmetric)["w"], 
+                                            d = -coefficients(cline_stepped_symmetric)["d"]),
+                         stepped_cline_center(x = x, 
+                                              y = coefficients(cline_stepped_symmetric)["y"], 
+                                              w = coefficients(cline_stepped_symmetric)["w"]))),
+      from = -40, to = -25, add = T, col = "green", lty = 1, lwd = 2)
+curve(0.84*stepped_cline_center(x = x, 
+                                y = coefficients(cline_stepped_symmetric)["y"], 
+                                w = coefficients(cline_stepped_symmetric)["w"]),
+      from = -40, to = -25, add = T, col = "green", lty = 2, lwd = 2)
+# free tails annealed stepped cline:
+curve(0.84*ifelse(x > coefficients(cline_stepped_d)["y"] + coefficients(cline_stepped_d)["dR"],
+                  1 - stepped_cline_edge(x, 
+                                         y = coefficients(cline_stepped_d)["y"], 
+                                         theta = coefficients(cline_stepped_d)["thetaR"], 
+                                         w = -coefficients(cline_stepped_d)["w"], 
+                                         d = coefficients(cline_stepped_d)["dR"]),
+                  ifelse(x < coefficients(cline_stepped_d)["y"] - coefficients(cline_stepped_d)["dL"],
+                         stepped_cline_edge(x, 
+                                            y = coefficients(cline_stepped_d)["y"], 
+                                            theta = coefficients(cline_stepped_d)["thetaL"], 
+                                            w = coefficients(cline_stepped_d)["w"], 
+                                            d = -coefficients(cline_stepped_d)["dL"]),
+                         stepped_cline_center(x = x, 
+                                              y = coefficients(cline_stepped_d)["y"], 
+                                              w = coefficients(cline_stepped_d)["w"]))),
+      from = -40, to = -25, add = T, col = "blue", lty = 1, lwd = 2)
+
+if (FALSE){
+  curve(ifelse(x > coefficients(cline_stepped_d_1)["y"] + coefficients(cline_stepped_d_1)["dR"],
+               1 - stepped_cline_edge(x, 
+                                      y = coefficients(cline_stepped_d_1)["y"], 
+                                      theta = coefficients(cline_stepped_d_1)["thetaR"], 
+                                      w = -coefficients(cline_stepped_d_1)["w"], 
+                                      d = coefficients(cline_stepped_d_1)["dR"]),
+               ifelse(x < coefficients(cline_stepped_d_1)["y"] - coefficients(cline_stepped_d_1)["dL"],
+                      stepped_cline_edge(x, 
+                                         y = coefficients(cline_stepped_d_1)["y"], 
+                                         theta = coefficients(cline_stepped_d_1)["thetaL"], 
+                                         w = coefficients(cline_stepped_d_1)["w"], 
+                                         d = -coefficients(cline_stepped_d_1)["dL"]),
+                      stepped_cline_center(x = x, 
+                                           y = coefficients(cline_stepped_d_1)["y"], 
+                                           w = coefficients(cline_stepped_d_1)["w"]))),
+        from = -40, to = -25, add = T, col = "orange", lty = 1, lwd = 2)
+}
+
+
+# continue middle cline for comparison for whole range
+curve(0.84*stepped_cline_center(x = x, 
+                                y = coefficients(cline_stepped_d)["y"], 
+                                w = coefficients(cline_stepped_d)["w"]),
+      from = -40, to = -25, add = T, col = "blue", lty = 2, lwd = 2)
+#curve(logistic4(x = x, # same curve as stepped_cline_center
+#                mu = coefficients(cline_stepped_d)["y"], 
+#                b = 4/coefficients(cline_stepped_d)["w"],
+#                K = 0.84),
+#      from = -40, to = -25, add = T, col = "pink", lty = 2, lwd = 2)
+curve(0.84*logistic4(x = x, # same curve as stepped_cline_center
+                mu = coefficients(cline_stepped_d)["y"], 
+                b = 4/coefficients(cline_stepped_d)["w"],
+                K = 0.84),
+      from = -40, to = -25, add = T, col = "black", lty = 2, lwd = 2)
+legend("topleft", c("simple logistic cline", "barton 'stepped' cline w/ symmetric tails", 
+                    "barton 'stepped' cline w/ free tails", "center of cline extended"),
+       col = c("purple", "green", "blue", "black"), lty = c(1,1,1,2), cex = .5)
+dev.off()
+
+
+# bootstrap individuals within each population for confidence intervals:
+boot_stepped = read.table(paste0("results/bootstrap_stepped_cline_SA_seed100.txt"), 
+              sep = "\t", stringsAsFactors = F, header = T)
+nrow(boot_stepped) # most, but not all, bootstraps could be fit to the model (missing = no fit)
+table(boot_stepped$isConv) # plus one more didn't converge
+hist(boot_stepped$w)
+hist(boot_stepped$y)
+pairs(boot_stepped)
+do.call(rbind, lapply(boots_cline_stepped_d[1:3], function(x)
+  bind_cols(broom::glance(x), 
+            broom::tidy(x) %>% 
+              dplyr::select(c("term", "estimate")) %>% 
+              tidyr::pivot_wider(data = ., names_from = "term", values_from = "estimate"))))
+
+
+
+curve(0.84*ifelse(x > coefficients(cline_stepped_d)["y"] + coefficients(cline_stepped_d)["dR"],
+                  1 - stepped_cline_edge(x, 
+                                         y = coefficients(cline_stepped_d)["y"], 
+                                         theta = coefficients(cline_stepped_d)["thetaR"], 
+                                         w = -coefficients(cline_stepped_d)["w"], 
+                                         d = coefficients(cline_stepped_d)["dR"]),
+                  ifelse(x < coefficients(cline_stepped_d)["y"] - coefficients(cline_stepped_d)["dL"],
+                         stepped_cline_edge(x, 
+                                            y = coefficients(cline_stepped_d)["y"], 
+                                            theta = coefficients(cline_stepped_d)["thetaL"], 
+                                            w = coefficients(cline_stepped_d)["w"], 
+                                            d = -coefficients(cline_stepped_d)["dL"]),
+                         stepped_cline_center(x = x, 
+                                              y = coefficients(cline_stepped_d)["y"], 
+                                              w = coefficients(cline_stepped_d)["w"]))),
+      from = -40, to = -25, add = T, col = "blue", lty = 1, lwd = 2)
+
+
+
+
+
+coefficients(cline_stepped_d) # theta can be interpreted as s_e/s*, or selection directly on a locus/effective selection (e.g. due to ld with selected loci)
+# here the right tail has theta = 0.77 but the left tail has theta = 0
+nlstools::confint2(cline_stepped_d, method = "profile")
+nlstools::confint2(cline_stepped_d)
+nlstools::confint2(cline_stepped_center, method = "profile")
+nlstools::confint2(cline_stepped_center)
+nlstools::confint2(cline_stepped_symmetric, method = "profile")
+plot(profile(cline_stepped_center))
+plot(profile(cline_stepped_d)) # hmm...singular gradient.
+
+# simple center fit only cline:
+cline_barton_szymura_center <- nls_multstart(alpha/0.84 ~ szymura_barton_center(x = lat, 
+                                                                                y = y, 
+                                                                                w = w), 
+                                             data = filter(d_A, continent == "S. America"), 
+                                             lower = c(y = -40, w = 0),
+                                             upper = c(y = -25, w = 15),
+                                             start_lower = list(y = -40, w = 0),
+                                             start_upper = list(y = -25, w = 15), # width here is in degrees latitude
+                                             iter = 100)
+# full cline:
+cline_barton_szymura <- nls_multstart(alpha/0.84 ~ ifelse(lat > -31 + 1, 
+                                                           1 - szymura_barton_edge(x = lat, 
+                                                                               y = y,
+                                                                               theta = theta, 
+                                                                               w = w),
+                                                           ifelse(lat < -31 - 1,
+                                                                  szymura_barton_edge(x = lat,
+                                                                                      y = y,
+                                                                                      theta = theta, 
+                                                                                      w = -w),
+                                                                  szymura_barton_center(x = lat, 
+                                                                                        y = y, 
+                                                                                        w = w))), 
                                       data = filter(d_A, continent == "S. America"), 
-                                      start_lower = list(y = 25, w = 0),
-                                      start_upper = list(y = 40, w = 20), # width here is in degrees latitude
+                                      lower = c(y = -40, w = 0, theta = 0),
+                                      upper = c(y = -25, w = 15, theta = 1),
+                                      start_lower = list(y = -40, w = 0, theta = 0),
+                                      start_upper = list(y = -25, w = 15, theta = 1), # width here is in degrees latitude
                                       iter = 100)
-with(filter(d_A, continent == "S. America"), plot(alpha ~ abs_lat))
-curve(1 - szymura_barton_center(x, 
+
+with(filter(d_A, continent == "S. America"), plot(alpha/0.84 ~ lat))
+curve(szymura_barton_center(x, 
                                 y = coefficients(cline_barton_szymura)["y"], 
                                 w = coefficients(cline_barton_szymura)["w"]), 
-      from = 25, to = 38, col = "blue", add = T)
-curve(1 - szymura_barton_center(x, 
-                                y = coefficients(center_cline_barton_szymura)["y"], 
-                                w = coefficients(center_cline_barton_szymura)["w"]), 
-      from = 25, to = 38, col = "orange", add = T)
+      from = -40, to = -25, col = "blue", add = T)
+curve(1 - szymura_barton_edge(x, 
+                              y = coefficients(cline_barton_szymura)["y"],
+                              theta = coefficients(cline_barton_szymura["theta"]), 
+                              w = coefficients(cline_barton_szymura)["w"]), 
+      from = -30, to = -25, col = "orange", add = T)
 curve(szymura_barton_edge(x, 
-                          theta = 1,
-                          w = coefficients(cline_barton_szymura)["w"]), 
-      from = 34.25, to = 50, col = "red", add = T)
+                          y = coefficients(cline_barton_szymura)["y"],
+                          theta = coefficients(cline_barton_szymura["theta"]), 
+                          w = -coefficients(cline_barton_szymura)["w"]), 
+      from = -40, to = -34, col = "red", add = T)
 
-szymura_barton_center <- function(x, y, w){
-  p = (1 + tanh(2*(x-y)/w))/2
-  return(p)
-}
-szymura_barton_center2 <- function()
 
-szymura_barton_edge <- function(x, theta, w){ # correct formula in text of 1986 (but NOT fig 5) and in text 1991 paper (w/ correction stated for fig 5)
-  p = exp(-4*x*sqrt(theta)/w)
-  return(p)
-}
-curve(szymura_barton_center(x, y = 0, w = 10), from = -10, to = 10)
-curve(1-szymura_barton_edge(x, theta = 1, w = 10), from = 5, to = 10, col = "blue", add = T)
-curve(szymura_barton_edge(abs(x), theta = 1, w = 10), from = -10, to = -5, col = "red", add = T)
-cline_barton_szymura
-logistic4 <- function(x, mu, b, K){ # K is the maximum value
-  K/(1 + exp(-b*(x - mu)))
-} # add asymptote free parameter
+# add asymptote free parameter
 # why K?
 # because bees in brazil have ~ 84% A ancestry, the true
 # asymptote is 84% A not 100% A for the cline, so
@@ -1966,7 +2171,7 @@ fit_lat_zone_mu_and_b_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat,
                                            supp_errors = 'Y',
                                            iter = 250,
                                            convergence_count = 100,
-                                           data = d_A) #%>%
+                                           data = d_A)
 #filter(year != 2014))
 summary(fit_lat_zone_mu_and_b_.84) # b_SA is not significant, drop:
 tidy(fit_lat_zone_mu_and_b_.84)
@@ -1977,4 +2182,18 @@ coef_lat_zone_mu_b_.84 = tidy(fit_lat_zone_mu_and_b_.84) %>%
   dplyr::select(., term, estimate) %>%
   spread(., term, estimate)
 coef_lat_zone_mu_b_.84
+
+curve(logistic4(x, mu = 32, b = -0.6, K = 0.84), from = 25, to = 40)
+curve(0.84*(1 - logistic4(x, mu = 32, b = 0.6, K = 0.84)/0.84), from = 25, to = 40, ylim = 0:1)
+curve(logistic4(x, mu = 32, b = -0.6, K = 0.84), from = 25, to = 40, add = T, col = "blue", lty = 2)
+curve(logistic4(-x, mu = -32, b = 0.6, K = 0.84), from = 25, to = 40, add = T, col = "orange", lty = 2)
+
+curve(logistic4(x, mu = -32, b = 0.6, K = 0.84), from = -40, to = -25, col = "blue", lty = 2)
+
+# these are the same:
+curve(logistic4(x, mu = 32, b = -0.6, K = 1), from = 25, to = 40, col = "purple")
+curve(1 - logistic4(x, mu = 32, b = 0.6, K = 1), from = 25, to = 40, col = "orange", lty = 2, add = T)
+# parameterization equivalence gets a little messier with the 0.84 scaling:
+curve(logistic4(x, mu = 32, b = -0.6, K = 0.84), from = 25, to = 40, col = "blue", add = T)
+curve(0.84*(1 - logistic4(x, mu = 32, b = 0.6, K = 0.84)/0.84), from = 25, to = 40, col = "green", add = T, lty = 2)
 

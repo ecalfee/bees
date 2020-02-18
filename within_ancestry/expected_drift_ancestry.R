@@ -160,7 +160,80 @@ fst_withMig(Ne = 1000, t = 0, alpha_0 = 0.84, alpha_t = 0.4)
 m = -log(0.84 - 0.4)/t_max
 fst_asymp(m = 0.0008, Ne = 1000)
 
+# how do I correct for sampling variance?
 
+# actual population ancestry at a locus:
+n_large = 100000
+anc1 <- rnorm(n = n_large, mean = 0.5, sd = 0.1)
+# samples:
+# e.g. sample 10 haplotypes
+samples10 <- rbinom(n = n_large, size = 10, prob = anc1)
+samples10_genomewide <- rbinom(n = n_large, size = 10, prob = 0.5)
+samples20 <- rbinom(n = n_large, size = 20, prob = anc1)
+samples20_genomewide <- rbinom(n = n_large, size = 20, prob = 0.5)
+var(anc1)
+var(samples10) - var(samples10_genomewide) # two processes aren't independent; can't sum variances.
+# but, can still test against a null model var(samples10) == var(samples10_genomewide)
+# because variance in anc1 will increase var(samples10)
+var(samples10_genomewide)
+10*.5*.5
+mean((samples10_genomewide - mean(samples10_genomewide))^2) 
+var(samples20_genomewide)
+20*.5*.5
+var(rbinom(n = n_large, size = 3, prob = 0.5))
+3*.5*.5
 
+load("../local_ancestry/results/zAnc.RData")
+load("../local_ancestry/results/A.RData")
+load("../local_ancestry/results/meta.RData")
+colnames(zAnc_bees$K)
+colnames(A)
+meta.pop$population == colnames(A)
+colnames(A) == colnames(zAnc_bees$K)
+het_small_sample_correction <- function(p, n, filter_under_2 = T){ # this simplifies to just 2pq*n/(n-1)
+  ifelse(filter_under_2 & n <= 2, NA, 2*(p - p^2*(n/(n-1)) + p*(1/(n-1))))}
+ancestry_het <- sapply(1:nrow(meta.pop), function(i) 
+  mean(sapply(A[ , i], function(x) 
+    het_small_sample_correction(p = x, n = 2*meta.pop$n_bees[i]))))
+Ast = 1 - ancestry_het/(2*zAnc_bees$alpha*(1-zAnc_bees$alpha))
+binomial_var_anc = zAnc_bees$alpha*(1 - zAnc_bees$alpha)/meta.pop$n_bees
+observed_var_anc = diag(zAnc_bees$K)
 
+# observed ancestry variance vs. Ast
+plot(observed_var_anc, Ast, main = "Variance in Ancestry vs. Ast")
+abline(a = 0, b = 1, col = "purple")
+plot(abs(meta.pop$lat), Ast, main = "Ast across latitude")
+abline(h = 0, col = "purple")
+plot(2*zAnc_bees$alpha*(1-zAnc_bees$alpha), ancestry_het)
+abline(a = 0, b = 1, col = "purple")
 
+# observed vs. expected ancestry variance:
+plot(binomial_var_anc, observed_var_anc, 
+     xlab = "Expected ancestry variance (alpha*(1-alpha))/(2N)", 
+     ylab = "Observed ancestry variance (diag K matrix)",
+     main = "Observed ancestry variance is less than binomial expectation")
+abline(a = 0, b = 1, col = "blue")
+colnames(meta.pop)
+
+# sanity check on calculation of observed ancestry variance:
+observed_var_anc3 = apply(apply(A, 1, function(row) (row - zAnc_bees$alpha)^2),
+                          1, mean)
+plot(observed_var_anc, observed_var_anc3)
+abline(a = 0, b = 1, col = "green")
+
+# let p = 0.5 in the true pop
+ps_sample8 <- rbinom(n = 100, size = 8, p = 0.5)/8
+2*0.5*0.5 # true het. at all loci
+mean(2*ps_sample8*(1-ps_sample8)) # small sample het
+mean(2*(ps_sample8 - ps_sample8^2*(8/(8-1)) + ps_sample8*(1/(8-1))))
+test_small_sample <- function(l, n, p){ # l loci, n haplotypes, freq in pop p
+  ps = rbinom(n = l, size = n, p = p)/n
+  return(c(obs = mean(2*ps*(1-ps)),
+           n_corr = mean(2*ps*(1-ps)*n/(n-1)),
+           corrected = mean(2*(ps - ps^2*(n/(n-1)) + ps*(1/(n-1)))),
+           true = 2*p*(1-p)))
+}
+test_small_sample(100, 8, 0.5)
+test_small_sample(1000000, 4, 0.25)
+hist(sapply(1:100, function(x) test_small_sample(10000, 3, 0.4)[2]))
+abline(v = test_small_sample(10000, 3, 0.4)[3], col = "red")

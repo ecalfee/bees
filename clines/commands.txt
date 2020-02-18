@@ -91,4 +91,10 @@ clines$ nohup parallel --noswap --jobs 4 --joblog logs/get_maf_at_aims_chr1_11_A
 clines$ nohup parallel --noswap --jobs 4 --joblog logs/get_maf_at_aims_chr_all_other_ACM.log './AIMs_allele_freq.sh {1} Group{2} {3}' :::: ../bee_samples_listed/byPop/combined_sept19_pops.list ::: {2..10} {12..16} ::: C M A &> logs/get_maf_at_aims_chr_all_other_ACM.out &
 [1] 5088 - RUNNING 1.22.20
 
+# bootstrap stepped barton & szymura cline by resampling within populations:
+clines$ Rscript bootstrap_stepped_cline.R 1000 100 # 2.17.20
+# also bootstrapping logistic cline estimates for NA and SA by resampling within populations:
+clines$ Rscript bootstrap_logistic_cline.R 1000 100
+
+
 TO DO: ignoring frost, just using 0.5 resolution bioclim variables, first do a pca and use the first 5 PCs as covariates in a linear model of ancestry. Then re-run all the models with individual variables and print a table for the manuscript supplement. Decide what you want your final plot to be for the paper and update that section of the manuscript results.
