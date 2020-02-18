@@ -197,11 +197,13 @@ ancestry_het <- sapply(1:nrow(meta.pop), function(i)
   mean(sapply(A[ , i], function(x) 
     het_small_sample_correction(p = x, n = 2*meta.pop$n_bees[i]))))
 Ast = 1 - ancestry_het/(2*zAnc_bees$alpha*(1-zAnc_bees$alpha))
-binomial_var_anc = zAnc_bees$alpha*(1 - zAnc_bees$alpha)/meta.pop$n_bees
+binomial_var_anc = zAnc_bees$alpha*(1 - zAnc_bees$alpha)/(2*meta.pop$n_bees)
 observed_var_anc = diag(zAnc_bees$K)
-
-# observed ancestry variance vs. Ast
-plot(observed_var_anc, Ast, main = "Variance in Ancestry vs. Ast")
+# observed ancestry variance vs. expected
+plot(binomial_var_anc, # expected variance from binomial
+     # do small sample size correction on to get sample variance
+     observed_var_anc*(2*meta.pop$n_bees)/(2*meta.pop$n_bees - 1), 
+     main = "Variance in ancestry expected vs. observed")
 abline(a = 0, b = 1, col = "purple")
 plot(abs(meta.pop$lat), Ast, main = "Ast across latitude")
 abline(h = 0, col = "purple")
@@ -213,6 +215,9 @@ plot(binomial_var_anc, observed_var_anc,
      xlab = "Expected ancestry variance (alpha*(1-alpha))/(2N)", 
      ylab = "Observed ancestry variance (diag K matrix)",
      main = "Observed ancestry variance is less than binomial expectation")
+points(binomial_var_anc, 
+     2*meta.pop$n_bees/(2*meta.pop$n_bees - 1)*
+       observed_var_anc, col = "blue")
 abline(a = 0, b = 1, col = "blue")
 colnames(meta.pop)
 
@@ -238,3 +243,9 @@ test_small_sample(100, 8, 0.5)
 test_small_sample(1000000, 4, 0.25)
 hist(sapply(1:100, function(x) test_small_sample(10000, 3, 0.4)[2]))
 abline(v = test_small_sample(10000, 3, 0.4)[3], col = "red")
+
+
+
+
+
+

@@ -497,6 +497,18 @@ ggsave("../../bee_manuscript/figures/time_of_admixture_vs_latitude.png",
        height = 3, width = 5.2, units = "in", dpi = 600)
 ggsave("../../bee_manuscript/figures_supp/time_of_admixture_vs_latitude.tiff",
        height = 3, width = 5.2, units = "in", dpi = 600)
+summary(filter(admix_times, ancestry == "A")$time)
+hist(filter(admix_times, ancestry == "A")$time)
+filter(admix_times, ancestry == "A") %>%
+  arrange(time) %>%
+  View(.)
+admix_times %>%
+  group_by(ancestry) %>%
+  summarise(mean = mean(time),
+            median = median(time),
+            min = min(time),
+            max = max(time))
+range(filter(admix_times, ancestry == "A")$time)
 
 # compare California and Argentina: 
 # For the same ancestry proportions, do they have similar inferred times of admixture?
@@ -518,11 +530,6 @@ admix_times %>%
   scale_shape_manual(values = c(17, 19))
 ggsave("plots/California_has_shorter_ancestry_blocks.png",
        height = 3, width = 6, units = "in")
-ggsave("../../bee_manuscript/figures/California_has_shorter_ancestry_blocks.png",
-       height = 3, width = 5.2, units = "in", dpi = 600, device = "pdf")
-ggsave("../../bee_manuscript/figures_supp/California_has_shorter_ancestry_blocks.tiff",
-       height = 3, width = 5.2, units = "in", dpi = 600)
-
 
 #test_id <- read.table("results/SNPs/thin1kb_common3/included.snplist", stringsAsFactors = F,
 #                      sep = "\t", header = F)$V1
