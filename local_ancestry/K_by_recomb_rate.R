@@ -61,6 +61,19 @@ if (rerun_sites_r){
   table(is.na(sites_r$r_bin5_factor))
   levels(sites_r$r_bin5_factor)
   save(sites_r, file = "results/sites_r.RData")
+  # also add cM position for each site & save:
+  sites_rpos <- sites_r %>%
+    left_join(., do.call(rbind, # add recombination position
+                         lapply(paste0("Group", 1:16), function(chr) 
+                           read.table(paste0("../geno_lik_and_SNPs/results/", PREFIX, 
+                                             "/variant_sites/", chr, ".rpos"),
+                                      header = F, stringsAsFactors = F, sep = "\t") %>%
+                             data.table::setnames(c("scaffold", "pos", "major", "minor", "rpos")) %>%
+                             mutate(chr = chr))),
+              by = c("scaffold", "pos", "chr")) %>%
+    rename(pos_cM = rpos)
+  save(sites_rpos, file = "results/sites_rpos.RData")
+  
 } else{
   load("results/sites_r.RData")
 }

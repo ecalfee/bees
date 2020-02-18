@@ -3,7 +3,12 @@ library(tidyr)
 library(ggplot2)
 library(broom)
 source("../colors.R") # get color palette
-
+library(devtools)
+#source("http://bioconductor.org/biocLite.R")
+#BiocManager::install("SNPRelate")
+#BiocManager::install("SeqArray")
+#devtools::install_github("kegrinde/STEAM")
+PREFIX = "combined_sept19"
 # bees
 pops <- read.table("../bee_samples_listed/byPop/combined_sept19_pops.list",
                    stringsAsFactors = F)$V1
@@ -120,10 +125,12 @@ wings.meta %>%
   geom_hline(data = acm.summary, aes(yintercept = mean_cm))
 
 cor(wings.meta$wing_cm, wings.meta$A)
+
 m_wing <- with(wings.meta, lm(wing_cm ~ A))
 summary(m_wing)
 glance(m_wing)
 tidy(m_wing)
+
 m_wing_SA <- with(wings.meta %>%
                     mutate(SA = as.numeric(geographic_location == "Argentina")), 
                   lm(wing_cm ~ A*SA))
@@ -170,7 +177,7 @@ wings.meta %>%
   geom_line(data = data.frame(A = c(0, 1), # linear fit on range 0,1
                    wing_cm = c(coefficients(m_wing)["(Intercept)"],
                    coefficients(m_wing)["(Intercept)"] + 
-                                coefficients(m_wing)["wings.meta$A"])),
+                                coefficients(m_wing)["A"])),
                color = "black") +
   #ylim(c(0,10)) +
   #xlim(c(0,1)) +
@@ -184,8 +191,10 @@ wings.meta %>%
   
   scale_color_manual(values = c(col_NA_SA_both, col_ACM), name = "")
   
-ggsave("plots/wing_length_by_A_ancestry.png", height = 3, width = 6)
-ggsave("../../bee_manuscript/figures/wing_length_by_A_ancestry.tiff", height = 3, width = 6)
+ggsave("plots/wing_length_by_A_ancestry.png", height = 4, width = 5.2)
+ggsave("../../bee_manuscript/figures/wing_length_by_A_ancestry.png", height = 4, width = 5.2)
+ggsave("../../bee_manuscript/figures_supp/wing_length_by_A_ancestry.tiff", height = 4, width = 5.2)
+
 
 # add model predictions and residuals to wings dataframe
 wings.meta$model_predicted_cm <- stats::predict(m_wing)
@@ -216,7 +225,7 @@ A_wings_wide_counts <- do.call(cbind,
 colnames(A_wings_wide_counts) <- d.wings$Bee_ID
 A_wings_wide_counts <- as.matrix(A_wings_wide_counts)
 save(A_wings_wide_counts, file = "results/A_wings_wide_counts.RData")
-
+load("results/A_wings_wide_counts.RData")
 # alt. initial regression model uses mean of local ancestry genomewide rather than global ancestry estimate;
 # choice of global estimate or mean of local ancestry estimate makes no difference, which is expected:
 
@@ -246,6 +255,7 @@ save(fits, file = "results/ancestry_mapping_wing_length.RData")
 summary(fits[ , "p.value"]) # lowest p-value is .001
 hist(fits[ , "p.value"])
 
+
 # a better way to do this is to fit to counts, because using the posterior MAP
 # doesn't have undesirable shrinkage like using the posterior mean
 # should be otherwise very similar
@@ -262,6 +272,7 @@ fits_counts <- t(sapply(1:nrow(A_wings_wide_counts), function(i){
 save(fits_counts, file = "results/ancestry_mapping_wing_length_counts.RData")
 summary(fits_counts[ , "p.value"])
 hist(fits_counts[ , "p.value"])
+load("results/ancestry_mapping_wing_length_counts.RData")
 
 # plot results across genome
 # get SNP sites where ancestry was called
@@ -276,9 +287,81 @@ chr_lengths <- cbind(read.table("../data/honeybee_genome/chr.names", stringsAsFa
   mutate(chr_start = chr_end - chr_length) %>%
   mutate(chr_mid = (chr_start + chr_end)/2)
 
-sites <- left_join(sites0, chr_lengths[ , c("chr", "scaffold", "chr_n", "chr_start")], by = "scaffold") %>%
-  mutate(cum_pos = pos + chr_start)
+# recombination bin
+# sites_rpos.RData created in K_by_recom_rate.R
+load("../local_ancestry/results/sites_rpos.RData") # sites_rpos
 
+sites <- left_join(sites0, chr_lengths[ , c("chr", "scaffold", "chr_n", "chr_start")], by = "scaffold") %>%
+  mutate(cum_pos = pos + chr_start) %>%
+  left_join(., sites_rpos[ , c("scaffold", "pos", "pos_cM", "cM_Mb", "r_bin5", "r_bin5_factor")],
+            by = c("scaffold", "pos"))
+sites_map <- sites[ , c("pos_cM", "chr_n")] %>%
+  rename(cM = pos_cM, chr = chr_n)
+
+
+# what is the significance threshold after
+# correcting for multiple-testing?
+length_genome_cm <- sites %>%
+  group_by(chr_n) %>%
+  summarise(length_cM = diff(range(pos_cM)))
+L = sum(length_genome_cm$length_cM) # total length cM
+delta = L/nrow(sites) # marker density (mean cM spacing between markers)
+C = 16 # number of chromosomes
+fits_counts <- data.frame(fits_counts, stringsAsFactors = F) %>%
+  mutate(z = b/se)
+hist(fits_counts$z)
+summary(fits_counts$z)
+
+# quick adjustment for multiple testing -- number of blocks:
+# i.e. back of the envelope bonferroni correction:
+n_blocks = 237*22/100*30 # 237Mb*22cM/Mb*1M/100cM*30gen
+n_blocks = L/100*30 # Morgans * min number gen
+.05/n_blocks # p-value needed to get alpha = 0.05 w/ bonferroni
+p.adjust(p = 0.05, method = "bonferroni", n = 16)
+p.adjust(p = .05/n_blocks, method = "bonferroni", n = n_blocks)
+
+
+# use R package from Grinde 2019 to get threshold sig. p-value
+pval_thresh <- STEAM::get_thresh_analytic(g = 30,
+                           type = "pval",
+                           map = sites_map,
+                           alpha = 0.05)
+
+# calculate on my own from eq. 2 Grinde 2019:
+# checks out. 
+mult_test_p <- function(C, L, delta, g, z, alpha){
+  beta = 0.01*g
+  v <- function(y){
+    (2/y)*(pnorm(y/2) - 0.5)/
+      ((y/2)*pnorm(y/2) + dnorm(y/2))
+  }
+  1 - exp(-2*C*(1 - pnorm(z)) - 
+           2*beta*L*z*dnorm(z)*v(z*sqrt(2*beta*delta)))
+  }
+mult_test_p_diff <- function(C, L, delta, g, z, alpha){
+  mult_test_p(C, L, delta, g, z) - alpha
+}
+
+
+z_thresh <- uniroot(mult_test_p_diff,
+        interval = c(1.96,10), 
+        g = 30, 
+        delta = L/nrow(sites), 
+        L = L, 
+        C = 16, 
+        alpha = 0.05)$root
+2*pnorm(z_thresh, lower.tail = F)
+
+
+# range of thresholds for a range of admixture generations g
+gs <- c(22, 47.6, 60.4, 150) # min, median, mean, max
+pval_threshs <- sapply(gs, function(g) STEAM::get_thresh_analytic(g = g,
+                                          type = "pval",
+                                          map = sites_map,
+                                          alpha = 0.05))
+
+# show admixture mapping results with
+# threshold based on 47.6 gen. admixture (median across pops)
 cbind(sites, data.frame(fits_counts, stringsAsFactors = F)) %>%
   mutate(even_chr = (chr_n %% 2 == 1)) %>%
   #mutate(row_n = 1:nrow(.)) %>%  filter(-log10(p.value) > 1 | row_n %% 5 == 1) %>% # only plot every 10th point under 2 
@@ -288,10 +371,16 @@ cbind(sites, data.frame(fits_counts, stringsAsFactors = F)) %>%
   theme_classic() +
   xlab("Chromosome") +
   ylab(expression('-log'[10]*'('*italic('P')*')')) +
+  geom_hline(yintercept = -log10(pval_threshs[[2]]), 
+             color = "red", lty = "dashed") +
   scale_color_manual(values = brewer.pal(4,"Paired")) +
   theme(legend.position = "none")
-ggsave("plots/admixture_mapping_wing_length.png", height = 2, width = 6)
-ggsave("../../bee_manuscript/figures/admixture_mapping_wing_length.tiff", height = 2, width = 6)
+ggsave("plots/admixture_mapping_wing_length.png", 
+       height = 3, width = 5.2)
+ggsave("../../bee_manuscript/figures/admixture_mapping_wing_length.png", 
+       height = 3, width = 5.2, dpi = 600)
+ggsave("../../bee_manuscript/figures_supp/admixture_mapping_wing_length.tiff", 
+       height = 3, width = 5.2, dpi = 600)
 
 cbind(sites, data.frame(fits, stringsAsFactors = F)) %>%
   mutate(even_chr = (chr_n %% 2 == 1)) %>%
@@ -306,3 +395,13 @@ cbind(sites, data.frame(fits, stringsAsFactors = F)) %>%
   scale_color_manual(values = brewer.pal(4,"Paired")) +
   theme(legend.position = "none")
 
+# any overlap between admixture mapping outliers and ancestry outliers?
+# no
+load("../local_ancestry/results/mean_ancestry_AR_CA.RData")
+table(A_AR_CA_fits$scaffold[fits_counts$p.value <= .01])
+table(A_AR_CA$FDR_shared_high[fits_counts$p.value <= .01])
+table(A_AR_CA$FDR_CA_high[fits_counts$p.value <= .01])
+table(A_AR_CA$FDR_AR_high[fits_counts$p.value <= .01])
+table(A_AR_CA$FDR_AR_low[fits_counts$p.value <= .01])
+
+     
