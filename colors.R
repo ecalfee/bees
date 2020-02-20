@@ -28,9 +28,15 @@ dark_brew <- brewer.pal(n = 8, "Dark2")
 #col_ACM <- dark_brew[c(4,1,3)]
 #col_NA_SA_both <- dark_brew[c(5,1)]
 
+#plot(1:3, 1:3, cex = 5, pch = 20, col = viridis(3, begin = 0.3, end = 1))
+col_FDR <- c("grey", "lightgrey", "#440154FF", "#FDE725FF", "#2FB47CFF")
+names(col_FDR) <- c("n.s. - even chr", "n.s. - odd chr", "0.1", "0.05", "0.01")
+plot(1:5, 1:5, cex = 5, pch = 20, col = magma(5, begin = 0, end = 1))
+
 #https://venngage.com/blog/color-blind-friendly-palette/
 # retro color palette:
 retro <- c("#ee442f", "#601a4a", "#63abce")
+plot(1:3, 1:3, cex = 5, pch = 20, col = retro)
 #col_ACM <- retro
 
 # I can use viridis and magma (or plasma) for density plots and outliers, respectively.

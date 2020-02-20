@@ -18,6 +18,7 @@ source("../local_ancestry/calc_FDRs.R")
 old.par <- par() # save default
 source("cline_functions.R") # loads logistic and stepped clines etc.
 load("results/d_A.RData") # load data
+load("../wing_analysis/results/wing_fits.RData") # wing linear model fits
 
 iHot <- which.max(d_A$AnnualMeanTemp)
 iCold <- which.min(d_A$AnnualMeanTemp)
@@ -59,6 +60,30 @@ ggsave("../../bee_manuscript/figures/climate_variables_across_latitude.png",
        height = 5.2, width = 5, units = "in", device = "png", dpi = 600)
 ggsave("../../bee_manuscript/figures_supp/climate_variables_across_latitude.tiff", 
        height = 5.2, width = 5, units = "in", device = "tiff", dpi = 600)
+# outliers min and max:
+d_A %>%
+  filter(continent == "N. America") %>%
+  tidyr::gather(., "climate_var", "value", c("AnnualMeanTemp", "MeanTempColdestQuarter", "MinTempColdestMonth", "AnnualPrecip")) %>%
+  group_by(climate_var) %>%
+  summarise(population = d_A$population[d_A$continent == "N. America"][which.min(value)],
+            lat = d_A$lat[d_A$continent == "N. America"][which.min(value)],
+            min = min(value))
+d_A %>%
+  filter(continent == "N. America") %>%
+  tidyr::gather(., "climate_var", "value", c("AnnualMeanTemp", "MeanTempColdestQuarter", "MinTempColdestMonth", "AnnualPrecip")) %>%
+  group_by(climate_var) %>%
+  summarise(population = d_A$population[d_A$continent == "N. America"][which.max(value)],
+            lat = d_A$lat[d_A$continent == "N. America"][which.max(value)],
+            max = max(value))
+d_A %>%
+  filter(population == "Riverside_2014") %>%
+  tidyr::gather(., "climate_var", "value", c("AnnualMeanTemp", "MeanTempColdestQuarter", "MinTempColdestMonth", "AnnualPrecip")) %>%
+  group_by(climate_var, lat) %>%
+  summarise(value = mean(value))
+# we have a cold/wet mountain top at 33.7 degrees lat
+# and a dry/hot desert at 33.8 degrees lat
+
+
 
 # A ancestry vs. latitude:
 d_A %>%
@@ -231,6 +256,53 @@ coef_lat_zone_mu_b_.84 = tidy(fit_lat_zone_mu_and_b_.84) %>%
 coef_lat_zone_mu_b_.84
 sum(coef_lat_zone_mu_b_.84[ , c("mu", "mu_SA")])
 coef_lat_zone_mu_b
+
+# bootstraps for uncertainty in cline parameter estimates:
+# (individuals re-sampled within populations)
+# bootstraps:
+boots_logistic <- read.table("results/bootstrap_logistic_cline_seed100.txt",
+                             sep = "\t", header = T, stringsAsFactors = F)
+table(boots_logistic$isConv) # all 1000 converged -- NOTE re-doing for 10000 bootstraps
+# pivot=basic bootstrap CI's= estimate - quantile(boots - estimate, c(0.975, 0.025))
+# NA center
+CI_NA_mu = coef_lat_zone_mu_b_.84$mu - quantile(boots_logistic$mu - coef_lat_zone_mu_b_.84$mu, c(0.975, 0.025))
+# SA center
+CI_SA_mu = (coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA) - quantile(boots_logistic$mu + boots_logistic$mu_SA - (coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA), c(0.975, 0.025))
+# diff center
+CI_diff_mu = coef_lat_zone_mu_b_.84$mu_SA - quantile(boots_logistic$mu_SA - coef_lat_zone_mu_b_.84$mu_SA, c(0.975, 0.025))
+# NA slope
+CI_NA_b = coef_lat_zone_mu_b_.84$b - quantile(boots_logistic$b - coef_lat_zone_mu_b_.84$b, c(0.975, 0.025))
+# SA slope
+CI_SA_b = (coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA) - quantile(boots_logistic$b + boots_logistic$b_SA - (coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA), c(0.975, 0.025))
+# diff slope
+CI_diff_b = coef_lat_zone_mu_b_.84$b_SA - quantile(boots_logistic$b_SA - coef_lat_zone_mu_b_.84$b_SA, c(0.975, 0.025))
+
+coef_lat_zone_mu_b_.84
+CI_SA_mu
+CI_NA_mu
+CI_diff_mu
+CI_SA_b
+CI_NA_b
+CI_diff_b
+
+4/CI_NA_b
+4/CI_SA_b
+4/CI_diff_b # not right
+
+
+
+CI_NA_w = 4/coef_lat_zone_mu_b_.84$b - quantile(4/boots_logistic$b - 4/coef_lat_zone_mu_b_.84$b, c(0.975, 0.025))
+CI_NA_w
+# SA slope
+CI_SA_w = (4/(coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA)) - quantile(4/(boots_logistic$b + boots_logistic$b_SA) - 4/(coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA), c(0.975, 0.025))
+CI_SA_w
+CI_diff_w2 = (4/(coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA) - 4/(coef_lat_zone_mu_b_.84$b)) - 
+                quantile(4/(boots_logistic$b + boots_logistic$b_SA) - 4/boots_logistic$b - 
+                           (4/(coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA) - 4/coef_lat_zone_mu_b_.84$b), c(0.975, 0.025))
+CI_diff_w2
+curve(-4/(-0.5 + x), from = -3, to = 0)
+CI_SA_w-CI_NA_w
+
 # at what latitude do these clines cross the 50% A ancestry frequency?
 find_x <- function(mu, K, A, b){ # solve cline equation to get x
   log(0.84/A - 1)/-b + mu
@@ -248,6 +320,35 @@ twenty_perc_lat <- c(CA = find_x(mu = coef_lat_zone_mu_b_.84$mu,
                     AR = find_x(mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA, 
                                 K = 0.84, A = 0.2, 
                                 b = coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA))
+
+# change parameterization to estimate w directly with bootstrap:
+# rescale by 0.84:
+fit_lat_zone_mu_and_w_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
+                                                             b = -4/(w + w_SA*S_America), 
+                                                             mu = mu + mu_SA*S_America,
+                                                             K = 0.84),
+                                           start_lower = list(w = 0, mu = 25, b_SA = -1, mu_SA = -5),
+                                           start_upper = list(w = 15, mu = 40, b_SA = 1, mu_SA = 5),
+                                           supp_errors = 'Y',
+                                           iter = 250,
+                                           convergence_count = 100,
+                                           data = d_A)
+summary(fit_lat_zone_mu_and_w_.84)
+tidy(fit_lat_zone_mu_and_w_.84)
+glance(fit_lat_zone_mu_and_w_.84)
+
+coef_lat_zone_mu_w_.84 = tidy(fit_lat_zone_mu_and_w_.84) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate)
+coef_lat_zone_mu_w_.84
+4/coef_lat_zone_mu_b_.84$b
+sum(coef_lat_zone_mu_w_.84[ , c("mu", "mu_SA")])
+sum(coef_lat_zone_mu_w_.84[ , c("w", "w_SA")])
+4/sum(coef_lat_zone_mu_b_.84[ , c("b", "b_SA")])
+
+
+
+
 
 png("results/sigma_from_est_cline_width.png")
 # approximate cline width = slope at steepest part near center:
@@ -472,7 +573,7 @@ p_A_cline_loess <-
                                abs_lat = fifty_perc_lat), 
              aes(xintercept = abs_lat),
              color = col_NA_SA_both[c("N. America", "S. America")],
-             lty = 2) +
+             lty = 3) +
   scale_fill_manual(values = col_NA_SA_both) +
   guides(fill = "none", 
          color = guide_legend(override.aes = list(shape = 15))) +
@@ -545,14 +646,16 @@ p_wing_cline_loess <-
                                             K = 0.84)*coefficients(m_wing)[2] +
                   coefficients(m_wing)[1]),
                 color = col_NA_SA_both["N. America"],
-                size = 1) +
+                size = 1,
+                lty = 5) +
   stat_function(fun = function(x) -10*(logistic4(x, 
                                             b = coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA, 
                                             mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA,
                                             K = 0.84)*coefficients(m_wing)[2] +
                   coefficients(m_wing)[1]),
                 color = col_NA_SA_both["S. America"],
-                size = 1) +
+                size = 1,
+                lty = 5) +
   scale_fill_manual(values = col_NA_SA_both) +
   guides(fill = "none", color = "none") +
   theme(axis.title.x=element_blank())
@@ -568,31 +671,29 @@ grid.arrange(p_A_cline_loess, p_wing_cline_pops, nrow = 2, heights = c(5,3))
 ggsave("plots/A_and_wing_pop_clines.png", 
        plot = grid.arrange(p_A_cline_loess, p_wing_cline_pops, 
                            nrow = 2, heights = c(2,1)),
-       height = 8, width = 5.2, units = "in", dpi = 600)
+       height = 7.2, width = 5.2, units = "in", dpi = 600)
 ggsave("../../bee_manuscript/figures_main/A_and_wing_pop_clines.tiff", 
        plot = grid.arrange(p_A_cline_loess, p_wing_cline_pops, 
                            nrow = 2, heights = c(2,1)),
-       height = 8, width = 5.2, units = "in", dpi = 600)
+       height = 7.2, width = 5.2, units = "in", dpi = 600)
 ggsave("../../bee_manuscript/figures/A_and_wing_pop_clines.png", 
        plot = grid.arrange(p_A_cline_loess, p_wing_cline_pops, 
                            nrow = 2, heights = c(2,1)),
-       height = 8, width = 5.2, units = "in", dpi = 600)
+       height = 7.2, width = 5.2, units = "in", dpi = 600)
 # alt. version:
 grid.arrange(p_A_cline_loess, p_wing_cline_loess, nrow = 2, heights = c(5,3))
 ggsave("plots/A_and_wing_clines.png", 
        plot = grid.arrange(p_A_cline_loess, p_wing_cline_loess, 
                            nrow = 2, heights = c(3,2.5)),
-       height = 8, width = 5.2, units = "in", dpi = 600)
+       height = 7.2, width = 5.2, units = "in", dpi = 600)
 ggsave("../../bee_manuscript/figures_main/A_and_wing_clines.tiff", 
        plot = grid.arrange(p_A_cline_loess, p_wing_cline_loess, 
                            nrow = 2, heights = c(3,2.5)),
-       height = 8, width = 5.2, units = "in", dpi = 600)
+       height = 7.2, width = 5.2, units = "in", dpi = 600)
 ggsave("../../bee_manuscript/figures/A_and_wing_clines.png", 
        plot = grid.arrange(p_A_cline_loess, p_wing_cline_loess, 
                            nrow = 2, heights = c(3,2.5)),
-       height = 8, width = 5.2, units = "in", dpi = 600)
-
-
+       height = 7.2, width = 5.2, units = "in", dpi = 600)
 
 
 
@@ -1010,21 +1111,99 @@ table(mvn$info$isConv)
 table(mvn_zero$info$isConv)
 table(clines$info$isConv)
 
+clines$params %>%
+  mutate(term = ifelse(term == "b", "w", term),
+         estimate = ifelse(term == "w", 4/estimate, estimate)) %>%
+  group_by(term) %>%
+  summarise(
+    mean = mean(estimate),
+    min = min(estimate),
+    low = quantile(estimate, 0.025),
+    median = quantile(estimate, 0.5),
+    high = quantile(estimate, 0.975),
+    max = max(estimate))
+4/quantile(clines$params[clines$params$term == "b", "estimate"], c(0, 0.025, 0.1, 0.5, 0.9, 0.975, 1))
+# in km:
+111*4/quantile(clines$params[clines$params$term == "b", "estimate"], c(0, 0.025, 0.1, 0.5, 0.9, 0.975, 1))
+quantile(clines$params[clines$params$term == "mu", "estimate"], c(0, 0.025, 0.1, 0.5, 0.9, 0.975, 1))
+summary(clines$params[clines$params$term == "mu", "estimate"])
+diff(quantile(clines$params[clines$params$term == "mu", "estimate"], c(0.025, 0.975))) # 95% of clines have centers within this distance
+diff(quantile(clines$params[clines$params$term == "mu", "estimate"], c(0.025, 0.975))) # 95% of clines have centers within this distance
+diff(quantile(clines$params[clines$params$term == "mu", "estimate"], c(0.25, 0.75))) # interquartile range
+
+
+# cline width, under diffusion expected dispersal kernel: w = sqrt(2*pi*t*sigma^2)
+mean_width = 4/mean(clines$params[clines$params$term == "b", "estimate"])*111 # km
+median_t_admix = median(admix_times[admix_times$ancestry == "A", "time"])
+sigma_2 <- mean_width^2/(2*pi*median_t_admix)
+sqrt(sigma_2)
+summary(abs(rnorm(n = 1000, mean = 0, sd = sqrt(sigma_2))))
+sigma_2_years <- mean_width^2/(2*pi*(2018-1957))
+sqrt(sigma_2_years)
+
+# add in avg. block size to discussion, and in results range of ind snp cline widths and widths (95% range?)
+mean_recombination_rate = 23.94/100 # Jones 2019 recombination rate estimate
+# add a plot showing these estimates, some sense of the dist, and also the steepest cline (& other outliers? sure)
+10^6/median_t_admix*mean_recombination_rate
+
 # plot density plot to visualize spread of simulated clines
 rbind(mutate(mvn_zero$params, data = "MVN_sim_zero_bounded"), 
       mutate(mvn$params, data = "MVN_sim_bounded"), 
       mutate(clines$params, data = "observed")) %>%
+  mutate(term = ifelse(term == "b", "w", term),
+         estimate = ifelse(term == "w", 4/estimate, estimate)) %>%
   ggplot(., aes(x = estimate, fill = data, color = data)) +
   geom_density(alpha = 0.25) +
   facet_wrap(~term, scales = "free_x") +
-  geom_vline(data = data.frame(term = c("b", "mu", "b", "mu"),
+  geom_vline(data = data.frame(term = c("w", "mu", "w", "mu"),
                                model = c("0.84 A asym", "0.84 A asym", "0.0 A asym", "0.0 A asym"),
-                               estimate = -1*c(coef_lat_zone_mu_b_.84$b_SA + coef_lat_zone_mu_b_.84$b,
+                               estimate = -1*c(4/(coef_lat_zone_mu_b_.84$b_SA + coef_lat_zone_mu_b_.84$b),
                                                coef_lat_zone_mu_b_.84$mu_SA + coef_lat_zone_mu_b_.84$mu,
-                                               coef_lat_zone_mu_b$b_SA + coef_lat_zone_mu_b$b,
-                                               coef_lat_zone_mu_b$mu_SA + coef_lat_zone_mu_b$mu)),
-             aes(xintercept = estimate, linetype = model))
+                                               4/(coef_lat_zone_mu_b_.84$b_SA + coef_lat_zone_mu_b_.84$b),
+                                               coef_lat_zone_mu_b_.84$mu_SA + coef_lat_zone_mu_b_.84$mu)),
+            aes(xintercept = estimate, linetype = model))
 ggsave("plots/compare_ind_snp_to_genomewide_cline_model_estimates.png", height = 3, width = 7.5, units = "in", dpi = 600, device = "png")
+
+# violin plot alternative
+d_clines_combined <- rbind(mutate(mvn$params, data = "Simulated SNPs (MVN)"), 
+      mutate(clines$params, data = "Observed SNPs")) %>%
+  mutate(term = ifelse(term == "b", "Width", "Center"),
+         estimate = ifelse(term == "Width", 4/estimate, estimate)) 
+violin_ind_clines <- d_clines_combined %>%
+  ggplot(.) +
+  geom_violin(aes(y = estimate, x = data, fill = data)) +
+  facet_wrap(~term, scales = "free_y") +
+  ylab("Degrees latitude") +
+  xlab("") +
+  theme_classic() +
+  scale_fill_manual(values = viridis(4)[1:2], name = "") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  geom_point(data = d_clines_combined %>% 
+               group_by(data, term) %>%
+               summarise(low = quantile(estimate, 0.025),
+                         high = quantile(estimate, 0.975),
+                         mean = mean(estimate)) %>%
+               pivot_longer(cols = c("low", "high", "mean"), names_to = "summary", values_to = "estimate"),
+             aes(y = estimate, x = data),
+             shape = 18, size = 1, color = "white")#  +
+  #guides(color = "none") +
+  #scale_color_manual(values = c("white", "white", "black"))
+violin_ind_clines
+ggsave("plots/violin_ind_snp_clines.png",
+       plot = violin_ind_clines,
+       height = 5.2, width = 5.2, units = "in")
+# save in figures for manuscript:
+ggsave("../../bee_manuscript/figures/violin_ind_snp_clines.png", 
+       plot = violin_ind_clines,
+       height = 5.2, width = 5.2, units = "in", device = "png", dpi = 600)
+ggsave("../../bee_manuscript/figures_supp/violin_ind_snp_clines.tiff", 
+       plot = violin_ind_clines,
+       height = 5.2, width = 5.2, units = "in", device = "tiff", dpi = 600)
+
+
+
 qqplot(mvn_zero$params$estimate[mvn_zero$params$term == "mu"], clines$params$estimate[clines$params$term == "mu"])
 #qqplot(mvn_zero$params$estimate[mvn_zero$params$term == "mu"], mvn$params$estimate[mvn$params$term == "mu"])
 abline(a = 0, b = 1, col = "blue")
@@ -2046,56 +2225,16 @@ curve(0.84*stepped_cline_center(x = x,
                                 y = coefficients(cline_stepped_d)["y"], 
                                 w = coefficients(cline_stepped_d)["w"]),
       from = -40, to = -25, add = T, col = "blue", lty = 2, lwd = 2)
-#curve(logistic4(x = x, # same curve as stepped_cline_center
-#                mu = coefficients(cline_stepped_d)["y"], 
-#                b = 4/coefficients(cline_stepped_d)["w"],
+
+#curve(logistic4(x = -x, # same curve as stepped_cline_center
+#                mu = -coefficients(cline_stepped_d)["y"], 
+#                b = -4/coefficients(cline_stepped_d)["w"],
 #                K = 0.84),
-#      from = -40, to = -25, add = T, col = "pink", lty = 2, lwd = 2)
-curve(0.84*logistic4(x = x, # same curve as stepped_cline_center
-                mu = coefficients(cline_stepped_d)["y"], 
-                b = 4/coefficients(cline_stepped_d)["w"],
-                K = 0.84),
-      from = -40, to = -25, add = T, col = "black", lty = 2, lwd = 2)
+#      from = -40, to = -25, add = T, col = "black", lty = 2, lwd = 2)
 legend("topleft", c("simple logistic cline", "barton 'stepped' cline w/ symmetric tails", 
                     "barton 'stepped' cline w/ free tails", "center of cline extended"),
        col = c("purple", "green", "blue", "black"), lty = c(1,1,1,2), cex = .5)
 dev.off()
-
-
-# bootstrap individuals within each population for confidence intervals:
-boot_stepped = read.table(paste0("results/bootstrap_stepped_cline_SA_seed100.txt"), 
-              sep = "\t", stringsAsFactors = F, header = T)
-nrow(boot_stepped) # most, but not all, bootstraps could be fit to the model (missing = no fit)
-table(boot_stepped$isConv) # plus one more didn't converge
-hist(boot_stepped$w)
-hist(boot_stepped$y)
-pairs(boot_stepped)
-do.call(rbind, lapply(boots_cline_stepped_d[1:3], function(x)
-  bind_cols(broom::glance(x), 
-            broom::tidy(x) %>% 
-              dplyr::select(c("term", "estimate")) %>% 
-              tidyr::pivot_wider(data = ., names_from = "term", values_from = "estimate"))))
-
-
-
-curve(0.84*ifelse(x > coefficients(cline_stepped_d)["y"] + coefficients(cline_stepped_d)["dR"],
-                  1 - stepped_cline_edge(x, 
-                                         y = coefficients(cline_stepped_d)["y"], 
-                                         theta = coefficients(cline_stepped_d)["thetaR"], 
-                                         w = -coefficients(cline_stepped_d)["w"], 
-                                         d = coefficients(cline_stepped_d)["dR"]),
-                  ifelse(x < coefficients(cline_stepped_d)["y"] - coefficients(cline_stepped_d)["dL"],
-                         stepped_cline_edge(x, 
-                                            y = coefficients(cline_stepped_d)["y"], 
-                                            theta = coefficients(cline_stepped_d)["thetaL"], 
-                                            w = coefficients(cline_stepped_d)["w"], 
-                                            d = -coefficients(cline_stepped_d)["dL"]),
-                         stepped_cline_center(x = x, 
-                                              y = coefficients(cline_stepped_d)["y"], 
-                                              w = coefficients(cline_stepped_d)["w"]))),
-      from = -40, to = -25, add = T, col = "blue", lty = 1, lwd = 2)
-
-
 
 
 
@@ -2162,26 +2301,7 @@ curve(szymura_barton_edge(x,
 # because bees in brazil have ~ 84% A ancestry, the true
 # asymptote is 84% A not 100% A for the cline, so
 # I can optionally use this to rescale the inferred logistic curves
-fit_lat_zone_mu_and_b_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
-                                                             b = b + b_SA*S_America, 
-                                                             mu = mu + mu_SA*S_America,
-                                                             K = 0.84),
-                                           start_lower = list(b = -1, mu = 25, b_SA = -1, mu_SA = -5),
-                                           start_upper = list(b = 1, mu = 40, b_SA = 1, mu_SA = 5),
-                                           supp_errors = 'Y',
-                                           iter = 250,
-                                           convergence_count = 100,
-                                           data = d_A)
-#filter(year != 2014))
-summary(fit_lat_zone_mu_and_b_.84) # b_SA is not significant, drop:
-tidy(fit_lat_zone_mu_and_b_.84)
-glance(fit_lat_zone_mu_and_b)
-glance(fit_lat_zone_mu_and_b_.84)
 
-coef_lat_zone_mu_b_.84 = tidy(fit_lat_zone_mu_and_b_.84) %>%
-  dplyr::select(., term, estimate) %>%
-  spread(., term, estimate)
-coef_lat_zone_mu_b_.84
 
 curve(logistic4(x, mu = 32, b = -0.6, K = 0.84), from = 25, to = 40)
 curve(0.84*(1 - logistic4(x, mu = 32, b = 0.6, K = 0.84)/0.84), from = 25, to = 40, ylim = 0:1)
@@ -2196,4 +2316,55 @@ curve(1 - logistic4(x, mu = 32, b = 0.6, K = 1), from = 25, to = 40, col = "oran
 # parameterization equivalence gets a little messier with the 0.84 scaling:
 curve(logistic4(x, mu = 32, b = -0.6, K = 0.84), from = 25, to = 40, col = "blue", add = T)
 curve(0.84*(1 - logistic4(x, mu = 32, b = 0.6, K = 0.84)/0.84), from = 25, to = 40, col = "green", add = T, lty = 2)
+
+
+# plot bootstrapped clines:
+boots_stepped <- read.table("results/bootstrap_stepped_cline_SA_seed100.txt",
+                             sep = "\t", header = T, stringsAsFactors = F)
+
+nrow(boots_stepped) # most, but not all, bootstraps could be fit to the model (missing = no fit)
+table(boots_stepped$isConv) # plus one more didn't converge
+boots_stepped <- filter(boots_stepped, isConv) # filter for just converged
+png("results/bootstrap_results_SA_stepped_cline.png", height = 5.2, width = 5.2, units = "in", dpi = 600)
+# note this is just the raw bootstraps, not a CI
+with(filter(d_A, continent == "S. America"), 
+     plot(lat, alpha,
+          xlim = c(-37, -27), ylim = c(0,1),
+          main = "S. American genomewide cline",
+          ylab = "A ancestry proportion"))
+apply(boots_stepped, 1, function(boot){
+  curve(stepped_cline_3parts(x = x, 
+                             y = boot["y"], 
+                             w = boot["w"], 
+                             thetaR = boot["thetaR"], 
+                             thetaL = boot["thetaL"], 
+                             dR = boot["dR"], 
+                             dL = boot["dL"], 
+                             rescale = 0.84),
+        from = -40, to = -25, add = T, col = alpha("black", 0.01), lty = 1, lwd = 2)
+})
+curve(stepped_cline_3parts(x = x, 
+                           y = coefficients(cline_stepped_d)["y"], 
+                           w = coefficients(cline_stepped_d)["w"], 
+                           thetaR = coefficients(cline_stepped_d)["thetaR"], 
+                           thetaL = coefficients(cline_stepped_d)["thetaL"], 
+                           dR = coefficients(cline_stepped_d)["dR"], 
+                           dL = coefficients(cline_stepped_d)["dL"], 
+                           rescale = 0.84),
+      from = -40, to = -25, add = T, col = "blue", lty = 1, lwd = 2)
+curve(logistic4(-x, b = coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA, 
+                mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA,
+                K = 0.84), 
+      from = -40, to = -25,
+      col = col_NA_SA_both["S. America"], 
+      lwd = 2, lty = 2, add = T)
+curve(0.84*stepped_cline_center(x = x, # same
+                                y = coefficients(cline_stepped_center)["y"], 
+                                w = coefficients(cline_stepped_center)["w"]),
+      from = -40, to = -25, add = T, col = col_NA_SA_both["S. America"], lty = 3, lwd = 2)
+dev.off()
+# calculate pivot confidence interval:
+coefficients(cline_stepped_d)
+#ci_boots_stepped = estimate - quantile(boots - estimate, c(0.975, 0.025))
+
 

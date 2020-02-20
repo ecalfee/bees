@@ -9,8 +9,10 @@ library(reshape2) # melt function
 library(LaplacesDemon)
 library(emdbook)
 library(betareg)
+library(grid)
 library(gridExtra)
 library(MASS) # for mvrnorm
+library(plotly)
 library(ggpointdensity)
 library(coda) # for hpdi calc
 #library(hex) # for hex plot
@@ -531,46 +533,6 @@ admix_times %>%
 ggsave("plots/California_has_shorter_ancestry_blocks.png",
        height = 3, width = 6, units = "in")
 
-#test_id <- read.table("results/SNPs/thin1kb_common3/included.snplist", stringsAsFactors = F,
-#                      sep = "\t", header = F)$V1
-#table(test_id == sites$snp_id) # good
-
-# get individual ancestries for just 
-# CA_2018 and AR_2018 samples,
-# same # individuals per pop (=8)
-exclude_over8 <- c("AR0115", "AR0501", "AR0818",
-                   "AR1019", "AR1401", "AR1604", 
-                   "AR2002", "AR2303", "AR2608",
-                   "AR2912", "CA0201", "CA0502",
-                   "CA1010", "CA1302")
-meta.ind %>% 
-  filter(!(Bee_ID %in% exclude_over8)) %>%
-  group_by(population) %>%
-  summarise(n = n()) %>%
-  filter(n != 8)
-# get ID's for 8 bees per CA and AR pop (2018)
-# divide into subgroups:
-bees_all8_0 <- meta.ind %>%
-  filter(!(Bee_ID %in% exclude_over8)) %>%
-  filter(group %in% c("CA_2018", "AR_2018")) %>%
-  #left_join(., subgroups, by = "population") %>%
-  arrange(lat)
-subgroups = data.frame(population = unique(bees_all8_0$population),
-                       subgroup = c(rep("AR_S", 6),
-                                    rep("AR_mid", 8),
-                                    rep("AR_N", 7),
-                                    rep("CA_S", 6),
-                                    rep("CA_N", 6)),
-                       stringsAsFactors = F)
-bees_all8 <- bees_all8_0 %>%
-  left_join(., subgroups, by = "population")
-
-# get ancestries
-A_bees_all8 <- lapply(bees_all8$Bee_ID, function(p) read.table(paste0("Amel4.5_results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/anc/", p, ".A.anc"),
-                                            stringsAsFactors = F))
-A_all8 <- do.call(cbind, A_bees_all8)
-colnames(A_all8) <- bees_all8$Bee_ID
-
 
 #CA_pops_included <- meta.pop[meta.pop$group %in% c("N_CA", "S_CA", "CA_2018") & meta.pop$year >= 2014, ]
 CA_pops_included <- meta.pop[meta.pop$zone == "N. America", ]
@@ -604,6 +566,7 @@ meanM <- apply(M, 1, function(x) sum(x*meta.pop$n_bees)/sum(meta.pop$n_bees))
 save(file = "results/A.RData", list = c("A", "sites", "meanA", "meanA_CA", "meanA_AR"))
 save(file = "results/C.RData", list = c("C", "sites", "meanC", "meanC_CA", "meanC_AR"))
 save(file = "results/M.RData", list = c("M", "sites", "meanM", "meanM_CA", "meanM_AR"))
+#load("results/A.RData")
 
 # make plots - all loci, mean ancestry across all pops
 png("plots/histogram_A_ancestry_all_loci.png", height = 6, width = 8, units = "in", res = 300)
@@ -798,27 +761,32 @@ ggsave("plots/k_matrix_all_pops_no_var.png",
        height = 6, width = 8, 
        units = "in", device = "png")
 k_plot_all <- melt(cov2cor(zAnc_bees$K)) %>%
+  #left_join(., meta.pop[ , c("population", "zone")], by = c("Var1"="population")) %>%
+  #rename(zone1 = zone) %>%
+  #left_join(., meta.pop[ , c("population", "zone")], by = c("Var2"="population")) %>%
+  #rename(zone2 = zone) %>%
   filter(Var1 != Var2) %>% # omit diagonal
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
+  coord_equal() + # ensures aspect ratio makes a square
   theme_classic() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   scale_fill_viridis(begin = 0, end = 1, direction = 1,
                      #limits = c(-.35, .55)) +
                      limits = c(-.12, .32),
-                     name = "") +
+                     name = "Ancestry\ncorrelation") +
+  ggtitle("K correlation matrix - bees") +
   xlab("") +
-  ylab("") +
-  ggtitle("K correlation matrix - bees")
+  ylab("")
 k_plot_all
 ggsave("plots/k_correlation_matrix_all_pops.png", 
        plot = k_plot_all,
-       height = 6, width = 8, 
+       height = 6, width = 7, 
        units = "in", device = "png")
-ggsave("../../bee_manuscript/figures/k_correlation_matrix_all_pops.pdf", 
+ggsave("../../bee_manuscript/figures/k_correlation_matrix_all_pops.png", 
        plot = k_plot_all + theme(axis.text.x = NULL, axis.text.y = NULL) + ggtitle(""),
-       height = 7, width = 8, 
-       units = "in", device = "pdf")
+       height = 6, width = 7, 
+       units = "in", device = "png")
 
 # make a new K matrix but omit outlier points:
 ZAnc_bees_noOutliers = make_K_calcs(t(A[!(meanA > quantile(meanA, .9) | 
@@ -895,6 +863,7 @@ meanA_MVNsim <- apply(cbind(MVNsim_AR, MVNsim_CA)[ , c(AR_pops_included$populati
 # save MVN simulation as data objects
 save(MVNsim_bounded, meanA_MVNsim_bounded, meanA_MVNsim_AR_bounded, meanA_MVNsim_CA_bounded,
      file = "results/MVNsim_bounded.RData")
+#load("results/MVNsim_bounded.RData")
 
 # Add in constraint that all covariances must be 0 or positive
 # (effectively I zero out negative covariances):
@@ -944,6 +913,23 @@ perc_sim_freq_out_of_bounds
 ggsave("plots/percents_MVN_sims_need_truncation_low.png",
        plot = perc_sim_freq_out_of_bounds,
        height = 3, width = 6, units = "in")
+perc_sim_zero_freq_out_of_bounds = data.frame(population = colnames(MVNsim),
+                                         Lower = apply(MVNsim_zero, 2, function(x) sum(x < 0))/nrow(MVNsim_zero),
+                                         Upper = apply(MVNsim_zero, 2, function(x) sum(x > 1))/nrow(MVNsim_zero),
+                                         stringsAsFactors = F) %>%
+  pivot_longer(data = ., cols = c("Lower", "Upper"), names_to = "bound", values_to = "p") %>% 
+  left_join(., admix_proportions, by = "population") %>%
+  left_join(., meta.pop, by = "population") %>%
+  ggplot(., aes(x = A, y = p, color = zone)) +
+  geom_point(alpha = .75) +
+  facet_wrap(~bound) +
+  xlab("Mean A ancestry proportion (ancestry_hmm)") +
+  ylab("Percent sims exceeding bound") +
+  #ggtitle("Percent simulated population ancestry frequencies < 0 (MVN)") +
+  scale_color_manual(values = col_NA_SA_both, name = NULL) +
+  theme_classic()
+
+
 
 
 
@@ -1098,6 +1084,7 @@ MVN_vs_01_truncated_MVN_qq = plot_QQ(NA1 = meanA_MVNsim_CA_bounded, NA2 = meanA_
         SA1 = meanA_MVNsim_AR_bounded, SA2 = meanA_MVNsim_AR_unbounded, 
         axis1 = "MVN simulation", axis2 = "MVN simulation unbounded", 
         ps_qq = seq(0, 1, length.out = 10000))
+MVN_vs_01_truncated_MVN_qq
 ggsave("plots/qq_effect_truncation_on_MVN.png",
        plot = MVN_vs_01_truncated_MVN_qq,
        height = 3, width = 6, 
@@ -1106,10 +1093,15 @@ effect_truncation_on_MVN <- arrangeGrob(perc_sim_freq_out_of_bounds + ggtitle("A
                                         MVN_vs_01_truncated_MVN_qq + ggtitle("B"),
                                          nrow = 2,
                                          ncol = 1)
-ggsave("../../bee_manuscript/figures/effect_truncation_on_MVN.pdf", 
+effect_truncation_on_MVN
+ggsave("../../bee_manuscript/figures/effect_truncation_on_MVN.png", 
        plot = effect_truncation_on_MVN,
-       height = 6.5, width = 6, 
-       units = "in", device = "pdf")
+       height = 6, width = 5.2, dpi = 600,
+       units = "in", device = "png")
+ggsave("../../bee_manuscript/figures_supp/effect_truncation_on_MVN.tiff", 
+       plot = effect_truncation_on_MVN,
+       height = 6, width = 5.2, dpi = 600,
+       units = "in", device = "tiff")
 # overall good fit of data to MVN:
 mvn_vs_data_qq = plot_QQ(NA1 = meanA_MVNsim_CA_bounded, NA2 = meanA_CA, 
         SA1 = meanA_MVNsim_AR_bounded, SA2 = meanA_AR, 
@@ -1159,17 +1151,17 @@ ggplot(data = d_qq) +
     scale_color_viridis(option = "plasma", direction = -1, name = "Quantile") +
     theme_classic() +
     facet_grid(zone~sim)#, scales = "free_x")
-ggsave("../../bee_manuscript/figures/qq_vs_data_sim_comparison.pdf",
-       device = "pdf",
-       width = 6, 
-       height = 5, units = "in")
+ggsave("../../bee_manuscript/figures/qq_vs_data_sim_comparison.png",
+       width = 7.5, height = 6, 
+       units = "in", dpi = 600, device = "png")
+ggsave("../../bee_manuscript/figures_supp/qq_vs_data_sim_comparison.tiff",
+       width = 7.5, height = 6, 
+       units = "in", dpi = 600, device = "tiff")
 ggsave("plots/qq_vs_data_sim_comparison.png",
-       device = "png",
-       width = 6, 
-       height = 5, units = "in")
+       width = 7.5, height = 6, 
+       units = "in", dpi = 600, device = "png")
 
-library(plotly)
-library(MASS)
+
 
 # Compute kde2d
 kd_data <- with(data = data.frame(x = meanA_CA, y = meanA_AR), 
@@ -1227,22 +1219,26 @@ kd_diff$z %>% # melt
   guides(colour=FALSE)
 
 plot_2d_density <- function(){
-  contour(kd_mvn, col = viridis(10)[1], nlevels = 7, 
+  contour(kd_mvn, col = viridis(10)[1], nlevels = 7, lwd = 2,
           xlim = c(0.12, 0.35),
           ylim = c(0.32, 0.5),
           xlab = "N. America",
           ylab = "S. America")
-  contour(kd_data, add = T, col = viridis(10)[9], nlevels = 7)
+  contour(kd_data, add = T, col = viridis(10)[9], cex = 2, nlevels = 7)
   legend("bottomright", legend = c("Observed A frequency", "Simulated A frequency (MVN)"),
          lwd = 1, lty = 1, col = viridis(10)[c(9,1)], cex = 0.5)
 }
   
-pdf(file = "../../bee_manuscript/figures/comparison_2d_density_data_mvn.pdf",
-    height = 4, width = 6)
+png(file = "../../bee_manuscript/figures/comparison_2d_density_data_mvn.png",
+    height = 5, width = 5.2, res = 600, units = "in")
+plot_2d_density()
+dev.off()
+tiff(file = "../../bee_manuscript/figures_supp/comparison_2d_density_data_mvn.tiff",
+    height = 5, width = 5.2, res = 600, units = "in")
 plot_2d_density()
 dev.off()
 png(file = "plots/comparison_2d_density_data_mvn.png",
-    height = 4, width = 6, units = "in", res = 300)
+    height = 5, width = 5.2, res = 600, units = "in")
 plot_2d_density()
 dev.off()
 
@@ -1273,63 +1269,6 @@ is_outlier <- (meanA >= qs_meanA[high] | meanA_AR >=  qs_meanA_AR[high] | meanA_
                  meanA <= qs_meanA[low] | meanA_AR <=  qs_meanA_AR[low] | meanA_CA <= qs_meanA_CA[low])
 # what % are outliers high or low? About 12% of my data. I'll exclude this set for demographic inference
 table(is_outlier)/length(is_outlier)
-
-
-# plot K matrix with = numbers per pop (CA and AR 2018)
-# and excluding outlier SNPs
-
-
-# make K matrix
-K_all8 <- make_K_calcs(t(A_all8))
-plot(diag(K_all8$K)/K_all8$alpha, bees_all8$lat)
-plot(diag(K_all8$K), K_all8$alpha)
-plot(diag(K_all8$K)/(K_all8$alpha*(1-K_all8$alpha)), abs(bees_all8$lat),
-     col = ifelse(bees_all8$geographic_location == "California", 
-                  "blue", "red"))
-melt(K_all8$K) %>%
-  filter(Var1 != Var2) %>%
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1) +  
-  ggtitle("K covariance - 8 bees per pop")
-ggsave("plots/k_matrix_all8_inds.png", 
-       height = 6, width = 8, 
-       units = "in", device = "png")
-# take out outliers
-K_all8_noOut <- make_K_calcs(t(A_all8[!is_outlier,]))
-melt(K_all8_noOut$K) %>%
-  filter(Var1 != Var2) %>%
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1) +  
-  ggtitle("K covariance - 8 bees per pop. No outlier loci.")
-ggsave("plots/k_matrix_all8_inds_noOutliers.png", 
-       height = 6, width = 8, 
-       units = "in", device = "png")
-# mean covariance by group:
-melt(K_all8_noOut$K) %>%
-  filter(Var1 != Var2) %>%
-  left_join(., bees_all8[ , c("Bee_ID", "population", "subgroup")], by = c("Var1"="Bee_ID")) %>%
-  left_join(., bees_all8[ , c("Bee_ID", "population", "subgroup")], by = c("Var2"="Bee_ID")) %>%
-  mutate(comparison = paste(subgroup.x, subgroup.y, sep = ".")) %>%
-  mutate(same_pop = population.x == population.y) %>%
-  ggplot(data = ., aes(x = comparison, y = value, color = same_pop)) + 
-  geom_boxplot() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ggtitle("K covariance - 8 bees per pop. No outlier loci.")
-melt(K_all8_noOut$K) %>%
-  filter(Var1 != Var2) %>%
-  left_join(., bees_all8[ , c("Bee_ID", "population", "subgroup")], by = c("Var1"="Bee_ID")) %>%
-  left_join(., bees_all8[ , c("Bee_ID", "population", "subgroup")], by = c("Var2"="Bee_ID")) %>%
-  mutate(comparison = paste(subgroup.x, subgroup.y, sep = ".")) %>%
-  group_by(comparison) %>%
-  summarise(mean_cov = mean(value)) %>%
-  ggplot(., aes(x = comparison, y = mean_cov)) +
-  geom_point() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
 
 # plot 50%, 95%, 99% & .999% credible intervals for my empirical observations
 LaplacesDemon::joint.pr.plot(meanA_CA, 
@@ -1392,8 +1331,7 @@ sim_compare <-
   data.frame(poisson_binomial = PoiBinsim_combined,
            MVN_no_covariance = meanA_MVNsim_no_cov_bounded,
            #MVN_no_bounds = meanA_MVNsim,
-           MVN_with_covariance = meanA_MVNsim_zero_bounded,
-           #MVN_with_covariance_and_negs = meanA_MVNsim_bounded,
+           MVN_with_covariance = meanA_MVNsim_bounded,
            #observed_data = meanA) %>%
            observed_data = sample(meanA, n_sim, replace = F)) %>% # downsample data to match length of simulations
   tidyr::gather(., "distribution", "A")
@@ -1430,29 +1368,53 @@ p_sim_compare2
 ggsave("plots/distribution_data_vs_poibin_vs_MVN_sim.png",
        plot = p_sim_compare2,
        device = "png",
-       width = 6, height = 4, units = "in")
-ggsave("../../bee_manuscript/figures/distribution_data_vs_poibin_vs_MVN_sim.pdf",
+       width = 5.2, height = 4, units = "in")
+ggsave("../../bee_manuscript/figures/distribution_data_vs_poibin_vs_MVN_sim.png",
        plot = p_sim_compare2,
-       device = "pdf",
-       width = 6, height = 4, units = "in")
+       device = "png",
+       width = 5.2, height = 4, units = "in")
 
 # make joint plot of kinship matrix and these distribution comparisons:
-dist_k_plots_combined <- arrangeGrob(k_plot_all + theme(axis.text = element_blank(), 
-                                                         axis.ticks = element_blank()) + 
-                                        ggtitle("A") +
-                                        xlab("Ancestry correlation matrix"),
+dist_k_plots_combined <- arrangeGrob(k_plot_all +
+                                       theme(axis.line = element_blank(),
+                                             axis.ticks = element_blank(),
+                                             axis.text.x = element_text(angle = 0, hjust = 0.5),
+                                             axis.text.y = element_text(angle = 90, hjust = 0.5)) +
+                                       xlab("Population 1") +
+                                       ylab("Population 2") +
+                                       ggtitle("A") +
+                                       # add lines marking division between N. and S. American pops
+                                       geom_segment(aes(x = 21.5, xend = 21.5, y = 0.5, yend = 39.5)) +
+                                       geom_segment(aes(x = 0.5, xend = 39.5, y = 21.5, yend = 21.5)) +
+                                       #geom_text(colour = "darkgray", aes(y = -3, label = zone1),  position = position_dodge(width=0.9))
+                                       scale_x_discrete("Population 1", breaks = c("CA09","AR14"), labels = c("N. America", "S. America")) +
+                                       scale_y_discrete("Population 2", breaks = c("CA09","AR14"), labels = c("N. America", "S. America")),
+                                       #xlab("Ancestry correlation matrix"),
                                       p_sim_compare2 + ggtitle("B"),
                                       ncol = 2,
-                                      widths = c(3, 5))
-ggsave("../../bee_manuscript/figures/k_matrix_and_poi_bin_mvn_dist_comparison.pdf",
-       plot = dist_k_plots_combined,
-       device = "pdf",
-       width = 8, 
-       height = 3, units = "in")
+                                      widths = c(3, 3))
 
-for (path in c("plots/", 
-               "../../bee_manuscript/figures/")){
-png(paste0(path, "QQ_plot_data_against_PoiBin.png"),
+ggsave("../../bee_manuscript/figures/k_matrix_and_poi_bin_mvn_dist_comparison.png",
+       plot = dist_k_plots_combined,
+       device = "png",
+       width = 7.5, 
+       height = 3, 
+       units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures_main/k_matrix_and_poi_bin_mvn_dist_comparison.tiff",
+       plot = dist_k_plots_combined,
+       device = "tiff",
+       width = 7.5, 
+       height = 3, 
+       units = "in", dpi = 600)
+ggsave("plots/k_matrix_and_poi_bin_mvn_dist_comparison.png",
+       plot = dist_k_plots_combined,
+       device = "png",
+       width = 7.5, 
+       height = 3, 
+       units = "in", dpi = 600)
+
+
+png(paste0("plots/QQ_plot_data_against_PoiBin.png"),
     height = 8, width = 8, res = 300, units = "in")
 qqplot(PoiBinsim_combined, meanA,
        main = "QQ plot fit - A Ancestry Combined Sample",
@@ -1461,7 +1423,6 @@ qqplot(PoiBinsim_combined, meanA,
        col = "grey")
 abline(0, 1, col = "black")
 dev.off()
-}
 #make_qqplot_lines(meanA_MVNsim_zero_bounded, legend = T)
 
 # plot QQ-plots:
@@ -1512,6 +1473,7 @@ test_fdr_CA_high_sds <- sapply(sd_range, function(x)
   fdr_1pop_high(a = mu_CA+x*sd_CA, pop = meanA_CA, 
                   sims = meanA_MVNsim_CA_bounded))
 FDRs_CA_high_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_CA_high_sds<p], na.rm = T))
+
 test_fdr_AR_high_sds <- sapply(sd_range, function(x)
   fdr_1pop_high(a = mu_AR+x*sd_AR, pop = meanA_AR, 
                 sims = meanA_MVNsim_AR_bounded))
@@ -1525,48 +1487,85 @@ FDRs_CA_low_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_CA_low_s
 # we do not find any low outliers in CA based on a .1, .05 or .01 FDR (underpowered)
 test_fdr_AR_low_sds <- sapply(sd_range, function(x)
   fdr_1pop_low(a = mu_AR-x*sd_AR, pop = meanA_AR, 
-                sims = meanA_MVNsim_AR_bounded))
+               sims = meanA_MVNsim_AR_bounded))
 FDRs_AR_low_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_AR_low_sds<p], na.rm = T))
 # get standard deviations for false-discovery rates
 FDRs_sds = data.frame(FDR_values = FDR_values,
-                  shared_high = FDRs_shared_high_sds,
-                  shared_low = FDRs_shared_low_sds,
-                  CA_high = FDRs_CA_high_sds,
-                  CA_low = FDRs_CA_low_sds,
-                  AR_high = FDRs_AR_high_sds,
-                  AR_low = FDRs_AR_low_sds,
-                  stringsAsFactors = F)
+                      shared_high = FDRs_shared_high_sds,
+                      shared_low = FDRs_shared_low_sds,
+                      CA_high = FDRs_CA_high_sds,
+                      CA_low = FDRs_CA_low_sds,
+                      AR_high = FDRs_AR_high_sds,
+                      AR_low = FDRs_AR_low_sds,
+                      stringsAsFactors = F)
 write.table(FDRs_sds, "results/FDRs_MVN_01_high_low_A_SDs.txt", quote = F, col.names = T, row.names = F, sep = "\t")
-# translate SD cutoffs to % A ancestry cutoffs:
-FDRs = data.frame(FDR_values = FDR_values,
-                  shared_high_CA = mu_CA + FDRs_sds$shared_high*sd_CA,
-                  shared_high_AR = mu_AR + FDRs_sds$shared_high*sd_AR,
-                  shared_low_CA = mu_CA - FDRs_sds$shared_low*sd_CA,
-                  shared_low_AR = mu_AR - FDRs_sds$shared_low*sd_AR,
-                  CA_high = mu_CA + FDRs_sds$CA_high*sd_CA,
-                  CA_low = mu_CA - FDRs_sds$CA_low*sd_CA,
-                  AR_high = mu_AR + FDRs_sds$AR_high*sd_AR,
-                  AR_low = mu_AR - FDRs_sds$AR_low*sd_AR,
-                  stringsAsFactors = F)
-write.table(FDRs, "results/FDRs_MVN_01_high_low_A_percent_cutoffs.txt", quote = F, col.names = T, row.names = F, sep = "\t")
-FDRs <- read.table("results/FDRs_MVN_01_high_low_A_percent_cutoffs.txt", 
-                   stringsAsFactors = F, header = T, sep = "\t")
 data.frame(mu = c(mu_CA, mu_AR), sd = c(sd_CA, sd_AR), 
            zone = c("N. America", "S. America"), short_name = c("CA", "AR"),
            stringsAsFactors = F) %>% 
   write.table(., "results/mu_sd_CA_AR.txt", quote = F, col.names = T, row.names = F, sep = "\t")
 
+
+# get FDR's more directly, without using mean and sd:
+range01 <- seq(0, 1, by = .0001)
+
+# high
+test_fdr_CA_high2 <- sapply(range01, function(x) 
+  fdr_1pop_high(a = x, pop = meanA_CA, 
+                sims = meanA_MVNsim_CA_bounded))
+FDRs_CA_high2 <- sapply(FDR_values, function(p) min(range01[test_fdr_CA_high2<p], na.rm = T))
+test_fdr_AR_high2 <- sapply(range01, function(x) 
+  fdr_1pop_high(a = x, pop = meanA_AR, 
+                sims = meanA_MVNsim_AR_bounded))
+FDRs_AR_high2 <- sapply(FDR_values, function(p) min(range01[test_fdr_AR_high2<p], na.rm = T))
+
+# low
+test_fdr_CA_low2 <- sapply(range01, function(x) 
+  fdr_1pop_low(a = x, pop = meanA_CA, 
+               sims = meanA_MVNsim_CA_bounded))
+FDRs_CA_low2 <- sapply(FDR_values, function(p) max(range01[test_fdr_CA_low2<p], na.rm = T))
+
+
+test_fdr_AR_low2 <- sapply(range01, function(x) 
+  fdr_1pop_low(a = x, pop = meanA_AR, 
+               sims = meanA_MVNsim_AR_bounded))
+FDRs_AR_low2 <- sapply(FDR_values, function(p) max(range01[test_fdr_AR_low2<p], na.rm = T))
+
+
+# translate SD cutoffs to % A ancestry cutoffs:
+FDRs = data.frame(FDR_values = FDR_values,
+                  #shared_high_CA = mu_CA + FDRs_sds$shared_high*sd_CA,
+                  #shared_high_AR = mu_AR + FDRs_sds$shared_high*sd_AR,
+                  #shared_low_CA = mu_CA - FDRs_sds$shared_low*sd_CA,
+                  #shared_low_AR = mu_AR - FDRs_sds$shared_low*sd_AR,
+                  CA_high = FDRs_CA_high2, #mu_CA + FDRs_sds$CA_high*sd_CA,
+                  CA_low = FDRs_CA_low2, #mu_CA - FDRs_sds$CA_low*sd_CA,
+                  AR_high = FDRs_AR_high2, #mu_AR + FDRs_sds$AR_high*sd_AR,
+                  AR_low = FDRs_AR_low2, #mu_AR - FDRs_sds$AR_low*sd_AR,
+                  stringsAsFactors = F)
+write.table(FDRs, "results/FDRs_MVN_01_high_low_A_percent_cutoffs.txt", quote = F, col.names = T, row.names = F, sep = "\t")
+FDRs <- read.table("results/FDRs_MVN_01_high_low_A_percent_cutoffs.txt", 
+                   stringsAsFactors = F, header = T, sep = "\t")
+
+
 # what percent of the genome matches these cutoffs?
 table(meanA_CA > FDRs$CA_high[FDRs$FDR_values==.05])/length(meanA_CA) # 0.26% of loci
 table(sites$scaffold[meanA_CA > FDRs$CA_high[FDRs$FDR_values==.05]]) # where are they?
+table(meanA_MVNsim_CA_bounded > FDRs$CA_high[FDRs$FDR_values==.1])/n_sim # quantile from sims
 
 # high AR
 table(meanA_AR > FDRs$AR_high[FDRs$FDR_values==.05])/length(meanA_AR) # 0.06% of loci (very few!)
 table(sites$scaffold[meanA_AR > FDRs$AR_high[FDRs$FDR_values==.05]]) # where are they?
+table(meanA_MVNsim_AR_bounded > FDRs$AR_high[FDRs$FDR_values==.05])/n_sim # quantile from sims
+quantile(meanA_MVNsim_AR_bounded, .999)
 
 # about .3% of the genome is found in high shared sites at 5% FDR
-table(meanA_CA > FDRs$shared_high_CA[FDRs$FDR_values==.05] & meanA_AR > FDRs$shared_high_AR[FDRs$FDR_values == .05])/length(meanA_CA)
-table(sites$scaffold[meanA_CA > FDRs$shared_high_CA[FDRs$FDR_values==.1] & meanA_AR > FDRs$shared_high_AR[FDRs$FDR_values == .1]])
+table(meanA_CA > FDRs$CA_high[FDRs$FDR_values == .05] & meanA_AR > FDRs$AR_high[FDRs$FDR_values == .05])/length(meanA_CA)
+table(sites$scaffold[meanA_CA > FDRs$CA_high[FDRs$FDR_values == .05] & meanA_AR > FDRs$AR_high[FDRs$FDR_values == .05]])
+table(sites$scaffold[meanA_CA > FDRs$CA_high[FDRs$FDR_values == .1] & meanA_AR > FDRs$AR_high[FDRs$FDR_values == .1]])
+# I get a similar answer if I use the simulation quantiles to find outliers (few regions on a few chr)
+table(sites$scaffold[meanA_CA > quantile(meanA_MVNsim_CA_bounded, 0.99) & meanA_AR > quantile(meanA_MVNsim_AR_bounded, 0.99)])
+table(sites$scaffold[meanA_CA > quantile(meanA_MVNsim_CA_bounded, 0.999) & meanA_AR > quantile(meanA_MVNsim_AR_bounded, 0.999)])
+
 
 
 # make a grid where you calculate quantile for joint distribution based off of MVN simulation
@@ -1622,19 +1621,19 @@ p_density <- ggplot(data = data.frame(CA = meanA_CA, AR = meanA_AR), #[c(T, rep(
   ylab("S. America") #+
   #labs(color = "No. Nearby Points")
 plot(p_density +
-       geom_density_2d(data = data.frame(MVN_CA = meanA_MVNsim_CA_zero_bounded,
-                                         MVN_AR = meanA_MVNsim_AR_zero_bounded), 
+       geom_density_2d(data = data.frame(MVN_CA = meanA_MVNsim_CA_bounded,
+                                         MVN_AR = meanA_MVNsim_AR_bounded), 
                        aes(x=MVN_CA, y=MVN_AR), color = "orange"))
 
-b <- as.mcmc(cbind(meanA_MVNsim_CA_zero_bounded, meanA_MVNsim_AR_zero_bounded))
-a <- emdbook::HPDregionplot(b, vars = c("meanA_MVNsim_CA_zero_bounded", "meanA_MVNsim_AR_zero_bounded"), 
+b <- as.mcmc(cbind(meanA_MVNsim_CA_bounded, meanA_MVNsim_AR_bounded))
+a <- emdbook::HPDregionplot(b, vars = c("meanA_MVNsim_CA_bounded", "meanA_MVNsim_AR_bounded"), 
                             prob = c(0.99, .9, .75), 
                             n = 100, # number of grid points
                             #h = .1, let the function choose smoothing automatically (defaults to bandwidth.nrd())
                             #col=c("lightgreen", "salmon", "lightblue", "yellow"), 
                             lwd = 3, 
                             h = .05,
-                            add = TRUE)
+                            add = FALSE)
 b_data <- as.mcmc(cbind(meanA_CA, meanA_AR))
 a_data <- emdbook::HPDregionplot(b_data, vars = c("meanA_CA", "meanA_AR"), 
                                  prob = c(0.99, .9, .75), 
@@ -1647,21 +1646,31 @@ a_data <- emdbook::HPDregionplot(b_data, vars = c("meanA_CA", "meanA_AR"),
 p_density2 <- ggplot() +
   geom_hex(data = data.frame(meanA_CA = meanA_CA, meanA_AR = meanA_AR), 
            aes(x = meanA_CA, y = meanA_AR, color = ..count.., fill = ..count..), bins = 200) +
-  scale_fill_viridis(option = "magma", end = 1, begin = 0.1) +
-  scale_color_viridis(option = "magma", end = 1, begin = 0.1) +
+  scale_fill_viridis(option = "magma", end = 1, begin = 0.1, name = "SNP count") +
+  scale_color_viridis(option = "magma", end = 1, begin = 0.1, name = "SNP count") +
   theme_classic() +
-  xlab("N. America") +
-  ylab("S. America") +
+  coord_fixed() +
+  xlab("African ancestry in North America") +
+  ylab("African ancestry in South America") +
   geom_polygon(data = data.frame(a[[1]]), 
                aes(x = x, y = y),
                fill = NA, color = "orange", lwd = 1)
 plot(p_density2)
 ggsave("plots/A_CA_vs_AR_density.png",
        plot = p_density2,
-       height = 5, width = 6, units = "in", device = "png")
-ggsave("../../bee_manuscript/figures/A_CA_vs_AR_density.pdf",
+       height = 4.3, width = 5.2, 
+       units = "in", dpi = 600,
+       device = "png")
+ggsave("../../bee_manuscript/figures/A_CA_vs_AR_density.png",
        plot = p_density2,
-       height = 5, width = 6, units = "in", device = "pdf")
+       height = 4.3, width = 5.2, 
+       units = "in", dpi = 600, 
+       device = "png")
+ggsave("../../bee_manuscript/figures_main/A_CA_vs_AR_density.tiff",
+       plot = p_density2,
+       height = 4.3, width = 5.2, 
+       units = "in", dpi = 600, 
+       device = "tiff")
 # thin points and plot nearest neighbors:
 p_neighbors <- ggplot(data = data.frame(CA = meanA_CA, AR = meanA_AR)[c(T, rep(F, 100)), ],
                     aes(x = CA, y = AR)) +
@@ -1732,10 +1741,6 @@ A_AR_CA <- sites %>%
   bind_cols(sites_bed, .) %>%
   mutate(CA = meanA_CA, AR = meanA_AR, combined = meanA) %>%
   # add FDRs
-  mutate(FDR_shared_high = ifelse(CA >= FDRs[FDRs$FDR_values == .01, "shared_high_CA"] & AR >= FDRs[FDRs$FDR_values == .01, "shared_high_AR"],
-                                  .01, ifelse(CA >= FDRs[FDRs$FDR_values == .05, "shared_high_CA"] & AR >= FDRs[FDRs$FDR_values == .05, "shared_high_AR"],
-                                              .05, ifelse(CA >= FDRs[FDRs$FDR_values == .1, "shared_high_CA"] & AR >= FDRs[FDRs$FDR_values == .1, "shared_high_AR"],
-                                                          .1, NA)))) %>%
   mutate(FDR_CA_high = ifelse(CA >= FDRs[FDRs$FDR_values == .01, "CA_high"],
                               .01, ifelse(CA >= FDRs[FDRs$FDR_values == .05, "CA_high"],
                                           .05, ifelse(CA >= FDRs[FDRs$FDR_values == .1, "CA_high"],
@@ -1744,10 +1749,6 @@ A_AR_CA <- sites %>%
                               .01, ifelse(AR >= FDRs[FDRs$FDR_values == .05, "AR_high"],
                                           .05, ifelse(AR >= FDRs[FDRs$FDR_values == .1, "AR_high"],
                                                       .1, NA)))) %>%
-  mutate(FDR_shared_low = ifelse(CA <= FDRs[FDRs$FDR_values == .01, "shared_low_CA"] & AR <= FDRs[FDRs$FDR_values == .01, "shared_low_AR"],
-                                 .01, ifelse(CA <= FDRs[FDRs$FDR_values == .05, "shared_low_CA"] & AR <= FDRs[FDRs$FDR_values == .05, "shared_low_AR"],
-                                             .05, ifelse(CA <= FDRs[FDRs$FDR_values == .1, "shared_low_CA"] & AR <= FDRs[FDRs$FDR_values == .1, "shared_low_AR"],
-                                                         .1, NA)))) %>%
   mutate(FDR_CA_low = ifelse(CA <= FDRs[FDRs$FDR_values == .01, "CA_low"],
                              .01, ifelse(CA <= FDRs[FDRs$FDR_values == .05, "CA_low"],
                                          .05, ifelse(CA <= FDRs[FDRs$FDR_values == .1, "CA_low"],
@@ -1756,6 +1757,8 @@ A_AR_CA <- sites %>%
                              .01, ifelse(AR <= FDRs[FDRs$FDR_values == .05, "AR_low"],
                                          .05, ifelse(AR <= FDRs[FDRs$FDR_values == .1, "AR_low"],
                                                      .1, NA)))) %>%
+  mutate(FDR_shared_high = sapply(1:nrow(.), function(i) max(as.numeric(FDR_CA_high[i]), as.numeric(FDR_AR_high[i])))) %>%
+  mutate(FDR_shared_low = sapply(1:nrow(.), function(i) max(as.numeric(FDR_CA_low[i]), as.numeric(FDR_AR_low[i])))) %>%
   dplyr::select(scaffold, start, end, snp_id, AR, CA, FDR_shared_high, FDR_AR_high, FDR_CA_high, 
                 FDR_shared_low, FDR_AR_low, FDR_CA_low, combined, chr, pos, cum_pos)
   

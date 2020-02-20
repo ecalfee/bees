@@ -16,6 +16,10 @@ ACM = c("A", "C", "M")
 # load qtls
 qtl = read.csv("../data/QTL_markers_Hunt_lab/AMEL_QTLS.csv", sep = ",", stringsAsFactors = F)
 
+# load pop/ind metadata for bees
+load("../local_ancestry/results/meta.RData")
+
+
 # load genome metadata
 # Compute chromosome sizes
 chr_lengths <- read.table("../data/honeybee_genome/chr.list", sep = "\t", stringsAsFactors = F)
@@ -1167,10 +1171,13 @@ aims %>%
   group_by(AIM_ancestry, hmm_marker) %>%
   summarise(n = n())
 
+buff <- .001 # add small buffer so no small outliers disappear in plot 10^6*.001 is a 1kb buffer
+
 # zoom in on chr11:
 col_ACM_chr11_outliers = c(col_ACM, overlap_aims_low_M_outliers_11$color)
 names(col_ACM_chr11_outliers) = c(names(col_ACM), overlap_aims_low_M_outliers_11$AIM)
-AIMS_ACM_AR_CA %>%
+
+p11_outliers <- AIMS_ACM_AR_CA %>%
   filter(chr == "Group11") %>%
   filter(., pos > 1.3*10^7 & pos < 1.6*10^7) %>%
   filter(., type == "ancestry_freq") %>%
@@ -1180,18 +1187,16 @@ AIMS_ACM_AR_CA %>%
   geom_point(# then plot sig points on top 
     aes(x = pos_Mb, y = frequency, 
         color = ancestry, size = type)) + 
-  xlab("Position on chromosome 11 (Mb)") +
+  xlab("Chromosome 11 (Mb)") +
   ylab("Ancestry frequency") +
   geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
                              chr_lengths, by = "scaffold") %>%
               filter(outlier_type == "low_AR") %>%
               filter(chr == 11) %>% 
               mutate(zone = "SA", zone_pretty = "S. America"),
-            aes(xmin = start/10^6, xmax = end/10^6,
+            aes(xmin = start/10^6 - buff, xmax = end/10^6 + buff,
                 ymin = -Inf, ymax = Inf),
             alpha = .2) +
-
-  
   scale_color_manual(values = col_ACM, name = "Ancestry") +
   scale_fill_manual(values = col_ACM, name = "Ancestry") +
   #scale_size_manual(values = c(ancestry_freq = 1, freq_polarized = 1), guide = F) +
@@ -1201,7 +1206,7 @@ AIMS_ACM_AR_CA %>%
          color = guide_legend(override.aes = list(linetype = "blank"))) +
   theme_classic() +
   facet_grid(zone_pretty ~ .)
-
+p11_outliers
 ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM.png",
        height = 5, width = 7.5, units = "in", device = "png")
 ggsave("../../bee_manuscript/figures_main/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM.tiff",
@@ -1223,14 +1228,14 @@ AIMS_ACM_AR_CA %>%
                  color = ancestry, size = type,
                  shape = ifelse((hmm_marker | type == "ancestry_freq"), 
                                                                "overlap", "indep"))) +
-  xlab("Position on chromosome 11 (Mb)") +
+  xlab("Chromosome 11 (Mb)") +
   ylab("Frequency") +
   geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
                                 chr_lengths, by = "scaffold") %>%
                  filter(outlier_type == "low_AR") %>%
                  filter(chr == 11) %>% 
               mutate(zone = "SA", zone_pretty = "S. America"),
-            aes(xmin = start/10^6, xmax = end/10^6,
+            aes(xmin = start/10^6 - buff, xmax = end/10^6 + buff,
                 ymin = -Inf, ymax = Inf),
             alpha = .2) +
 
@@ -1276,85 +1281,11 @@ ACM_AR_CA %>%
   filter(zone == "AR" & ancestry == "M") %>%
   summarise(percent_over_0.402 = sum(ancestry_freq >= 0.381, na.rm = T)/sum(!is.na(ancestry_freq))) 
 
-AIMS_ACM_AR_CA %>%
-  filter(chr == "Group1") %>%
-  filter(., pos > 1.025*10^7 & pos < 1.225*10^7) %>%
-  ggplot(.) +
-  geom_hline(data = ACM_means, aes(yintercept = ancestry_freq, color = ancestry),
-             linetype = "solid") + # dashed
-  geom_point(# then plot sig points on top 
-    aes(x = pos_Mb, y = frequency, 
-        color = ancestry, size = type,
-        shape = ifelse((hmm_marker | type == "ancestry_freq"), 
-                       "overlap", "indep"))) +
-  xlab("Position on chromosome 1 (Mb)") +
-  ylab("Frequency") +
-  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
-                             chr_lengths, by = "scaffold") %>%
-              filter(outlier_type == "high_shared2") %>%
-              filter(chr == 1) %>% 
-              filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
-              mutate(zone = "AR", zone_pretty = "S. America"),
-            aes(xmin = start/10^6, xmax = end/10^6,
-                ymin = -Inf, ymax = Inf),
-            alpha = .2) +
-  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
-                             chr_lengths, by = "scaffold") %>%
-              filter(outlier_type == "high_shared2") %>%
-              filter(chr == 1) %>% 
-              filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
-              mutate(zone = "CA", zone_pretty = "N. America"),
-            aes(xmin = start/10^6, xmax = end/10^6,
-                ymin = -Inf, ymax = Inf),
-            alpha = .2) +
-  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
-                             chr_lengths, by = "scaffold") %>%
-              filter(outlier_type == "high_AR") %>%
-              filter(chr == 1) %>% 
-              filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
-              mutate(zone = "AR", zone_pretty = "S. America"),
-            aes(xmin = start/10^6, xmax = end/10^6,
-                ymin = -Inf, ymax = Inf),
-            alpha = 0) + # do not draw
-  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
-                             chr_lengths, by = "scaffold") %>%
-              filter(outlier_type == "high_CA") %>%
-              filter(chr == 1) %>% 
-              filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
-              mutate(zone = "CA", zone_pretty = "N. America"),
-            aes(xmin = start/10^6, xmax = end/10^6,
-                ymin = -Inf, ymax = Inf),
-            alpha = 0) + # do not draw
-  
-
-  
-  scale_color_manual(values = col_ACM, name = "Ancestry") +
-  scale_fill_manual(values = col_ACM, name = "Ancestry") +
-  scale_shape_manual(values = c(indep = 4, overlap = 1), 
-                     labels = c("AIM only", "HMM marker"), 
-                     name = "Marker overlap") +
-  scale_size_manual(values = c(ancestry_freq = 0.05, freq_polarized = 0.2), guide = F) +
-  guides(fill = "none", 
-         #color = guide_legend(override.aes = list(shape = 15, linetype = "blank"))) +
-         color = guide_legend(override.aes = list(linetype = "blank"))) +
-  theme_classic() +
-  facet_grid(type_pretty ~ zone_pretty)
-ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM2.png",
-       height = 5, width = 7.5, units = "in", device = "png")
-ggsave("../../bee_manuscript/figures_supp/ACM_frequency_plot_AR_CA_FDR_chr1_outlier2.tiff",
-       height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff")
-ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr1_outlier2.png",
-       height = 5, width = 7.5, units = "in", dpi = 600, device = "png")
-#table(is.na(AIMS_ACM_AR_CA$rpos[AIMS_ACM_AR_CA$type == "ancestry_freq"]))  
-#table(is.na(AIMS_ACM_AR_CA$rpos[AIMS_ACM_AR_CA$type == "freq_polarized"]))  
-
-aims %>%
-  ggplot(., aes(x = freq_polarized, color = AIM_ancestry))+
-  geom_density() +
-  facet_wrap(~zone)
-
-
-
+# shared high outliers. where are they?
+filter(outliers_all, outlier_type == "high_shared2") %>%
+  group_by(chr) %>%
+  summarise(min = min(start),
+            max = max(end))
 
 # chr1
 A_AR_CA[which.max(meanA),]
@@ -1366,7 +1297,7 @@ left_join(overlap_aims_shared_outliers, A_AR_CA, by = c("chr"="scaffold", "pos")
 sapply(overlap_aims_shared_outliers$pos, function(x) x %in% A_AR_CA[A_AR_CA$chr == "Group1", "pos"])
 # none of these markers are in the original ancestry calling set.
 
-AIMS_ACM_AR_CA %>%
+p1_outliers <- AIMS_ACM_AR_CA %>%
   filter(chr == "Group1") %>%
   filter(., pos > 1.025*10^7 & pos < 1.225*10^7) %>%
   filter(., type == "ancestry_freq") %>%
@@ -1376,7 +1307,7 @@ AIMS_ACM_AR_CA %>%
   geom_point(# then plot sig points on top 
     aes(x = pos_Mb, y = frequency, 
         color = ancestry, size = type)) +
-  xlab("Position on chromosome 11 (Mb)") +
+  xlab("Chromosome 1 (Mb)") +
   ylab("Ancestry frequency") +
   geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
                              chr_lengths, by = "scaffold") %>%
@@ -1414,8 +1345,6 @@ AIMS_ACM_AR_CA %>%
             aes(xmin = start/10^6, xmax = end/10^6,
                 ymin = -Inf, ymax = Inf),
             alpha = 0.2) +
-
-  
   scale_color_manual(values = col_ACM, name = "Ancestry") +
   scale_fill_manual(values = col_ACM, name = "Ancestry") +
   scale_size_manual(values = c(ancestry_freq = 0.05, freq_polarized = 0.05), guide = F) +
@@ -1424,13 +1353,92 @@ AIMS_ACM_AR_CA %>%
          color = guide_legend(override.aes = list(linetype = "blank"))) +
   theme_classic() +
   facet_grid(zone_pretty ~ .)
-
+p1_outliers
 ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM.png",
        height = 5, width = 7.5, units = "in", device = "png")
 ggsave("../../bee_manuscript/figures_main/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM.tiff",
        height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff")
 ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM.png",
        height = 5, width = 7.5, units = "in", dpi = 600, device = "png")
+
+# now plot with AIMs
+
+AIMS_ACM_AR_CA %>%
+  filter(chr == "Group1") %>%
+  filter(., pos > 1.025*10^7 & pos < 1.225*10^7) %>%
+  ggplot(.) +
+  geom_hline(data = ACM_means, aes(yintercept = ancestry_freq, color = ancestry),
+             linetype = "solid") + # dashed
+  geom_point(# then plot sig points on top 
+    aes(x = pos_Mb, y = frequency, 
+        color = ancestry, size = type,
+        shape = ifelse((hmm_marker | type == "ancestry_freq"), 
+                       "overlap", "indep"))) +
+  xlab("Chromosome 1 (Mb)") +
+  ylab("Frequency") +
+  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+                             chr_lengths, by = "scaffold") %>%
+              filter(outlier_type == "high_shared2") %>%
+              filter(chr == 1) %>% 
+              filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
+              mutate(zone = "AR", zone_pretty = "S. America"),
+            aes(xmin = start/10^6 - buff, xmax = end/10^6 + buff,
+                ymin = -Inf, ymax = Inf),
+            alpha = .2) +
+  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+                             chr_lengths, by = "scaffold") %>%
+              filter(outlier_type == "high_shared2") %>%
+              filter(chr == 1) %>% 
+              filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
+              mutate(zone = "CA", zone_pretty = "N. America"),
+            aes(xmin = start/10^6 - buff, xmax = end/10^6 + buff,
+                ymin = -Inf, ymax = Inf),
+            alpha = .2) +
+  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+                             chr_lengths, by = "scaffold") %>%
+              filter(outlier_type == "high_AR") %>%
+              filter(chr == 1) %>% 
+              filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
+              mutate(zone = "AR", zone_pretty = "S. America"),
+            aes(xmin = start/10^6, xmax = end/10^6,
+                ymin = -Inf, ymax = Inf),
+            alpha = 0) + # do not draw
+  geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
+                             chr_lengths, by = "scaffold") %>%
+              filter(outlier_type == "high_CA") %>%
+              filter(chr == 1) %>% 
+              filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
+              mutate(zone = "CA", zone_pretty = "N. America"),
+            aes(xmin = start/10^6, xmax = end/10^6,
+                ymin = -Inf, ymax = Inf),
+            alpha = 0) + # do not draw
+  scale_color_manual(values = col_ACM, name = "Ancestry") +
+  scale_fill_manual(values = col_ACM, name = "Ancestry") +
+  scale_shape_manual(values = c(indep = 4, overlap = 1), 
+                     labels = c("AIM only", "HMM marker"), 
+                     name = "Marker overlap") +
+  scale_size_manual(values = c(ancestry_freq = 0.05, freq_polarized = 0.2), guide = F) +
+  guides(fill = "none", 
+         #color = guide_legend(override.aes = list(shape = 15, linetype = "blank"))) +
+         color = guide_legend(override.aes = list(linetype = "blank"))) +
+  theme_classic() +
+  facet_grid(type_pretty ~ zone_pretty)
+
+ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM2.png",
+       height = 5, width = 7.5, units = "in", device = "png")
+ggsave("../../bee_manuscript/figures_supp/ACM_frequency_plot_AR_CA_FDR_chr1_outlier2.tiff",
+       height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff")
+ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr1_outlier2.png",
+       height = 5, width = 7.5, units = "in", dpi = 600, device = "png")
+#table(is.na(AIMS_ACM_AR_CA$rpos[AIMS_ACM_AR_CA$type == "ancestry_freq"]))  
+#table(is.na(AIMS_ACM_AR_CA$rpos[AIMS_ACM_AR_CA$type == "freq_polarized"]))  
+
+
+
+aims %>%
+  ggplot(., aes(x = freq_polarized, color = AIM_ancestry))+
+  geom_density() +
+  facet_wrap(~zone)
 
 
 
@@ -1675,63 +1683,98 @@ QTL = qtl %>%
   mutate(start = apply(., 1, function(x) min(as.integer(x[["Start"]]), as.integer(x[["End"]]))),
          end = apply(., 1, function(x) max(as.integer(x[["Start"]]), as.integer(x[["End"]]))))
 
+mean_genomewide <- data.frame(A_ancestry = c(mean(meanA_CA), mean(meanA_AR)), zone_pretty = c("N. America", "S. America"))
+
 # simple plot of outliers, whole genome
-ggplot() + # raster looks pretty terrible -- I could plot instead every 5th or 10th non-sig point or s.t.
+p_outliers_genomewide <- ggplot() + # raster looks pretty terrible -- I could plot instead every 5th or 10th non-sig point or s.t.
   #ggrastr::geom_point_rast(data = A_AR_CA_cumulative %>%
   #             filter(is.na(FDR)), # plot grey points first
   #           aes(x = cum_pos, y = A_ancestry, 
   #               color = color_by), size = .02,
   #           raster.dpi = 600) +
   geom_point(data = (A_AR_CA_cumulative %>% # plot grey points first; every 10th point only
-                       filter(is.na(FDR)))[c(T, rep(F, 9)), ], 
+                       filter(is.na(FDR))),#[c(T, rep(F, 4)), ],
              aes(x = cum_pos, y = A_ancestry, 
-                 color = color_by), size = .02) +
+                 color = color_by), size = .01) +
   geom_point(data = A_AR_CA_cumulative %>%
                filter(!is.na(FDR)), # then plot sig points on top 
              aes(x = cum_pos, y = A_ancestry, 
-                 color = color_by), size = .02) +
-  xlab("Position (bp)") +
-  ylab("mean African ancestry") +
-  #scale_colour_manual(name = NULL,
-  #                    values = c("0.01"="red", "0.05"="orange", "0.10"="skyblue", 
-  #                               "n.s. - even chr"="darkgrey", 
-  #                               "n.s. - odd chr"="grey"),
-  #                    limits = c("0.01", "0.05", "0.10"),
-  #                    labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
-  #) + 
-  geom_segment(data = left_join(rename(outliers_all, scaffold = chr) %>%
-                                  rename(., length_outlier = length), 
-                                chr_lengths, by = "scaffold") %>%
-                 #mutate(cum_start = start + chr_start,
-                 #      cum_end = end + chr_start)
-                 filter(outlier_type == "high_shared"),
-               aes(x = start + chr_start - buffer_4_visibility, 
-                   xend = end + chr_start + buffer_4_visibility, # add 50kb for visibility only
-                   y = 0.7, yend = 0.7, color = min_FDR),
-               lwd = 4) +
+                 color = color_by), size = .01) +
+  xlab("Chromosome") +
+  ylab("African ancestry") +
+  scale_color_manual(name = NULL,
+                      values = col_FDR,
+                      limits = c("0.01", "0.05", "0.1"),
+                      labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
+  ) + 
+  # add in means for reference
+  geom_hline(data = mean_genomewide, aes(yintercept = A_ancestry), col = "black", linetype = "dashed") +
   # add in QTLs:
   geom_segment(data = QTL,
                aes(x = start + chr_start - buffer_4_visibility, # add 50kb for visibility only
                    xend = end + chr_start + buffer_4_visibility, 
-                   y = 0.7, yend = 0.7, color = Publication),
-               lwd = 4) +
-  scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
+                   y = 0.7, yend = 0.7),
+               lwd = 4,
+               color = "black",
+               alpha = 0) +
+  scale_x_continuous(label = chr_lengths$chr, breaks = chr_lengths$chr_mid) +
   #theme(legend.position = "none") +
   theme_classic() +
-  facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
-  ggtitle("Ancestry outliers across whole genome")
+  facet_grid(zone_pretty ~ .) +
+  theme(legend.position = "top", legend.margin = margin(t = 0, unit='cm')) +
+  guides(colour = guide_legend(override.aes = list(size = 2, shape = 15)))
+# change colors
+# add mean line
+# remove filter at end for thinning n.s. points
+p_outliers_genomewide
 ggsave("plots/A_frequency_plot_AR_CA_FDR_whole_genome_wide.png",
-       height = 5, width = 10, units = "in", device = "png")
-ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_whole_genome_wide.pdf",
-       height = 5, width = 10, units = "in", device = "pdf")
+       height = 3, width = 7.5, units = "in", dpi = 600, device = "png")
+ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_whole_genome_wide.png",
+       height = 3, width = 7.5, units = "in", dpi = 600, device = "png")
+ggsave("../../bee_manuscript/figures_main/A_frequency_plot_AR_CA_FDR_whole_genome_wide.tiff",
+       height = 3, width = 7.5, units = "in", dpi = 600, device = "tiff")
 
 
+p_small <- ggplot() +
+  geom_point(data = A_AR_CA_cumulative %>%
+               filter(!is.na(FDR)), # then plot sig points on top 
+             aes(x = cum_pos, y = A_ancestry, 
+                 color = color_by), size = .01) +
+  xlab("Chromosome") +
+  ylab("Mean African ancestry") +
+  scale_color_manual(name = NULL,
+                     values = col_FDR,
+                     limits = c("0.01", "0.05", "0.1"),
+                     labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
+  ) + 
+  # add in means for reference
+  geom_hline(data = mean_genomewide, aes(yintercept = A_ancestry), col = "black", linetype = "dashed") +
+  scale_x_continuous(label = chr_lengths$chr, breaks = chr_lengths$chr_mid) +
+  theme_classic() +
+  facet_grid(zone_pretty ~ .) +
+  theme(legend.position = "top", legend.margin = margin(t = 0, unit='cm')) +
+  guides(colour = guide_legend(override.aes = list(size = 2, shape = 15)))
+
+# put genomewide plot together with 2 outlier regions: p_outliers_genomewide
+p_outliers_combined <- arrangeGrob(p_outliers_genomewide + ggtitle("A"),
+                                     p1_outliers + ggtitle("B"),
+                                     p11_outliers + ggtitle("C") + theme(legend.position = "none"),
+                                   layout_matrix = rbind(c(1,1),
+                                                         c(2,3)),
+                                   widths = c(5,3))
+                                   #widths = c(3.5,3))
+
+plot(p_outliers_combined)
+ggsave("plots/A_outliers_grob.png",
+       plot = p_outliers_combined,
+       height = 6, width = 7.5, units = "in", dpi = 600, device = "png")
+ggsave("../../bee_manuscript/figures/A_outliers_grob.png",
+       plot = p_outliers_combined,
+       height = 6, width = 7.5, units = "in", dpi = 600, device = "png")
+ggsave("../../bee_manuscript/figures_main/A_outliers_grob.tiff",
+       height = 6, width = 7.5, units = "in", dpi = 600, device = "tiff")
 
 
-
-# to do later: better idea is to color the shared outliers and to draw threshold lines for the ind zone outliers
-# also later I want to make plots of frequency across latitude for all the major outliers
-# AND make C-M outlier plots too (maybe plot first before thinking about FDR)
 
 # mirrored plot example:
 #par(mfrow=c(2,1))

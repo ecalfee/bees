@@ -8,6 +8,7 @@ library(devtools)
 #BiocManager::install("SNPRelate")
 #BiocManager::install("SeqArray")
 #devtools::install_github("kegrinde/STEAM")
+library(STEAM)
 PREFIX = "combined_sept19"
 # bees
 pops <- read.table("../bee_samples_listed/byPop/combined_sept19_pops.list",
@@ -203,7 +204,7 @@ wings.meta$model_residual_cm <- stats::residuals(m_wing)
 d.wings <- wings.meta %>%
   arrange(abs(lat)) %>%
   dplyr::select(Bee_ID, wing_cm, model_predicted_cm, model_residual_cm)
-save(list = "d.wings", file = "results/wing_fits.RData")
+save(list = c("d.wings", "m_wing", "m_wing_SA"), file = "results/wing_fits.RData")
 
 
 # get individual ancestry data for bees with wing data:
@@ -254,7 +255,7 @@ fits <- t(sapply(1:nrow(A_wings_wide), function(i){
 save(fits, file = "results/ancestry_mapping_wing_length.RData")
 summary(fits[ , "p.value"]) # lowest p-value is .001
 hist(fits[ , "p.value"])
-
+load("results/ancestry_mapping_wing_length.RData")
 
 # a better way to do this is to fit to counts, because using the posterior MAP
 # doesn't have undesirable shrinkage like using the posterior mean
@@ -354,12 +355,13 @@ z_thresh <- uniroot(mult_test_p_diff,
 
 
 # range of thresholds for a range of admixture generations g
-gs <- c(22, 47.6, 60.4, 150) # min, median, mean, max
+gs <- c(22, 47.65, 60.4, 150) # min, median, mean, max
 pval_threshs <- sapply(gs, function(g) STEAM::get_thresh_analytic(g = g,
                                           type = "pval",
                                           map = sites_map,
                                           alpha = 0.05))
-
+pval_threshs
+-log10(pval_threshs)
 # show admixture mapping results with
 # threshold based on 47.6 gen. admixture (median across pops)
 cbind(sites, data.frame(fits_counts, stringsAsFactors = F)) %>%
@@ -403,5 +405,9 @@ table(A_AR_CA$FDR_shared_high[fits_counts$p.value <= .01])
 table(A_AR_CA$FDR_CA_high[fits_counts$p.value <= .01])
 table(A_AR_CA$FDR_AR_high[fits_counts$p.value <= .01])
 table(A_AR_CA$FDR_AR_low[fits_counts$p.value <= .01])
-
-     
+min(fits_counts$p.value[!is.na(A_AR_CA$FDR_shared_high)])
+min(fits_counts$p.value[!is.na(A_AR_CA$FDR_AR_high)])
+min(fits_counts$p.value[!is.na(A_AR_CA$FDR_CA_high)])
+min(fits_counts$p.value[!is.na(A_AR_CA$FDR_AR_low)])
+#plot(log10(fits_counts$p.value), clines$params[clines$params$term == "b", "estimate"])
+#cor(log10(fits_counts$p.value), log10(clines$params[clines$params$term == "b", "p.value"]))     
