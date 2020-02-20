@@ -187,6 +187,7 @@ load("../local_ancestry/results/zAnc.RData")
 load("../local_ancestry/results/A.RData")
 load("../local_ancestry/results/meta.RData")
 load("../local_ancestry/results/sites_r.RData")
+load("results/bootstrap_pi.RData") # bootstrap_pi for within-A ancestry diversity
 colnames(zAnc_bees$K)
 colnames(A)
 meta.pop$population == colnames(A)
@@ -214,7 +215,7 @@ abline(a = 0, b = 1, col = "purple")
 plot(binomial_var_anc, observed_var_anc, 
      xlab = "Expected ancestry variance (alpha*(1-alpha))/(2N)", 
      ylab = "Observed ancestry variance (diag K matrix)",
-     main = "Observed ancestry variance is less than binomial expectation")
+     main = "Observed ancestry variance is slightly more than binomial expectation")
 points(binomial_var_anc, 
      2*meta.pop$n_bees/(2*meta.pop$n_bees - 1)*
        observed_var_anc, col = "blue")
@@ -244,8 +245,41 @@ test_small_sample(1000000, 4, 0.25)
 hist(sapply(1:100, function(x) test_small_sample(10000, 3, 0.4)[2]))
 abline(v = test_small_sample(10000, 3, 0.4)[3], col = "red")
 
+# Ast vs. Fst from within-A ancestry pi estimates:
+data.frame(population = colnames(zAnc_bees$K),
+           Ast = Ast,
+           stringsAsFactors = F) %>%
+  left_join(meta.pop, ., by = "population") %>%
+  left_join(., filter(bootstrap_pi, ancestry == "A"), by = c("population"="pop")) %>%
+  mutate(pi_A_ref = bootstrap_pi[bootstrap_pi$pop == "A" & bootstrap_pi$ancestry == "A", "estimate"]) %>%
+  mutate(Fst_within_A = 1 - estimate/pi_A_ref,
+         Fst_within_A_lower = 1 - upper/pi_A_ref,
+         Fst_within_A_upper = 1 - lower/pi_A_ref) %>%
+  ggplot(., aes(x = Ast, y = Fst_within_A, color = exclude)) +
+  geom_point() +
+  geom_pointrange(aes(ymin = Fst_within_A_lower, ymax = Fst_within_A_upper)) +
+  facet_grid(.~zone) +
+  geom_abline(aes(intercept = 0, slope = 1)) +
+  coord_fixed() +
+  xlab("Ancestry Ast = 1 - ancestry het/(2*a*(1-a))") +
+  ylab("Fst within A ancestry = 1 - pop het within A homozyg. / ref. A pop het") +
+  ggtitle("Ancestry drift (Ast) vs. within A ancestry drift (Fst)") +
+  scale_color_manual(values = c("blue", "orange"), labels = c("good pi estimate", "unreliable, low data"), name = element_blank())
+ggsave("plots/Ast_vs_Fst.png", device = "png", height = 12, width = 7, units = "in", dpi = 300)  
+  
+plot(Ast, observed_var_anc/(zAnc_bees$alpha*(1-zAnc_bees$alpha)))
+plot(2*zAnc_bees$alpha*(1-zAnc_bees$alpha)-ancestry_het, observed_var_anc)
+abline(0,1)
 
-
-
-
-
+# what heterozygosity in ancestry do I observe and what do I expect under simple binomial sampling?
+het_obs_uncorrected = apply(2*A*(1-A), 2, mean)
+het_binomial_only = sapply(1:nrow(meta.pop), function(i){
+  a = rbinom(n = 100000, size = meta.pop$n_bees[i]*2, prob = zAnc_bees$alpha[i])/(2*meta.pop$n_bees[i])
+  mean(2*a*(1-a))
+})
+png("plots/het_obs_expected_binomial_only.png", height = 4, width = 5, units = "in", res = 300)
+plot(het_binomial_only, het_obs_uncorrected, main = "Ancestry het. observed vs. binomial only",
+     xlab = "Het. expected from binomial sampling", ylab = "Het. observed (uncorrected for sample size)",
+     pch = ifelse(meta.pop$population == "Avalon_2014", 2, 1))
+abline(0, 1, col = "purple")
+dev.off()

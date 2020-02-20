@@ -33,21 +33,7 @@ ancestries_combined <- c(ancestries, "combined")
 ancestries_Combined <- c(ancestries, "Combined")
 
 # get bee population meta data
-bees <- do.call(rbind, 
-                lapply(pops, function(p) data.frame(Bee_ID = read.table(paste0("../bee_samples_listed/byPop/", p, ".list"),
-                                                                        stringsAsFactors = F)$V1, population = p, stringsAsFactors = F)))
-meta.ind <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
-  left_join(bees, ., by = c("Bee_ID", "population")) 
-meta.pop <- meta.ind %>%
-  dplyr::select(c("population", "source", "year", "group", "lat", "long")) %>%
-  dplyr::group_by(population, source, year, group) %>%
-  dplyr::summarise(n_bees = n(),
-                   lat = mean(lat),
-                   long = mean(long)) %>%
-  mutate(zone = ifelse(group == "AR_2018", "S. America", "N. America")) %>%
-  left_join(data.frame(population = pops, stringsAsFactors = F),
-            ., by = "population") %>%
-  mutate(lat = ifelse(population == "Riverside_1999", .[.$population == "Riverside_2014", "lat"], lat))
+load("../local_ancestry/results/meta.RData")
 
 ###---old SFS----####
 # read in the SFS's that were successfully calculated (for comparison):
@@ -321,7 +307,10 @@ bootstrap_pi <- do.call(rbind, lapply(c("Combined", ACM), function(a)
   mutate(estimate = frac_snps*estimate,
          lower = frac_snps*lower,
          upper = frac_snps*upper) %>%
-  mutate(ancestry = factor(ancestry, levels = c("Combined", ACM), ordered = T)) # for better plot order
+  mutate(ancestry = factor(ancestry, levels = c("Combined", ACM), ordered = T)) %>% # for better plot order
+  mutate(exclude = (chr < 15 | n_bins < 75))
+save(file = "results/bootstrap_pi.RData", list = "bootstrap_pi")
+
 # excluding points for too little within-ancestry sites:
 bootstrap_pi %>%
   left_join(., meta.pop, by = c("pop"="population")) %>%

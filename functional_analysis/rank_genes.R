@@ -1304,9 +1304,9 @@ p1_outliers <- AIMS_ACM_AR_CA %>%
   ggplot(.) +
   geom_hline(data = ACM_means, aes(yintercept = ancestry_freq, color = ancestry),
              linetype = "solid") + # dashed
-  geom_point(# then plot sig points on top 
+  geom_point(
     aes(x = pos_Mb, y = frequency, 
-        color = ancestry, size = type)) +
+        color = ancestry, size = 0.1)) +
   xlab("Chromosome 1 (Mb)") +
   ylab("Ancestry frequency") +
   geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
