@@ -10,7 +10,7 @@ library(geosphere)
 # another maps package
 library(ggmap)
 # for scale bar
-library(ggsn)
+#library(ggsn)
 
 my_api <- read.table("google_maps_api_EC2018.txt",
                      header = F, stringsAsFactors = F)$V1

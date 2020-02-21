@@ -15,6 +15,8 @@ library(viridis)
 library(viridisLite)
 library(RColorBrewer)
 library(patchwork) # for combining plots in one output # https://github.com/thomasp85/patchwork
+library(ggrepel)
+library(ggpubr)
 source("../colors.R") # for color palette
 #Rio Claro, Sao Paulo Brazil: 22.4149° S, 47.5651° W (Google maps)
 sao_paulo <- data.frame(long = -47.5651, lat = -22.4149)
@@ -349,6 +351,32 @@ ggsave("../../bee_manuscript/figures/world_map_samples.pdf",
        plot = p_world_arrows, 
        device = "pdf", 
        width = 6, height = 6, units = "in")
+
+# add dates to world map
+dates_AHB <- read.table("../maps/spread_africanized_bees.csv",
+                        sep = ",", header = T)
+omit_dates <- c("Brazil", "Venezuela", "Uruguay", "Costa Rica")
+left_dates <- c("Mexico", "Peru", "Bolivia", "Paraguay", "Panama")
+right_dates <- c("California", "Texas", "Guyana", "Colombia", "Argentina")
+p_world_labels <- p_world_arrows +
+  geom_text(data = mutate(sao_paulo, label = "Brazil\n1957"), aes(x = long, y = lat, label = label), size = 4, 
+            hjust = 0.2, vjust = -0.3, 
+            color = col_ACM["A"]) +
+  geom_text(data = filter(dates_AHB, name %in% right_dates), aes(x = lon, y = lat, label = paste(name, date)), size = 3, 
+            hjust = -0.2, vjust = 0.5) +
+  geom_text(data = filter(dates_AHB, name %in% left_dates), aes(x = lon, y = lat, label = paste(name, date)), size = 3, 
+            hjust = 1.2, vjust = 0.5) +
+  geom_point(data = dates_AHB, aes(x = lon, y = lat), size = 0.5)
+p_world_labels
+ggsave("plots/world_map_dates.png",
+       plot = p_world_labels, 
+       device = "png", 
+       width = 6, height = 5, dpi = 600, units = "in")
+ggsave("../../bee_manuscript/figures/world_map_dates.png",
+       plot = p_world_labels, 
+       device = "png", 
+       width = 6, height = 5, dpi = 600, units = "in")
+
 # just SA samples:
 SA_pie <- world %>%
   filter(., ! region %in% c("Greenland", "Antarctica", "Canada")) %>%
@@ -433,7 +461,7 @@ SA_points <- world %>%
                  color = population,
                  shape = factor(shape)),
              data = filter(admix.pops, continent == "S. America"),
-             size = 3) +
+             size = 2) +
              #alpha = .5) +
   xlab("Longitude") +
   ylab("Latitude") +
@@ -446,25 +474,20 @@ plot(SA_points +
        coord_fixed(1.1, 
                    xlim = c(-62, -57),
                    ylim = c(-36.5, -28.5)))
-plot(SA_points +
-       coord_fixed(1.1, 
-                   xlim = c(-62, -55),
-                   ylim = c(-36.5, -27)))
+
+SA_points_zoom <- SA_points + 
+  coord_fixed(1.1, 
+              xlim = c(-62, -55),
+              ylim = c(-37, -27))
 ggsave("plots/SA_point_map_samples_zoom_out.png",
-       plot = SA_points + 
-         coord_fixed(1.1, 
-                     xlim = c(-62, -55),
-                     ylim = c(-37, -27))+
+       plot = SA_points_zoom +
          ggtitle("Argentina"), 
        device = "png", 
        width = 3, height = 6, units = "in")
-ggsave("../../bee_manuscript/figures/SA_point_map_samples_zoom_out.pdf",
-       plot = SA_points +
-         coord_fixed(1.1, 
-                     xlim = c(-62, -55),
-                     ylim = c(-37, -27)), 
-       device = "pdf", 
-       width = 3, height = 6, units = "in")
+ggsave("../../bee_manuscript/figures/SA_point_map_samples_zoom_out.png",
+       plot = SA_points_zoom, 
+       device = "png", 
+       width = 3, height = 6, units = "in", dpi = 600)
 
 # NA just colored points, not pie charts:
 NA_points <- world %>%
@@ -480,14 +503,14 @@ NA_points <- world %>%
               color = "white",
               fill = dark2[8],
               data = filter(states, region %in% c("nevada", "arizona"))) +
-  xlim(c(-140, -20)) +
-  theme_classic() +
   geom_point(aes(x = long,
                  y = lat,
                  color = population_factor,
                  shape = factor(shape)), 
              data = filter(admix.pops, continent == "N. America"),
              cex = 2) +
+  xlim(c(-140, -20)) +
+  theme_classic() +
   #alpha = .5) +
   xlab("Longitude") +
   ylab("Latitude") +
@@ -496,25 +519,20 @@ NA_points <- world %>%
   scale_shape_manual(values = c(15, 1, 17, 5, 19, 6)) +
   theme(legend.position = "None")
 
-plot(NA_points +
-       coord_fixed(1.3, 
-                   xlim = c(-124, -114.5), 
-                   ylim = c(32, 39.5)))
+# smaller points
+NA_points_zoom <- NA_points +
+  coord_fixed(1.1, 
+              xlim = c(-124, -114.5), 
+              ylim = c(32, 39.5))
 ggsave("plots/NA_point_map_samples_zoom_out.png",
-       NA_points +
-         coord_fixed(1.3, 
-                     xlim = c(-124, -114.5), 
-                     ylim = c(32, 39.5)) +
+       NA_points_zoom +
          ggtitle("California"), 
        device = "png", 
        width = 3, height = 6, units = "in")
-ggsave("../../bee_manuscript/figures/NA_point_map_samples_zoom_out.pdf",
-       NA_points +
-         coord_fixed(1.3, 
-                     xlim = c(-124, -114.5), 
-                     ylim = c(32, 39.5)), 
-       device = "pdf", 
-       width = 3, height = 6, units = "in")
+ggsave("../../bee_manuscript/figures/NA_point_map_samples_zoom_out.png",
+       NA_points_zoom, 
+       device = "png", 
+       width = 3, height = 6, units = "in", dpi = 600)
 AR_end1 <- filter(admix.pops,
                   continent == "S. America") %>%
   filter(., lat == min(lat))
@@ -621,6 +639,153 @@ ggsave("../../bee_manuscript/figures/AR_bar_symbols.pdf",
        device = "pdf", 
        width = 0.4, height = 6, units = "in")
 
+
+# putting plots together
+p_world_together <- p_world_labels +
+  annotation_custom(grob = ggplotGrob(NA_points_zoom +
+                                        ggtitle("California") +
+                                        theme( # get rid of axes
+                                          axis.line = element_blank(),
+                                          axis.text = element_blank(),
+                                          axis.ticks = element_blank(),
+                                          axis.title = element_blank(),
+                                          panel.background = element_rect(fill = "transparent", colour = NA),
+                                          plot.margin = unit(c(0,0,0,0), "null"),
+                                          #panel.spacing = unit(c(0,0,0,0), "null"),
+                                          panel.border = element_rect(colour = col_NA_SA_both["N. America"], 
+                                                                      fill = NA, 
+                                                                      size = 2),
+                                          plot.title = element_text(hjust = 0.5, size = 10,
+                                                                    margin = margin(t = 0.2, r = 0, b = 0, l = 0, unit = "in")))), 
+                    xmin = -55, 
+                    xmax = -20, 
+                    ymin = 10) +
+  annotation_custom(grob = ggplotGrob(SA_points_zoom +
+                                        ggtitle("Argentina") +
+                                        theme( # get rid of axes
+                                          axis.line = element_blank(),
+                                          axis.text = element_blank(),
+                                          axis.ticks = element_blank(),
+                                          axis.title = element_blank(),
+                                          panel.background = element_rect(fill = "transparent", colour = NA),
+                                          panel.border = element_rect(colour = col_NA_SA_both["S. America"], 
+                                                                      fill = NA, 
+                                                                      size = 2),
+                                          plot.title = element_text(hjust = 0.5, size = 10,
+                                                                    margin = margin(t = 0.2, r = 0, b = 0, l = 0, unit = "in")))), 
+                    xmin = -125, 
+                    xmax = -90, 
+                    ymax = 0)
+p_world_together
+# add admixture plots too:
+p_world_admix <- arrangeGrob(p3 + 
+                               coord_flip() +
+                               ggtitle("Argentina") +
+                               theme( # get rid of axes
+                                 plot.title = element_text(size = 6, hjust = 0.5),
+                                 axis.line = element_blank(),
+                                 axis.text.y = element_blank(),
+                                 axis.ticks.y = element_blank(),
+                                 axis.title = element_blank()) +
+                               scale_y_continuous(name = "Ancestry", breaks = c(0, 0.5, 1), labels = c("0", "0.5", "1")) +
+                               guides(color = "none", fill = "none", alpha = "none"), 
+                             p_world_together,
+                             p2_2014 + 
+                               coord_flip() +
+                               ggtitle("California") +
+                               theme( # get rid of axes
+                                 plot.title = element_text(size = 6, hjust = 0.5),
+                                 axis.line = element_blank(),
+                                 axis.text.y = element_blank(),
+                                 axis.ticks.y = element_blank(),
+                                 axis.title = element_blank()) +
+                               scale_y_continuous(name = "Ancestry", breaks = c(0, 0.5, 1), labels = c("0", "0.5", "1")) +
+                               guides(color = "none", fill = "none", alpha = "none"), 
+            ncol = 3,
+            widths = c(1, 11, 1))
+plot(p_world_admix)
+ggsave("plots/world_map_ngsadmix.png",
+       plot = p_world_admix, 
+       device = "png", 
+       width = 7.5, height = 6, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures/world_map_ngsadmix.png",
+       plot = p_world_admix, 
+       device = "png", 
+       width = 7.5, height = 6, units = "in", dpi = 600)
+
+# redo components so they fit together better in the plot:
+NA_plot <- d_admix %>% 
+  tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+  filter(group == "CA_2018" | population %in% pop2014_incl) %>%
+  left_join(., anc, by = "ancestry") %>%
+  ggplot(., aes(fill=ancestry_label, alpha = as.factor(year), y=p, x=reorder(label, -lat))) +
+  geom_bar(stat = "identity", position = "fill", width = 1) +
+  scale_alpha_discrete(range = c(0.6, 1)) +
+  labs(alpha = "Collection") +
+  scale_fill_manual(values = col_ACM, name = "Ancestry") + 
+  theme_classic() +
+  scale_y_reverse(name = "California", breaks = c(0, 0.5, 1), labels = c("1", "0.5", "0")) +
+  ggtitle("<- Brazil") +
+  theme( # get rid of axes
+    plot.title = element_blank(),
+    #plot.title = element_text(size = 10, hjust = 0.5),
+    #legend.title = element_text(size = 1), 
+    #legend.text = element_text(size = 1),
+    axis.line = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.title.x = element_blank()) +
+  guides(fill = "none",
+         alpha = "none")
+SA_plot <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+  filter(group == "AR_2018") %>%
+  left_join(., anc, by = "ancestry") %>%
+  ggplot(., aes(fill = ancestry_label, y = p, x = reorder(Bee_ID, lat))) +
+  geom_bar(stat = "identity", position = "fill", width = 1) + 
+  scale_fill_manual(values = col_ACM, name = "Ancestry") +
+  theme_classic() + 
+  scale_y_reverse(name = "Argentina", breaks = c(0, 0.5, 1), labels = c("1", "0.5", "0")) +
+  theme( # get rid of axes
+    plot.title = element_blank(),
+    #plot.title = element_text(size = 10, hjust = 1),
+    axis.line = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.title.x = element_blank()) +
+  guides(color = "none", fill = "none")
+
+AMC_legend = ggplot(data = data.frame(Ancestry = factor(ACM, levels = c("A", "M", "C"), ordered = T), x = 1:3, y = 1:3), aes(x = x, y = y, color = Ancestry)) +
+  geom_point() +
+  scale_color_manual(values = col_ACM, name = expression(""*symbol('\254')* " Brazil")) +
+  theme_classic() +
+  theme(legend.key = element_rect(size = 0.01, color = "white"),
+        legend.key.size = unit(0.4, units = "cm"),
+        legend.spacing = unit(0, units = "cm"))
+p_world_admix_tall <- grid.arrange(grobs = list(ggplotGrob(p_world_together),
+                                  get_legend(AMC_legend),              
+                                  #get_legend(p3 + guides(alpha = "none", 
+                                  #                       legend.title = element_text(size = 5),
+                                  #                       theme(legend.key.height=unit(0.1,"line")))),
+                                  ggplotGrob(NA_plot),
+                               ggplotGrob(SA_plot)),
+                               layout_matrix = rbind(c(1,1),
+                                                     c(NA, 2),
+                                                     c(3,2),
+                                                     c(4,4)),
+                             heights = c(7, 0.25, 1, 1),
+                             widths = c(8, 1))
+ggsave("plots/world_map_ngsadmix_tall.png",
+       plot = p_world_admix_tall, 
+       device = "png", 
+       width = 7.5, height = 6.75, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures/world_map_ngsadmix_tall.png",
+       plot = p_world_admix_tall, 
+       device = "png", 
+       width = 7.5, height = 6.75, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures_main/world_map_ngsadmix_tall.tiff",
+       plot = p_world_admix_tall, 
+       device = "tiff", 
+       width = 7.5, height = 6.75, units = "in", dpi = 600)
 
 # --------------------------------------------------------------------------
 
