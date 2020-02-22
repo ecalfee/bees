@@ -1456,7 +1456,6 @@ mu_AR <- mean(meanA_AR)
 sd_range <- seq(0, 5, by = .005) # I can make this more precise later if I want
 
 # get standard deviation cutoffs for FDR shared high loci
-
 test_fdr_shared_high_sds <- sapply(sd_range, function(x)
   fdr_shared_high(a1 = mu_AR+x*sd_AR, a2 = mu_CA+x*sd_CA, pop1 = meanA_AR, pop2 = meanA_CA, 
                   sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
@@ -1467,6 +1466,42 @@ test_fdr_shared_low_sds <- sapply(sd_range, function(x)
   fdr_shared_low(a1 = mu_AR-x*sd_AR, a2 = mu_CA-x*sd_CA, pop1 = meanA_AR, pop2 = meanA_CA, 
                   sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
 FDRs_shared_low_sds <- sapply(FDR_values, function(p) min(sd_range[test_fdr_shared_low_sds<p], na.rm = T))
+
+
+
+range_q_high <- seq(0.75, 1, by = 0.0001)
+range_q_low <- seq(0, 0.25, by = 0.0001)
+
+# high
+test_fdr_CA_high2 <- sapply(range, function(x) 
+  fdr_1pop_high(a = x, pop = meanA_CA, 
+                sims = meanA_MVNsim_CA_bounded))
+FDRs_CA_high2 <- sapply(FDR_values, function(p) min(range_q_high[test_fdr_CA_high2<p], na.rm = T))
+# get standard deviation cutoffs for FDR shared high loci -- using MVN quantiles
+test_fdr_shared_high_quantile <- sapply(range_q_high, function(x)
+  fdr_shared_high(a1 = quantile(meanA_MVNsim_AR_bounded, x), a2 = quantile(meanA_MVNsim_CA_bounded, x), 
+                  pop1 = meanA_AR, pop2 = meanA_CA, 
+                  sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
+FDRs_shared_high_quantile <- sapply(FDR_values, function(q) min(range_q_high[test_fdr_shared_high_quantile<q], 
+                                    na.rm = T))
+# about how many outliers?
+table(meanA_CA > quantile(meanA_MVNsim_CA_bounded, FDRs_shared_high_quantile[2]) & 
+        meanA_AR > quantile(meanA_MVNsim_AR_bounded, FDRs_shared_high_quantile[2]))/length(meanA_CA)
+A_AR_CA %>%
+  filter(., CA > quantile(meanA_MVNsim_CA_bounded, FDRs_shared_high_quantile[2]) & 
+  AR > quantile(meanA_MVNsim_AR_bounded, FDRs_shared_high_quantile[2])) %>%
+  group_by(chr) %>%
+  summarise(n = n())
+
+
+# shared low # standard deviations below mean
+test_fdr_shared_low_quantile <- sapply(range_q_low, function(x)
+  fdr_shared_low(a1 = quantile(meanA_MVNsim_AR_bounded, x), a2 = quantile(meanA_MVNsim_CA_bounded, x), 
+                 pop1 = meanA_AR, pop2 = meanA_CA, 
+                 sims1 = meanA_MVNsim_AR_bounded, sims2 = meanA_MVNsim_CA_bounded))
+FDRs_shared_low_quantile <- sapply(FDR_values, function(q) min(range_q_low[test_fdr_shared_low_quantile<q], na.rm = T))
+# no outliers
+
 
 # high CA and high AR separately (less powerful):
 test_fdr_CA_high_sds <- sapply(sd_range, function(x) 
@@ -1549,11 +1584,13 @@ FDRs <- read.table("results/FDRs_MVN_01_high_low_A_percent_cutoffs.txt",
 
 # what percent of the genome matches these cutoffs?
 table(meanA_CA > FDRs$CA_high[FDRs$FDR_values==.05])/length(meanA_CA) # 0.26% of loci
+table(meanA_CA > FDRs$CA_high[FDRs$FDR_values==.1])/length(meanA_CA) # 0.34% of loci
 table(sites$scaffold[meanA_CA > FDRs$CA_high[FDRs$FDR_values==.05]]) # where are they?
 table(meanA_MVNsim_CA_bounded > FDRs$CA_high[FDRs$FDR_values==.1])/n_sim # quantile from sims
 
 # high AR
 table(meanA_AR > FDRs$AR_high[FDRs$FDR_values==.05])/length(meanA_AR) # 0.06% of loci (very few!)
+table(meanA_AR > FDRs$AR_high[FDRs$FDR_values==.1])/length(meanA_AR) # 0.13% of loci (very few!)
 table(sites$scaffold[meanA_AR > FDRs$AR_high[FDRs$FDR_values==.05]]) # where are they?
 table(meanA_MVNsim_AR_bounded > FDRs$AR_high[FDRs$FDR_values==.05])/n_sim # quantile from sims
 quantile(meanA_MVNsim_AR_bounded, .999)

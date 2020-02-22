@@ -786,6 +786,10 @@ ggsave("../../bee_manuscript/figures_main/world_map_ngsadmix_tall.tiff",
        plot = p_world_admix_tall, 
        device = "tiff", 
        width = 7.5, height = 6.75, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures_main/world_map_ngsadmix_tall_300dpi.tiff",
+       plot = p_world_admix_tall, 
+       device = "tiff", 
+       width = 7.5, height = 6.75, units = "in", dpi = 300)
 
 # --------------------------------------------------------------------------
 

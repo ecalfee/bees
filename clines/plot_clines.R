@@ -143,7 +143,7 @@ curve(logistic3(x, b = coef_lat$b, mu = coef_lat$mu),
 # can do the same w/ 'predict()' but need to sort data
 lines(d_A$abs_lat[order(d_A$abs_lat)], predict(fit_lat)[order(d_A$abs_lat)], lty=2, col="red", lwd=3)
 # what width would be expect for neutral diffusion?
-km_per_degree_lat = 110.567 # estimate from the equator
+km_per_degree_lat = 111 # 111.699 km at the poles, 110.567 estimate from the equator
 curve((coef_lat$b*4*km_per_degree_lat)^2/(2*pi*x), from = 20, to = 90,
       xlab = "generations since admixture",
       ylab = "neutral s.d. parent-offspring dispersal")
@@ -327,8 +327,8 @@ fit_lat_zone_mu_and_w_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat,
                                                              b = -4/(w + w_SA*S_America), 
                                                              mu = mu + mu_SA*S_America,
                                                              K = 0.84),
-                                           start_lower = list(w = 0, mu = 25, b_SA = -1, mu_SA = -5),
-                                           start_upper = list(w = 15, mu = 40, b_SA = 1, mu_SA = 5),
+                                           start_lower = list(w = 0, mu = 25, w_SA = -10, mu_SA = -5),
+                                           start_upper = list(w = 15, mu = 40, w_SA = 10, mu_SA = 5),
                                            supp_errors = 'Y',
                                            iter = 250,
                                            convergence_count = 100,
@@ -808,26 +808,36 @@ ggsave("../wing_analysis/plots/wing_A_cline.png",
        plot = grid.arrange(p_A, p_wing, nrow = 2),
        height = 6, width = 8)
 
+
+# climate vs. latitude model comparison:
+# don't allow SA and NA to have different intercepts
+# fit latitude
+fit_lat_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
+                                                b = -4/w, 
+                                                mu = mu,
+                                                K = 0.84),
+                              start_lower = list(w = 0, mu = min(d_A$abs_lat)),
+                              start_upper = list(w = 15, mu = max(d_A$abs_lat)),
+                              supp_errors = 'Y',
+                              iter = 250,
+                              convergence_count = 100,
+                              data = d_A)
+
+glance(fit_lat_.84)
+
 # distance from brazil
-start_dist <- getInitial(alpha ~ SSlogis(km_from_sao_paulo, 
-                                             Asym, 
-                                        xmid, scal), 
-                        d = d_A[d_A$S_America == 1, ])
-fit_dist0 <- nls(alpha/rescale ~ logistic3(x = km_from_sao_paulo, b = b, mu = mu),
-               start = list(b = 1/unname(start_dist["scal"]),
-                            mu = unname(start_dist["xmid"])),
-               data = d_A,
-               trace = F)
-fit_dist <- nls_multstart(alpha ~ rescale*logistic3(x = km_from_sao_paulo, 
-                                        b = b, mu = mu),
-              start_lower = list(b = -5, mu = 1000),
-              start_upper = list(b = 5, mu = 10000),
-              supp_errors = 'Y',
-              iter = 250,
-              convergence_count = 100,
-              data = d_A)
-glance(fit_dist)
-sum_dist <- summary(fit_dist)
+fit_dist_.84 <- nls_multstart(alpha ~ logistic4(x = km_from_sao_paulo, 
+                                                             b = -4/w, 
+                                                             mu = mu,
+                                                             K = 0.84),
+                                           start_lower = list(w = 0, mu = min(d_A$km_from_sao_paulo)),
+                                           start_upper = list(w = 15, mu = max(d_A$km_from_sao_paulo)),
+                                           supp_errors = 'Y',
+                                           iter = 250,
+                                           convergence_count = 100,
+                                           data = d_A)
+
+glance(fit_dist_.84)
 plot(alpha ~ km_from_sao_paulo, data = d_A, 
      col = NULL,
      ylim = c(0, 1), 
@@ -839,8 +849,10 @@ points(alpha ~ km_from_sao_paulo, data = d_A, # plot points again on top
                     col_NA_SA_both["S. America"], 
                     col_NA_SA_both["N. America"]))
 # plot MAP line from model coefficients:
-curve(rescale1*logistic3(x, b = summary(fit_dist)$coefficients["b", "Estimate"], 
-                        mu = summary(fit_dist)$coefficients["mu", "Estimate"]), 
+curve(logistic4(x = x, 
+                        b = -4/coef(fit_dist_.84)[["w"]], 
+                        mu = coef(fit_dist_.84)[["mu"]],
+                        K = 0.84),
       range(d_A$km_from_sao_paulo), n = 1000,
       col = "black", lwd = 2, add = T, lty = 2)
 # clearly this is a silly exercise
@@ -860,6 +872,17 @@ fit_lat_zone_2014 <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b,
                     data = d_A[d_A$population != "Avalon_2014", ],
                     trace = F)
 summary(fit_lat_zone_2014)
+
+fit_winter_.84 <- nls_multstart(alpha ~ logistic4(x = MeanTempColdestQuarter, 
+                                                b = -4/w, 
+                                                mu = mu,
+                                                K = 0.84),
+                              start_lower = list(w = 0, mu = min(d_A$MeanTempColdestQuarter)),
+                              start_upper = list(w = 15, mu = max(d_A$MeanTempColdestQuarter)),
+                              supp_errors = 'Y',
+                              iter = 250,
+                              convergence_count = 100,
+                              data = d_A)
 
 fit_winter <- nls_multstart(alpha ~ rescale*logistic3(x = MeanTempColdestQuarter, 
                                                               b = b, mu = mu),

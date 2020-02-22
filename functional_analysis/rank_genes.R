@@ -1283,9 +1283,30 @@ ACM_AR_CA %>%
 
 # shared high outliers. where are they?
 filter(outliers_all, outlier_type == "high_shared2") %>%
-  group_by(chr) %>%
+  group_by(chr, outlier_type) %>%
   summarise(min = min(start),
-            max = max(end))
+            max = max(end),
+            diff = max - min,
+            n = n())
+
+filter(outliers_all, outlier_type == c("high_shared2", "high_CA", "high_AR")) %>%
+  group_by(chr, outlier_type) %>%
+  summarise(min = min(start),
+            max = max(end),
+            diff = max - min,
+            n = n())
+filter(outliers_all) %>%
+  group_by(outlier_type) %>%
+  summarise(n = n())
+filter(outliers_all) %>%
+  filter(outlier_type != "low_AR") %>%
+  group_by(chr) %>%
+  summarise(n = n())
+filter(outliers_all) %>%
+  filter(outlier_type == "low_AR") %>%
+  group_by(chr) %>%
+  summarise(n = n())
+
 
 # chr1
 A_AR_CA[which.max(meanA),]
