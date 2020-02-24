@@ -34,6 +34,7 @@ meta <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F,
                                     "N. America",
                             NA)))
 meta$label <- meta$Bee_ID
+load("../local_ancestry/results/meta.RData")
 pop2014_incl <- c("Stebbins_2014", "Stanislaus_2014", "Avalon_2014",
                   "Placerita_2014", "Riverside_2014", "Davis_2014")
 for (i in pop2014_incl){ # make short labels for included bees from these ca_bee populations
@@ -544,7 +545,7 @@ distm(AR_end1[ , c("long", "lat")], AR_end2[ , c("long", "lat")], fun = distGeo)
 # make a scale bar with the symbols for my structure-like plot:
 CA_bar <- admix.pops %>%
   filter(continent == "N. America") %>%
-  arrange(lat) %>%
+  arrange(desc(lat)) %>%
   mutate(end = cumsum(n)) %>%
   mutate(start = end - n) %>%
   mutate(center = start + n/2)
@@ -737,6 +738,26 @@ NA_plot <- d_admix %>%
     axis.title.x = element_blank()) +
   guides(fill = "none",
          alpha = "none")
+NA_plot +
+  geom_point(data = CA_bar,
+             aes(x = center + 0.5, 
+                 y = 1.05, 
+                 color = population_factor,
+                 shape = factor(shape)), 
+             fill = "white",
+             size = 1,
+             alpha = 1) +
+  scale_color_viridis_d(option = "plasma", direction = -1,
+                        begin = 0.1, end = 0.85) +
+  scale_shape_manual(values = c(15, 1, 17, 5, 19, 6)) +
+  guides(color = "none", shape = "none") +
+  geom_segment(data = CA_bar %>% mutate(ancestry_label = "A"), 
+               aes(x = end + 0.5, xend = end + 0.5, 
+                                  y = 1, yend = 1.1,
+                   lwd = 0.1),
+               color = "black", size = 0.1, alpha = 1)
+  #scale_x_discrete(breaks = c(10,30,40))
+
 SA_plot <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "AR_2018") %>%
   left_join(., anc, by = "ancestry") %>%
