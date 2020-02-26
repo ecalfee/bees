@@ -11,6 +11,7 @@ library(broom)
 library(purrr)
 library(nlstools)
 library(betareg) # alternative ML fitting
+library(xtable)
 source("../colors.R") # get color palette
 #install.packages("nls.multstart")
 library(nls.multstart)
@@ -19,6 +20,7 @@ old.par <- par() # save default
 source("cline_functions.R") # loads logistic and stepped clines etc.
 load("results/d_A.RData") # load data
 load("../wing_analysis/results/wing_fits.RData") # wing linear model fits
+load("../local_ancestry/results/meta.RData")
 
 iHot <- which.max(d_A$AnnualMeanTemp)
 iCold <- which.min(d_A$AnnualMeanTemp)
@@ -50,7 +52,8 @@ d_A %>%
   xlab("Degrees latitude from the equator") + 
   theme(legend.position="bottom") + 
   labs(color = "") +
-  scale_shape_manual(values = c(17, 19), name = "Year") +
+  ylab("") +
+  scale_shape_manual(values = c(17, 19), name = "Sample") +
   scale_color_manual(values = col_NA_SA_both, name = "Continent") +
   theme_classic()
 ggsave("plots/climate_variables_across_latitude.png", 
@@ -115,8 +118,8 @@ info_lat0 <- c(converged = sum_lat0$convInfo$isConv,
 
 fit_lat <- nls_multstart(alpha ~ logistic3(x = abs_lat, 
                                               b = b, mu = mu),
-                            start_lower = list(b = -1, mu = 25),
-                            start_upper = list(b = 1, mu = 40),
+                            start_lower = list(b = -1, mu = min(d_A$abs_lat)),
+                            start_upper = list(b = 1, mu = max(d_A$abs_lat)),
                             supp_errors = 'Y',
                             iter = 250,
                             convergence_count = 100,
@@ -179,8 +182,8 @@ fit_lat_NA0 <- nls(alpha ~ logistic3(x = abs_lat, b = b, mu = mu),
 # can alternatively fit w/ multstart
 fit_lat_NA <- nls_multstart(alpha ~ logistic3(x = abs_lat, 
                               b = b, mu = mu),
-                start_lower = list(b = -1, mu = 25),
-                start_upper = list(b = 1, mu = 40),
+                start_lower = list(b = -1, mu = min(d_A$abs_lat)),
+                start_upper = list(b = 1, mu = max(d_A$abs_lat)),
                 supp_errors = 'Y',
                 iter = 250,
                 convergence_count = 100,
@@ -194,8 +197,8 @@ start_lat_SA <- getInitial(rescale ~ SSlogis(abs_lat, Asym,
                            d = d_A[d_A$S_America == 1, ])
 fit_lat_SA <- nls_multstart(alpha ~ logistic3(x = abs_lat, 
                                                             b = b, mu = mu),
-                                          start_lower = list(b = -1, mu = 25),
-                                          start_upper = list(b = 1, mu = 40),
+                                          start_lower = list(b = -1, mu = min(d_A$abs_lat)),
+                                          start_upper = list(b = 1, mu = max(d_A$abs_lat)),
                                           supp_errors = 'Y',
                                           iter = 250,
                                           convergence_count = 100,
@@ -220,8 +223,8 @@ coef_lat_SA = tidy(fit_lat_SA) %>%
 fit_lat_zone_mu_and_b <- nls_multstart(alpha ~ logistic3(x = abs_lat, 
                                                                  b = b + b_SA*S_America, 
                                                                  mu = mu + mu_SA*S_America),
-                                       start_lower = list(b = -1, mu = 25, b_SA = -1, mu_SA = -5),
-                                       start_upper = list(b = 1, mu = 40, b_SA = 1, mu_SA = 5),
+                                       start_lower = list(b = -5, mu = min(d_A$abs_lat), b_SA = -5, mu_SA = -10),
+                                       start_upper = list(b = 5, mu = max(d_A$abs_lat), b_SA = 5, mu_SA = 10),
                                        supp_errors = 'Y',
                                        iter = 250,
                                        convergence_count = 100,
@@ -230,7 +233,9 @@ fit_lat_zone_mu_and_b <- nls_multstart(alpha ~ logistic3(x = abs_lat,
 summary(fit_lat_zone_mu_and_b) # b_SA is not significant, drop:
 coef_lat_zone_mu_b = tidy(fit_lat_zone_mu_and_b) %>%
   dplyr::select(., term, estimate) %>%
-  spread(., term, estimate)
+  spread(., term, estimate) %>%
+  mutate(width_NA = abs(4/b),
+         width_SA = abs(4/(b + b_SA)))
 coef_lat_zone_mu_b
 
 # rescale by 0.84:
@@ -238,8 +243,8 @@ fit_lat_zone_mu_and_b_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat,
                                                                      b = b + b_SA*S_America, 
                                                                      mu = mu + mu_SA*S_America,
                                                              K = 0.84),
-                                           start_lower = list(b = -1, mu = 25, b_SA = -1, mu_SA = -5),
-                                           start_upper = list(b = 1, mu = 40, b_SA = 1, mu_SA = 5),
+                                           start_lower = list(b = -5, mu = min(d_A$abs_lat), b_SA = -5, mu_SA = -10),
+                                           start_upper = list(b = 5, mu = max(d_A$abs_lat), b_SA = 5, mu_SA = 10),
                                            supp_errors = 'Y',
                                            iter = 250,
                                            convergence_count = 100,
@@ -252,10 +257,49 @@ glance(fit_lat_zone_mu_and_b_.84)
 
 coef_lat_zone_mu_b_.84 = tidy(fit_lat_zone_mu_and_b_.84) %>%
   dplyr::select(., term, estimate) %>%
-  spread(., term, estimate)
+  spread(., term, estimate) %>%
+  mutate(width_NA = abs(4/b),
+         width_SA = abs(4/(b + b_SA)))
 coef_lat_zone_mu_b_.84
+coef_lat_zone_mu_b_.84$mu
 sum(coef_lat_zone_mu_b_.84[ , c("mu", "mu_SA")])
 coef_lat_zone_mu_b
+
+# only allow mu to vary, not slope b
+# rescale by 0.84:
+fit_lat_zone_mu_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
+                                                             b = b, 
+                                                             mu = mu + mu_SA*S_America,
+                                                             K = 0.84),
+                                           start_lower = list(b = -5, mu = min(d_A$abs_lat), mu_SA = -10),
+                                           start_upper = list(b = 5, mu = max(d_A$abs_lat), mu_SA = 10),
+                                           supp_errors = 'Y',
+                                           iter = 250,
+                                           convergence_count = 100,
+                                           data = d_A) #%>%
+#filter(year != 2014))
+summary(fit_lat_zone_mu_.84)
+tidy(fit_lat_zone_mu_.84)
+glance(fit_lat_zone_mu_.84)
+
+coef_lat_zone_mu_.84 = tidy(fit_lat_zone_mu_.84) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate) %>%
+  mutate(width_NA = abs(4/b))
+# ANOVA compare nested models
+anova(fit_lat_zone_mu_and_b_.84, fit_lat_zone_mu_.84) # not sig.
+anova(fit_lat_zone_mu_.84, fit_lat_.84) # is sig.
+anova_2clines <- anova(fit_lat_zone_mu_and_b_.84, fit_lat_zone_mu_.84, fit_lat_.84)
+anova_2clines
+xtable(anova_2clines)
+print(xtable(anova_2clines, 
+             caption = "\\color{Gray} \textbf{Latitudinal clines} Significance test for different cline centers (sig.) and cline center and slopes (not sig.) between North and South America",
+             label = "anova_lat_clines",
+             type = "latex", 
+             latex.environments = NULL), 
+      file = "../../bee_manuscript/tables/anova_lat_clines.tex")
+
+
 
 # bootstraps for uncertainty in cline parameter estimates:
 # (individuals re-sampled within populations)
@@ -303,36 +347,50 @@ CI_diff_w2
 curve(-4/(-0.5 + x), from = -3, to = 0)
 CI_SA_w-CI_NA_w
 
-# at what latitude do these clines cross the 50% A ancestry frequency?
-find_x <- function(mu, K, A, b){ # solve cline equation to get x
-  log(0.84/A - 1)/-b + mu
-}
-fifty_perc_lat <- c(CA = find_x(mu = coef_lat_zone_mu_b_.84$mu, 
-                                K = 0.84, A = 0.5, 
-                                b = coef_lat_zone_mu_b_.84$b),
-                    AR = find_x(mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA, 
-                                K = 0.84, A = 0.5, 
-                                b = coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA))
-fifty_perc_lat
-twenty_perc_lat <- c(CA = find_x(mu = coef_lat_zone_mu_b_.84$mu, 
-                                K = 0.84, A = 0.2, 
-                                b = coef_lat_zone_mu_b_.84$b),
-                    AR = find_x(mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA, 
-                                K = 0.84, A = 0.2, 
-                                b = coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA))
 
 # change parameterization to estimate w directly with bootstrap:
-# rescale by 0.84:
-fit_lat_zone_mu_and_w_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
+# no rescale:
+fit_lat_zone_mu_and_w_1 <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
                                                              b = -4/(w + w_SA*S_America), 
                                                              mu = mu + mu_SA*S_America,
-                                                             K = 0.84),
-                                           start_lower = list(w = 0, mu = 25, w_SA = -10, mu_SA = -5),
-                                           start_upper = list(w = 15, mu = 40, w_SA = 10, mu_SA = 5),
+                                                             K = 1),
+                                           start_lower = list(w = 0, mu = min(d_A$abs_lat), w_SA = -10, mu_SA = -5),
+                                           start_upper = list(w = 15, mu = max(d_A$abs_lat), w_SA = 10, mu_SA = 5),
                                            supp_errors = 'Y',
                                            iter = 250,
                                            convergence_count = 100,
                                            data = d_A)
+summary(fit_lat_zone_mu_and_w_1)
+tidy(fit_lat_zone_mu_and_w_1)
+glance(fit_lat_zone_mu_and_w_1)
+
+# need to flip the sign of b for correct direction of cline:
+curve(logistic4(x, b = .5, mu = 32, K = 0.84), from = 25, to = 40)
+curve(logistic4(x, b = -.5, mu = 32, K = 0.84), from = 25, to = 40, add = T, lty = 2)
+curve(logistic4(-x, b = .5, mu = -32, K = 0.84), from = 25, to = 40, add = T, lty = 3)
+
+# rescale by 0.84:
+fit_lat_zone_mu_and_w_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
+                                                             b = -4/(w + w_SA*S_America), # if I try to fit this cline for + w, it finds a suboptimal solution 
+                                                             mu = mu + mu_SA*S_America,
+                                                             K = 0.84),
+                                           start_lower = list(w = -15, mu = min(d_A$abs_lat), w_SA = -10, mu_SA = -5),
+                                           start_upper = list(w = 15, mu = max(d_A$abs_lat), w_SA = 10, mu_SA = 5),
+                                           supp_errors = 'Y',
+                                           iter = 250,
+                                           convergence_count = 100,
+                                           data = d_A)
+fit_lat_zone_mu_and_w_.84_SA_only <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
+                                                             b = 4/w, 
+                                                             mu = mu,
+                                                             K = 0.84),
+                                           start_lower = list(w = -15, mu = min(d_A$abs_lat)),
+                                           start_upper = list(w = 0, mu = max(d_A$abs_lat)),
+                                           supp_errors = 'Y',
+                                           iter = 250,
+                                           convergence_count = 100,
+                                           data = filter(d_A, continent == "S. America"))
+summary(fit_lat_zone_mu_and_w_.84_SA_only)
 summary(fit_lat_zone_mu_and_w_.84)
 tidy(fit_lat_zone_mu_and_w_.84)
 glance(fit_lat_zone_mu_and_w_.84)
@@ -342,11 +400,45 @@ coef_lat_zone_mu_w_.84 = tidy(fit_lat_zone_mu_and_w_.84) %>%
   spread(., term, estimate)
 coef_lat_zone_mu_w_.84
 4/coef_lat_zone_mu_b_.84$b
+coef_lat_zone_mu_w_.84$mu_SA
+coef_lat_zone_mu_w_.84$mu
 sum(coef_lat_zone_mu_w_.84[ , c("mu", "mu_SA")])
+coef_lat_zone_mu_w_.84$w
 sum(coef_lat_zone_mu_w_.84[ , c("w", "w_SA")])
-4/sum(coef_lat_zone_mu_b_.84[ , c("b", "b_SA")])
+4/sum(coef_lat_zone_mu_b_.84[ , c("b", "b_SA")]) # same. 
 
+curve(logistic4(x, b = 4/(coef_lat_zone_mu_w_.84$w), mu = coef_lat_zone_mu_w_.84$mu, K = 0.84),
+      from = 25, to = 40, col = col_NA_SA_both[["S. America"]])
+curve(logistic4(x, b = coef_lat_zone_mu_b_.84$b, mu = coef_lat_zone_mu_b_.84$mu, K = 0.84),
+      from = 25, to = 40, add = T, col = "blue", lty = 2)
+curve(logistic4(x, b = 4/(coef_lat_zone_mu_w_.84$w + coef_lat_zone_mu_w_.84$w_SA), mu = coef_lat_zone_mu_w_.84$mu + coef_lat_zone_mu_w_.84$mu_SA, K = 0.84),
+      from = 25, to = 40, add = T, col = col_NA_SA_both[["N. America"]])
 
+# at what latitude do these clines cross the 50% A ancestry frequency?
+find_x <- function(mu, K, A, b){ # solve cline equation to get x
+  log(K/A - 1)/-b + mu
+}
+fifty_perc_lat <- c(CA = find_x(mu = coef_lat_zone_mu_b_.84$mu, 
+                                K = 0.84, A = 0.5, 
+                               b =coef_lat_zone_mu_b_.84$b),
+                    AR = find_x(mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA, 
+                                K = 0.84, A = 0.5, 
+                                b =coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA))
+fifty_perc_lat
+twenty_perc_lat <- c(CA = find_x(mu = coef_lat_zone_mu_b_.84$mu, 
+                                 K = 0.84, A = 0.2, 
+                                 b =coef_lat_zone_mu_b_.84$b),
+                     AR = find_x(mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA, 
+                                 K = 0.84, A = 0.2, 
+                                 b =coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA))
+twenty_perc_lat
+fortytwo_perc_lat <- c(CA = find_x(mu = coef_lat_zone_mu_b_.84$mu, 
+                                K = 0.84, A = 0.42, 
+                                b =coef_lat_zone_mu_b_.84$b),
+                    AR = find_x(mu = coef_lat_zone_mu_b_.84$mu + coef_lat_zone_mu_b_.84$mu_SA, 
+                                K = 0.84, A = 0.42, 
+                                b =coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA))
+fortytwo_perc_lat
 
 
 
@@ -368,8 +460,8 @@ dev.off()
 fit_lat_zone <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
                                                         b = b, 
                                                         mu = mu + mu_SA*S_America),
-                              start_lower = list(b = -1, mu = 25, mu_SA = -5),
-                              start_upper = list(b = 1, mu = 40, mu_SA = 5),
+                              start_lower = list(b = -1, mu = min(d_A$abs_lat), mu_SA = -5),
+                              start_upper = list(b = 1, mu = max(d_A$abs_lat), mu_SA = 5),
                               supp_errors = 'Y',
                               iter = 250,
                               convergence_count = 100,
@@ -380,15 +472,15 @@ glance(fit_lat_zone)
 glance(fit_lat)
 coef_lat_zone = tidy(fit_lat_zone) %>%
   dplyr::select(., term, estimate) %>%
-  spread(., term, estimate)
+  spread(., term, estimate) 
 
 
 # fit wing length phenotypic cline:
 fit_wing_lat_zone_mu_and_b <- nls_multstart(wing_rescaled ~ logistic3(x = abs_lat, 
                                                                  b = b + b_SA*S_America, 
                                                                  mu = mu + mu_SA*S_America),
-                                       start_lower = list(b = -1, mu = 25, b_SA = -5, mu_SA = -5),
-                                       start_upper = list(b = 1, mu = 40, b_SA = 5, mu_SA = 5),
+                                            start_lower = list(b = -5, mu = min(d_A$abs_lat), b_SA = -5, mu_SA = -10),
+                                            start_upper = list(b = 5, mu = max(d_A$abs_lat), b_SA = 5, mu_SA = 10),
                                        supp_errors = 'N', # 'Y'
                                        iter = 250,
                                        convergence_count = 100,
@@ -398,82 +490,42 @@ fit_wing_lat_zone_mu_and_b <- nls_multstart(wing_rescaled ~ logistic3(x = abs_la
 summary(fit_wing_lat_zone_mu_and_b)
 coef_wing_lat_zone_mu_b = tidy(fit_wing_lat_zone_mu_and_b) %>%
   dplyr::select(., term, estimate) %>%
-  spread(., term, estimate)
-
+  spread(., term, estimate)  %>%
+  mutate(width_NA = abs(4/b),
+         width_SA = abs(4/(b + b_SA)))
+coef_wing_lat_zone_mu_b # super wide
 #d_A %>%
 #  mutate(wing_rescaled = 
 #           (wing_cm - sum(coefficients(m_wing)*c(1, 0.5)))/abs(coefficients(m_wing)[2])) %>%
 d_A %>%
-  mutate(wing_rescaled = 
-           (wing_cm - min(d_A$wing_cm, na.rm = T))/diff(range(d_A$wing_cm, na.rm = T))) %>%
-
-  ggplot(., aes(x = abs(lat), y = wing_rescaled)) +
-  geom_point()
-
+  #mutate(., wing_rescaled = (wing_cm - min(d_A$wing_cm, na.rm = T))/diff(range(d_A$wing_cm, na.rm = T))) %>%
+  ggplot(., aes(x = abs(lat), y = wing_cm, color = continent)) +
+  geom_point() +
+  stat_function(fun = function(x) diff(range(d_A$wing_cm, na.rm = T))*logistic3(x, # need to plot negative because not affected by reverse y scale
+                                                 b = coef_wing_lat_zone_mu_b$b, 
+                                                 mu = coef_wing_lat_zone_mu_b$mu) + 
+                  min(d_A$wing_cm, na.rm = T),
+                color = col_NA_SA_both["N. America"],
+                size = 1,
+                lty = 5) +
+  scale_color_manual(values = col_NA_SA_both) +
+  geom_smooth() +
+  stat_function(fun = function(x) diff(range(d_A$wing_cm, na.rm = T))*logistic3(x, # need to plot negative because not affected by reverse y scale
+                                                                                b = coef_wing_lat_zone_mu_b$b + coef_wing_lat_zone_mu_b$b_SA, 
+                                                                                mu = coef_wing_lat_zone_mu_b$mu + coef_wing_lat_zone_mu_b$mu_SA) + 
+                  min(d_A$wing_cm, na.rm = T),
+                color = col_NA_SA_both["S. America"],
+                size = 1,
+                lty = 5) +
+  ggtitle("attempt to fit separate clines to (rescaled) wing lengths")
 
 
 
 # plot the two clines:
 #plot
-# need to make pdf version eventually.
-png("../../bee_manuscript/figures/m_lat_model_prediction.png", height = 6, width = 8, units = "in", res = 300)
-plot(alpha ~ abs_lat, data = d_A, 
-     col = NULL,
-     ylim = c(0, 1), 
-     #main = "African ancestry predicted by latitude", 
-     xlab = "Degrees latitude from equator",
-     ylab = "A ancestry proportion")
-points(alpha ~ abs_lat, data = d_A, # plot points again on top
-       col = ifelse(d_A$continent == "S. America", 
-                    col_NA_SA_both["S. America"], 
-                    col_NA_SA_both["N. America"]))
-# plot MAP line from model coefficients:
-curve(rescale1*logistic3(x, b = coef_lat_zone_mu_b$b + coef_lat_zone_mu_b$b_SA, 
-                         mu = coef_lat_zone_mu_b$mu + coef_lat_zone_mu_b$mu_SA), 
-      range(d_A$abs_lat), n = 1000,
-      col = col_NA_SA_both["S. America"], 
-      lwd = 2, lty = 1, add = T)
-curve(rescale1*logistic3(x, b = coef_lat_zone_mu_b$b, mu = coef_lat_zone_mu_b$mu), 
-      range(d_A$abs_lat), n = 1000,
-      col = col_NA_SA_both["N. America"], 
-      lwd = 2, lty = 1, add = T)
-curve(1-logistic3(x, b = coef_wing_lat_zone_mu_b$b, mu = coef_wing_lat_zone_mu_b$mu), 
-      range(d_A$abs_lat), n = 1000,
-      col = col_NA_SA_both["N. America"], 
-      lwd = 2, lty = 2, add = T)
-curve(1-logistic3(x, b = coef_wing_lat_zone_mu_b$b + coef_wing_lat_zone_mu_b$b_SA, 
-                  mu = coef_wing_lat_zone_mu_b$mu + coef_wing_lat_zone_mu_b$mu_SA), 
-      range(d_A$abs_lat), n = 1000,
-      col = col_NA_SA_both["S. America"], 
-      lwd = 2, lty = 2, add = T)
-points(1-wing_rescaled ~ abs_lat, data = d_A %>%
-          mutate(wing_rescaled = 
-                   (wing_cm - min(d_A$wing_cm, na.rm = T))/diff(range(d_A$wing_cm, na.rm = T))), # plot points again on top
-       col = ifelse(d_A$continent == "S. America", 
-                    col_NA_SA_both["S. America"], 
-                    col_NA_SA_both["N. America"]),
-       pch = 4)
-
-#curve(logistic4(x, b = coef_lat_zone_mu_b_asym$b + coef_lat_zone_mu_b_asym$b_SA, 
-#                         mu = coef_lat_zone_mu_b_asym$mu + coef_lat_zone_mu_b_asym$mu_SA,
-#                asym = coef_lat_zone_mu_b_asym$asym_SA), 
-#      range(d_A$abs_lat), n = 1000,
-#      col = col_NA_SA_both["S. America"], 
-#      lwd = 2, lty = 2, add = T)
-#curve(logistic4(x, b = coef_lat_zone_mu_b_asym$b, 
-#                mu = coef_lat_zone_mu_b_asym$mu,
-#                asym = coef_lat_zone_mu_b_asym$asym_NA), 
-#      range(d_A$abs_lat), n = 1000,
-#      col = col_NA_SA_both["N. America"], 
-#      lwd = 2, lty = 2, add = T)
-#curve(rescale1*logistic3(x, b = coef_lat$b, mu = coef_lat$mu), 
-#      range(d_A$abs_lat), n = 1000,
-#      col = "black", lwd = 2, add = T, lty = 2)
-
-legend("topright", c("N. America", "S. America"), pch = c(1, 1), col = col_NA_SA_both[c("N. America", "S. America")])
-
-dev.off()
-
+logistic3(10, # need to plot negative because not affected by reverse y scale
+          b = 4/(fit_wing_lat_zone_mu_and_w[["w"]]), 
+          mu = coef(fit_wing_lat_zone_mu_and_w)[["mu"]])
 
 # plot wing cline and genomic cline together:
 png("../wing_analysis/plots/fit_wing_A_clines.png", height = 6, width = 8, units = "in", res = 300)
@@ -510,8 +562,8 @@ abline(v = fifty_perc_lat, lty = 2,
 #       lty = 2,
 #       col = col_NA_SA_both[c("N. America", "S. America")])
 # legend
-legend(39, 0.6, c("N. America", "S. America"), xpd = TRUE,
-       pch = c(1, 1), col = col_NA_SA_both[c("N. America", "S. America")])
+#legend(39, 0.6, c("N. America", "S. America"), xpd = TRUE,
+#       pch = c(1, 1), col = col_NA_SA_both[c("N. America", "S. America")])
 legend("topright", c("N. America", "S. America"),
        pch = c(1, 1), col = col_NA_SA_both[c("N. America", "S. America")])
 
@@ -569,6 +621,7 @@ p_A_cline_loess <-
                                             K = 0.84),
                 color = col_NA_SA_both["S. America"],
                 size = 1) +
+  
   geom_vline(data = data.frame(continent = c("N. America", "S. America"),
                                abs_lat = fifty_perc_lat), 
              aes(xintercept = abs_lat),
@@ -813,31 +866,61 @@ ggsave("../wing_analysis/plots/wing_A_cline.png",
 # don't allow SA and NA to have different intercepts
 # fit latitude
 fit_lat_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
-                                                b = -4/w, 
+                                                b = b, 
                                                 mu = mu,
                                                 K = 0.84),
-                              start_lower = list(w = 0, mu = min(d_A$abs_lat)),
-                              start_upper = list(w = 15, mu = max(d_A$abs_lat)),
+                              start_lower = list(b = -5, mu = min(d_A$abs_lat)),
+                              start_upper = list(b = 5, mu = max(d_A$abs_lat)),
                               supp_errors = 'Y',
                               iter = 250,
                               convergence_count = 100,
                               data = d_A)
-
+summary(fit_lat_.84)
+tidy(fit_lat_.84)
 glance(fit_lat_.84)
+coef_lat_.84 = tidy(fit_lat_.84) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate) %>%
+  mutate(width = abs(4/b))
+coef_lat_.84
+plot(alpha ~ abs_lat, data = d_A, 
+     col = NULL,
+     ylim = c(0, 1), 
+     main = "African ancestry predicted by latitude", 
+     xlab = "Degrees latitude from the equator",
+     ylab = "A ancestry proportion")
+points(alpha ~ abs_lat, data = d_A, # plot points again on top
+       col = ifelse(d_A$continent == "S. America", 
+                    col_NA_SA_both["S. America"], 
+                    col_NA_SA_both["N. America"]))
+# plot MAP line from model coefficients:
+curve(logistic4(x = x, 
+                b = coef(fit_lat_.84)[["b"]], 
+                mu = coef(fit_lat_.84)[["mu"]],
+                K = 0.84),
+      range(d_A$abs_lat), n = 1000,
+      col = "black", lwd = 2, add = T, lty = 2)
+
 
 # distance from brazil
 fit_dist_.84 <- nls_multstart(alpha ~ logistic4(x = km_from_sao_paulo, 
-                                                             b = -4/w, 
-                                                             mu = mu,
-                                                             K = 0.84),
-                                           start_lower = list(w = 0, mu = min(d_A$km_from_sao_paulo)),
-                                           start_upper = list(w = 15, mu = max(d_A$km_from_sao_paulo)),
-                                           supp_errors = 'Y',
-                                           iter = 250,
-                                           convergence_count = 100,
-                                           data = d_A)
-
+                                               b = b, 
+                                               mu = mu,
+                                               K = 0.84),
+                             start_lower = list(b = -5, mu = min(d_A$km_from_sao_paulo)),
+                             start_upper = list(b = 5, mu = max(d_A$km_from_sao_paulo)),
+                             supp_errors = 'Y',
+                             iter = 250,
+                             convergence_count = 100,
+                             data = d_A)
+summary(fit_dist_.84)
+tidy(fit_dist_.84)
 glance(fit_dist_.84)
+coef_dist_.84 = tidy(fit_dist_.84) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate) %>%
+  mutate(width = abs(4/b))
+coef_dist_.84
 plot(alpha ~ km_from_sao_paulo, data = d_A, 
      col = NULL,
      ylim = c(0, 1), 
@@ -850,12 +933,283 @@ points(alpha ~ km_from_sao_paulo, data = d_A, # plot points again on top
                     col_NA_SA_both["N. America"]))
 # plot MAP line from model coefficients:
 curve(logistic4(x = x, 
-                        b = -4/coef(fit_dist_.84)[["w"]], 
+                        b = coef(fit_dist_.84)[["b"]], 
                         mu = coef(fit_dist_.84)[["mu"]],
                         K = 0.84),
       range(d_A$km_from_sao_paulo), n = 1000,
       col = "black", lwd = 2, add = T, lty = 2)
 # clearly this is a silly exercise
+
+# mean temp
+fit_temp_.84 <- nls_multstart(alpha ~ logistic4(x = AnnualMeanTemp, 
+                                                b = b, 
+                                                mu = mu,
+                                                K = 0.84),
+                              start_lower = list(b = -5, mu = min(d_A$AnnualMeanTemp)),
+                              start_upper = list(b = 5, mu = max(d_A$AnnualMeanTemp)),
+                              supp_errors = 'Y',
+                              iter = 250,
+                              convergence_count = 100,
+                              data = d_A)
+summary(fit_temp_.84)
+tidy(fit_temp_.84)
+glance(fit_temp_.84)
+coef_temp_.84 = tidy(fit_temp_.84) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate) %>%
+  mutate(width = abs(4/b))
+coef_temp_.84
+plot(alpha ~ AnnualMeanTemp, data = d_A, 
+     col = NULL,
+     ylim = c(0, 1), 
+     main = "African ancestry predicted by annual mean temperature", 
+     xlab = "Annual mean temperature",
+     ylab = "A ancestry proportion")
+points(alpha ~ AnnualMeanTemp, data = d_A, # plot points again on top
+       col = ifelse(d_A$continent == "S. America", 
+                    col_NA_SA_both["S. America"], 
+                    col_NA_SA_both["N. America"]))
+# plot MAP line from model coefficients:
+curve(logistic4(x = x, 
+                b = coef(fit_temp_.84)[["b"]], 
+                mu = coef(fit_temp_.84)[["mu"]],
+                K = 0.84),
+      range(d_A$AnnualMeanTemp), n = 1000,
+      col = "black", lwd = 2, add = T, lty = 2)
+# riverside 2014:
+#filter(d_A, population == "Riverside_2014") %>%
+filter(d_A, year == 2014) %>%
+  points(alpha ~ AnnualMeanTemp, data = ., # plot points again on top
+       col = "black", cex = 1, pch = 4)
+
+
+
+# coldest temp
+fit_cold_.84 <- nls_multstart(alpha ~ logistic4(x = MinTempColdestMonth, 
+                                                b = b, 
+                                                mu = mu,
+                                                K = 0.84),
+                              start_lower = list(b = -5, mu = min(d_A$MinTempColdestMonth)),
+                              start_upper = list(b = 5, mu = max(d_A$MinTempColdestMonth)),
+                              supp_errors = 'Y',
+                              iter = 250,
+                              convergence_count = 100,
+                              data = d_A)
+summary(fit_cold_.84)
+tidy(fit_cold_.84)
+glance(fit_cold_.84)
+coef_cold_.84 = tidy(fit_cold_.84) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate) %>%
+  mutate(width = abs(4/b))
+coef_cold_.84
+plot(alpha ~ MinTempColdestMonth, data = d_A, 
+     col = NULL,
+     ylim = c(0, 1), 
+     main = "African ancestry predicted by minimum temperature", 
+     xlab = "Min. temperature coldest month",
+     ylab = "A ancestry proportion")
+points(alpha ~ MinTempColdestMonth, data = d_A, # plot points again on top
+       col = ifelse(d_A$continent == "S. America", 
+                    col_NA_SA_both["S. America"], 
+                    col_NA_SA_both["N. America"]))
+# plot MAP line from model coefficients:
+curve(logistic4(x = x, 
+                b = coef(fit_cold_.84)[["b"]], 
+                mu = coef(fit_cold_.84)[["mu"]],
+                K = 0.84),
+      range(d_A$MinTempColdestMonth), n = 1000,
+      col = "black", lwd = 2, add = T, lty = 2)
+
+# winter mean temp
+fit_winter_.84 <- nls_multstart(alpha ~ logistic4(x = MeanTempColdestQuarter, 
+                                                b = b, 
+                                                mu = mu,
+                                                K = 0.84),
+                              start_lower = list(b = -5, mu = min(d_A$MeanTempColdestQuarter)),
+                              start_upper = list(b = 5, mu = max(d_A$MeanTempColdestQuarter)),
+                              supp_errors = 'Y',
+                              iter = 250,
+                              convergence_count = 100,
+                              data = d_A)
+summary(fit_winter_.84)
+tidy(fit_winter_.84)
+glance(fit_winter_.84)
+coef_winter_.84 = tidy(fit_winter_.84) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate) %>%
+  mutate(width = abs(4/b))
+coef_winter_.84
+plot(alpha ~ MeanTempColdestQuarter, data = d_A, 
+     col = NULL,
+     ylim = c(0, 1), 
+     main = "African ancestry predicted by winter temperature", 
+     xlab = "Mean temperature coldest quarter",
+     ylab = "A ancestry proportion")
+points(alpha ~ MeanTempColdestQuarter, data = d_A, # plot points again on top
+       col = ifelse(d_A$continent == "S. America", 
+                    col_NA_SA_both["S. America"], 
+                    col_NA_SA_both["N. America"]))
+# plot MAP line from model coefficients:
+curve(logistic4(x = x, 
+                b = coef(fit_winter_.84)[["b"]], 
+                mu = coef(fit_winter_.84)[["mu"]],
+                K = 0.84),
+      range(d_A$MeanTempColdestQuarter), n = 1000,
+      col = "black", lwd = 2, add = T, lty = 2)
+
+# annual precipitation:
+fit_precip_.84 <- nls_multstart(alpha ~ logistic4(x = AnnualPrecip, 
+                                                  b = b, 
+                                                  mu = mu,
+                                                  K = 0.84),
+                                start_lower = list(b = -5, mu = min(d_A$AnnualPrecip)),
+                                start_upper = list(b = 5, mu = max(d_A$AnnualPrecip)),
+                                supp_errors = 'Y',
+                                iter = 250,
+                                convergence_count = 100,
+                                data = d_A)
+summary(fit_precip_.84)
+tidy(fit_precip_.84)
+glance(fit_precip_.84)
+coef_precip_.84 = tidy(fit_precip_.84) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate) %>%
+  mutate(width = abs(4/b))
+coef_precip_.84
+plot(alpha ~ AnnualPrecip, data = d_A, 
+     col = NULL,
+     ylim = c(0, 1), 
+     main = "African ancestry predicted by annual precipitation", 
+     xlab = "Mean annual precipitation (cm)",
+     ylab = "A ancestry proportion")
+points(alpha ~ AnnualPrecip, data = d_A, # plot points again on top
+       col = ifelse(d_A$continent == "S. America", 
+                    col_NA_SA_both["S. America"], 
+                    col_NA_SA_both["N. America"]))
+# plot MAP line from model coefficients:
+curve(logistic4(x = x, 
+                b = coef(fit_precip_.84)[["b"]], 
+                mu = coef(fit_precip_.84)[["mu"]],
+                K = 0.84),
+      range(d_A$AnnualPrecip), n = 1000,
+      col = "black", lwd = 2, add = T, lty = 2)
+
+# compare model fits
+models = list(fit_lat_.84, fit_dist_.84, fit_temp_.84, fit_cold_.84, fit_winter_.84, fit_precip_.84)
+model_vars = c("abs_lat", "km_from_sao_paulo", "AnnualMeanTemp", "MinTempColdestMonth", "MeanTempColdestQuarter", "AnnualPrecip")
+model_names = c("lat", "dist", "temp", "cold", "winter", "precip")
+model_info = data.frame(var = model_vars, 
+                        name = model_names, 
+                        predictor = c("Latitude", 
+                                       "Distance to Sao Paulo", 
+                                       "Mean temperature", 
+                                       "Minimum temperature of coldest month", 
+                                       "Mean temperature of coldest quarter",
+                                       "Annual precipitation"),
+                        stringsAsFactors = F)
+do.call(rbind, lapply(1:length(models), function(i) glance(models[[i]]) %>% mutate(model = model_names[i]))) %>%
+  arrange(AIC)
+
+# what is the difference if I exclude outliers?
+fit_cline_m <- function(var, data) nls_multstart(alpha ~ logistic4(x = x, 
+                                                  b = b, 
+                                                  mu = mu,
+                                                  K = 0.84),
+                                start_lower = list(b = -5, mu = min(d_A[ , var])),
+                                start_upper = list(b = 5, mu = max(d_A[ , var])),
+                                supp_errors = 'Y',
+                                iter = 250,
+                                convergence_count = 100,
+                                data = data %>%
+                                  mutate(x = data[ , var]))
+# rerun models all together:
+m_all <- lapply(model_vars, function(x) fit_cline_m(var = x, data = d_A))
+t_all <- do.call(rbind, lapply(1:length(models), function(i) glance(m_all[[i]]) %>% 
+                                 mutate(model = model_names[i]))) %>%
+  arrange(AIC) %>%
+  left_join(., model_info, by = c("model"="name")) %>%
+  mutate(dAIC =  round(AIC - min(AIC), 1),
+         rel_lik = exp(- 0.5 * dAIC),
+         weight = round(rel_lik / sum(rel_lik), 3)) %>%
+  dplyr::select(predictor, df.residual, deviance, dAIC, weight)
+t_all
+xtable(t_all)
+print(xtable(t_all, 
+             caption = "\\color{Gray} \textbf{Cline model comparison} Model rankings between logistic cline fits for African ancestry predicted by climate and distance variables (n = 313 bees).",
+             label = "AIC_climate_clines",
+             type = "latex", 
+             latex.environments = NULL), 
+      file = "../../bee_manuscript/tables/AIC_cline_fits_climate.tex")
+
+
+# 2018 data only -- temp clearly best
+m_2018only <- lapply(model_vars, function(x) fit_cline_m(var = x, data = filter(d_A, year == 2018)))
+do.call(rbind, lapply(1:length(models), function(i) glance(m_2018only[[i]]) %>% mutate(model = model_names[i]))) %>%
+  arrange(AIC) %>%
+  left_join(., model_info, by = c("model"="name")) %>%
+  mutate(dAIC =  round(AIC - min(AIC), 1),
+         rel_lik = exp(- 0.5 * dAIC),
+         weight = round(rel_lik / sum(rel_lik), 3)) %>%
+  dplyr::select(predictor, df.residual, deviance, dAIC, weight)
+# just no Riverside 2014 -- temp mostly best
+m_noRiv2014 <- lapply(model_vars, function(x) fit_cline_m(var = x, data = filter(d_A, population != "Riverside_2014")))
+t_noRiv2014 <- do.call(rbind, lapply(1:length(models), function(i) glance(m_noRiv2014[[i]]) %>% mutate(model = model_names[i]))) %>%
+  arrange(AIC) %>%
+  left_join(., model_info, by = c("model"="name")) %>%
+  mutate(dAIC =  round(AIC - min(AIC), 1),
+         rel_lik = exp(- 0.5 * dAIC),
+         weight = round(rel_lik / sum(rel_lik), 3)) %>%
+  dplyr::select(predictor, df.residual, deviance, dAIC, weight)
+t_noRiv2014
+
+
+# just no skyvalley (desert) -- lat is best
+m_noSkyValley <- lapply(model_vars, function(x) fit_cline_m(var = x, data = filter(d_A, !(population == "Riverside_2014" & lat == 33.84))))
+do.call(rbind, lapply(1:length(models), function(i) glance(m_noSkyValley[[i]]) %>% mutate(model = model_names[i]))) %>%
+  arrange(AIC)
+# just no idyllwild (mountain top) -- lat is best
+m_noIdyllwild <- lapply(model_vars, function(x) fit_cline_m(var = x, data = filter(d_A, !(population == "Riverside_2014" & lat != 33.84))))
+do.call(rbind, lapply(1:length(models), function(i) glance(m_noIdyllwild[[i]]) %>% mutate(model = model_names[i]))) %>%
+  arrange(AIC)
+
+
+
+AIC(fit_lat_zone_mu_and_b_.84_2018)
+AIC(nls_multstart(alpha ~ logistic4(x = abs_lat, 
+                                    b = b + b_SA*S_America, 
+                                    mu = mu + mu_SA*S_America,
+                                    K = 0.84),
+                  start_lower = list(b = -5, mu = min(d_A$abs_lat), b_SA = -5, mu_SA = -5),
+                  start_upper = list(b = 5, mu = max(d_A$abs_lat), b_SA = 5, mu_SA = 5),
+                  supp_errors = 'Y',
+                  iter = 250,
+                  convergence_count = 100,
+                  data = filter(d_A, population != "Riverside_2014")))
+
+fit_lat_2014_2018_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
+                                                             b = b + b_2014*from2014, 
+                                                             mu = mu + mu_2014*from2014,
+                                                             K = 0.84),
+                                           start_lower = list(b = -5, mu = min(d_A$abs_lat), b_2014 = -5, mu_2014 = -10),
+                                           start_upper = list(b = 5, mu = max(d_A$abs_lat), b_2014 = 5, mu_2014 = 10),
+                                           supp_errors = 'Y',
+                                           iter = 250,
+                                           convergence_count = 500,
+                                           data = d_A)
+                                           #data = filter(d_A, continent == "N. America"))
+summary(fit_lat_2014_2018_.84)
+tidy(fit_lat_2014_2018_.84)
+glance(fit_lat_2014_2018_.84)
+
+coef_lat_2014_2018_.84 = tidy(fit_lat_2014_2018_.84) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate) %>%
+  mutate(width_2018 = abs(4/b),
+         width_2014 = abs(4/(b + b_2014)))
+coef_lat_2014_2018_.84
+
+
 
 
 # also add in 2014 (vs. 2018) as something to fit
@@ -924,8 +1278,8 @@ fit_winter_no_2014 <- nls_multstart(alpha ~ rescale*logistic3(x = MeanTempColdes
 fit_lat_zone_no_2014 <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
                                                         b = b, 
                                                         mu = mu + mu_SA*S_America),
-                              start_lower = list(b = -1, mu = 25, mu_SA = -5),
-                              start_upper = list(b = 1, mu = 40, mu_SA = 5),
+                              start_lower = list(b = -1, mu = min(d_A$abs_lat), mu_SA = -5),
+                              start_upper = list(b = 1, mu = max(d_A$abs_lat), mu_SA = 5),
                               supp_errors = 'Y',
                               iter = 250,
                               convergence_count = 100,
@@ -1009,7 +1363,7 @@ no_fit <- which(is.na(a$mu))
 plot(a0$mu + mean(d_A$abs_lat[d_A$group == "AR_2018"]) ~ a$mu)
 # plot a 'good' cline estimate
 load(paste0("../local_ancestry/results/A.RData"))
-load(paste0("../local_ancestry/results/pops_by_lat.RData"))
+load(paste0("../local_ancestry/results/meta.RData"))
 i = sample(no_fit, 1)
 i = sample(1:nrow(a)[-no_fit], 1)
 
@@ -1535,8 +1889,8 @@ meta.CA.order.by.lat <- meta.pop %>%
 
 fit_pink_with_Avalon = nls_multstart(A ~ logistic3(x = lat, 
                                        b = b, mu = mu),
-                                       start_lower = list(b = -1, mu = 25),
-                                       start_upper = list(b = 1, mu = 40),
+                                       start_lower = list(b = -1, mu = min(d_A$abs_lat)),
+                                       start_upper = list(b = 1, mu = max(d_A$abs_lat)),
                                        supp_errors = 'Y',
                                        iter = 250,
                                        convergence_count = 100,
@@ -1546,8 +1900,8 @@ fit_pink_with_Avalon = nls_multstart(A ~ logistic3(x = lat,
                                                          stringsAsFactors = F))
 fit_pink = nls_multstart(A ~ logistic3(x = lat, 
                                                    b = b, mu = mu),
-                                     start_lower = list(b = -1, mu = 25),
-                                     start_upper = list(b = 1, mu = 40),
+                                     start_lower = list(b = -1, mu = min(d_A$abs_lat)),
+                                     start_upper = list(b = 1, mu = max(d_A$abs_lat)),
                                      supp_errors = 'Y',
                                      iter = 250,
                                      convergence_count = 100,
@@ -1955,8 +2309,8 @@ cline_barton_szymura <- nls_multstart(alpha ~ ifelse(abs_lat > 35, 0.1,
                                                          mu = mu,
                                                          K = 0.84)), 
     data = filter(d_A, continent == "S. America"), 
-    start_lower = list(b = -1, mu = 25),
-    start_upper = list(b = 0, mu = 40),
+    start_lower = list(b = -1, mu = min(d_A$abs_lat)),
+    start_upper = list(b = 0, mu = max(d_A$abs_lat)),
     iter = 100)
 
 
@@ -2389,5 +2743,28 @@ dev.off()
 # calculate pivot confidence interval:
 coefficients(cline_stepped_d)
 #ci_boots_stepped = estimate - quantile(boots - estimate, c(0.975, 0.025))
+
+
+
+# exclude all 2014 data -- we get a very similar answer about parallel clines
+fit_lat_zone_mu_and_b_.84_2018 <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
+                                                             b = b + b_SA*S_America, 
+                                                             mu = mu + mu_SA*S_America,
+                                                             K = 0.84),
+                                           start_lower = list(b = -5, mu = min(d_A$abs_lat), b_SA = -5, mu_SA = -10),
+                                           start_upper = list(b = 5, mu = max(d_A$abs_lat), b_SA = 5, mu_SA = 10),
+                                           supp_errors = 'Y',
+                                           iter = 250,
+                                           convergence_count = 100,
+                                           data = filter(d_A, year == 2018))
+summary(fit_lat_zone_mu_and_b_.84_2018)
+coef_lat_zone_mu_b_.84_2018 = tidy(fit_lat_zone_mu_and_b_.84_2018) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate) %>%
+  mutate(width_NA = abs(4/b),
+         width_SA = abs(4/(b + b_SA)))
+coef_lat_zone_mu_b_.84
+coef_lat_zone_mu_b
+coef_lat_zone_mu_b_.84_2018
 
 

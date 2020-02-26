@@ -25,7 +25,7 @@ if (!file.exists(dir_output)){
 }
 
 # load population metadata
-load("../local_ancestry/results/pops_by_lat.RData") # contains objects pops_by_lat meta.pop and meta.AR.order.by.lat 
+load("../local_ancestry/results/meta.RData") # contains objects pops_by_lat meta.pop and meta.AR.order.by.lat 
 
 # load mean ancestry by population
 # .RData file contains objects 'sites' which has columns chr and pos and 'DATA_NAME' which has ancestry where sites are rows and pops are columns

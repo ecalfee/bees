@@ -6,7 +6,7 @@ library(scales)
 # plot clines in allele frequencies at outlier loci
 # to see snps underlying ancestry skews and confirm ancestry calls are consistent wiht allelic clines
 source("../colors.R") # get color palette
-load("../local_ancestry/results/pops_by_lat.RData") # contains objects pops_by_lat meta.pop and meta.AR.order.by.lat 
+load("../local_ancestry/results/meta.RData") # contains objects pops_by_lat meta.pop and meta.AR.order.by.lat 
 
 # first load SNPs with ancestry calls:
 load("../local_ancestry/results/sites_r.RData") # loads sites dataframe

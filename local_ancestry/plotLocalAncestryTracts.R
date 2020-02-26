@@ -410,7 +410,6 @@ meta.AR.order.by.lat <- data.frame(population = pops_by_lat, stringsAsFactors = 
   left_join(., meta.pop, by = "population") %>%
   filter(zone == "S. America") %>%
   mutate(abs_lat_SA_c = abs(lat) - mean(abs(lat))) # absolute latitude centered for SA
-save(file = "results/pops_by_lat.RData", list = c("pops_by_lat", "meta.pop", "meta.AR.order.by.lat"))
 save(file = "results/meta.RData", list = c("meta.ind", "meta.pop", "pops_by_lat", "meta.AR.order.by.lat"))
 
 # get SNP sites where ancestry was called

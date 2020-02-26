@@ -13,7 +13,7 @@ source("../local_ancestry/calc_FDRs.R") # scripts to calculate false discovery r
 # script attempts to identify outlier loci with steep clines across latitude
 
 # I need to load the local ancestry data from plotLocalAncestryTracts.R:
-load("../local_ancestry/results/pops_by_lat.RData") # contains objects A sites pops_by_lat meta.pop and meta.AR.order.by.lat 
+load("../local_ancestry/results/meta.RData") # contains objects A sites pops_by_lat meta.pop and meta.AR.order.by.lat 
 
 A_loci <- cbind(sites, A) %>%
   mutate(snp_n = 1:nrow(sites)) # give each snp an integer identifier

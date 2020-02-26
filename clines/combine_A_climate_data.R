@@ -3,9 +3,6 @@ library(raster)
 library(geosphere)
 library(tidyr)
 # simple script retrieves climate data and global ancestry data. Creates d_A data object.
-load("../local_ancestry/results/pops_by_lat.RData") # contains objects pops_by_lat meta.pop and meta.AR.order.by.lat 
-load("../local_ancestry/results/A.RData") # ancestry data for each pop
-
 #retrieve_data_new <- T
 retrieve_data_new <- F
 #res_bioclim <- 2.5
@@ -56,7 +53,7 @@ if (retrieve_data_new){
   # first get bee lat/long
   meta.ind <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
     left_join(ids.pops, ., by = c("Bee_ID", "population"))
-  meta.ind.included <- meta.ind[meta.ind$population %in% c("Avalon_2014", "Placerita_2014", "Riverside_2014",
+  meta.ind.included <- meta.ind[meta.ind$population %in% c("Avalon_2014", "Davis_2014", "Placerita_2014", "Riverside_2014",
                                                            "Stanislaus_2014", "Stebbins_2014", "MX10") |
                                   meta.ind$group %in% c("CA_2018", "AR_2018"), ]
   # load and merge rasters (merging is slow!)
@@ -151,3 +148,11 @@ d_A <- d %>%
 
 # save d_A
 save(file = "results/d_A.RData", list = c("d_A"))
+
+
+# distance between 2 riverside points:
+skyvalley <- data.frame(long = -116.27, lat = 33.84)
+idyllwild <- data.frame(long = -116.72, lat = 33.74)
+distm(skyvalley, idyllwild)/1000 # km, geodesic distance, equivalent to distGeo()
+distm(c(max(d_A$long[d_A$population == "Riverside_2014"]), max(d_A$lat[d_A$population == "Riverside_2014"])),
+      c(min(d_A$long[d_A$population == "Riverside_2014"]), min(d_A$lat[d_A$population == "Riverside_2014"])))/1000
