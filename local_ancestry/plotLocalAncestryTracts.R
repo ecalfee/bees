@@ -14,6 +14,9 @@ library(gridExtra)
 library(MASS) # for mvrnorm
 library(plotly)
 library(ggpointdensity)
+library(ggExtra)
+library(gtable)
+library(egg) # for plot layouts
 library(coda) # for hpdi calc
 #library(hex) # for hex plot
 #library(ggridges) # to get density plot without bottom line on x axis
@@ -21,9 +24,9 @@ source("../colors.R") # for color palette
 source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
 #source("../../covAncestry/forqs_sim/k_matrix.R") # import useful functions
 source("calc_FDRs.R") # scripts to calculate false discovery rates
-
+par.default <- par()
 bees1 <- read.table("results/SNPs/thin1kb_common3/pass1_2018.ploidy", stringsAsFactors = F, 
-                                     header = F, sep = "\t")$V1
+                                   header = F, sep = "\t")$V1
 prior <- c(0.4, 0.4, 0.2) # prior on global ancestry proportions
 
 #dir_post = "results/ancestry_hmm/thin1kb_common3/pass1_2018_0.4_0.4_0.2/fixed_t_60_30"
@@ -485,11 +488,11 @@ admix_times %>%
   ggplot(., aes(x = abs(lat), y = time, color = zone, shape = factor(year))) +
   geom_point(alpha = .75) +
   facet_grid(. ~ ancestry) +
-  scale_color_manual(values = col_NA_SA_both, name = "Hybrid zone") +
+  scale_color_manual(values = col_NA_SA_both, name = "Continent") +
   #ggtitle("Inferred time of admixture pulses from HMM") +
   ylab("Time (generations)") +
   xlab("Degrees latitude from the equator") +
-  labs(shape = "Year") +
+  labs(shape = "Sample") +
   theme_classic() +
   scale_shape_manual(values = c(17, 19))
 ggsave("plots/time_of_admixture_vs_latitude.png",
@@ -566,6 +569,8 @@ save(file = "results/A.RData", list = c("A", "sites", "meanA", "meanA_CA", "mean
 save(file = "results/C.RData", list = c("C", "sites", "meanC", "meanC_CA", "meanC_AR"))
 save(file = "results/M.RData", list = c("M", "sites", "meanM", "meanM_CA", "meanM_AR"))
 #load("results/A.RData")
+#load("results/C.RData")
+#load("results/M.RData")
 
 # make plots - all loci, mean ancestry across all pops
 png("plots/histogram_A_ancestry_all_loci.png", height = 6, width = 8, units = "in", res = 300)
@@ -778,14 +783,33 @@ k_plot_all <- melt(cov2cor(zAnc_bees$K)) %>%
   xlab("") +
   ylab("")
 k_plot_all
+k_plot_fancy <- k_plot_all +
+  theme(axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_text(angle = 0, hjust = 0.5),
+        axis.text.y = element_text(angle = 90, hjust = 0.5)) +
+  xlab("Population 1") +
+  ylab("Population 2") +
+  ggtitle("") +
+  # add lines marking division between N. and S. American pops
+  geom_segment(aes(x = 21.5, xend = 21.5, y = 0.5, yend = 39.5)) +
+  geom_segment(aes(x = 0.5, xend = 39.5, y = 21.5, yend = 21.5)) +
+  #geom_text(colour = "darkgray", aes(y = -3, label = zone1),  position = position_dodge(width=0.9))
+  scale_x_discrete("Population 1", breaks = c("CA09","AR14"), labels = c("N. America", "S. America")) +
+  scale_y_discrete("Population 2", breaks = c("CA09","AR14"), labels = c("N. America", "S. America"))
+k_plot_fancy
 ggsave("plots/k_correlation_matrix_all_pops.png", 
-       plot = k_plot_all,
-       height = 6, width = 7, 
-       units = "in", device = "png")
+       plot = k_plot_fancy,
+       height = 3, width = 4, 
+       units = "in", device = "png", dpi = 600)
 ggsave("../../bee_manuscript/figures/k_correlation_matrix_all_pops.png", 
-       plot = k_plot_all + theme(axis.text.x = NULL, axis.text.y = NULL) + ggtitle(""),
-       height = 6, width = 7, 
-       units = "in", device = "png")
+       plot = k_plot_fancy,
+       height = 3, width = 4, 
+       units = "in", device = "png", dpi = 600)
+ggsave("../../bee_manuscript/figures_main/k_correlation_matrix_all_pops.tiff", 
+       plot = k_plot_fancy,
+       height = 3, width = 4, 
+       units = "in", device = "tiff", dpi = 600)
 
 # make a new K matrix but omit outlier points:
 ZAnc_bees_noOutliers = make_K_calcs(t(A[!(meanA > quantile(meanA, .9) | 
@@ -1329,11 +1353,11 @@ table(meanA_MVNsim_AR_bounded < MVNsim_AR_bounded_quantile_low &
 sim_compare <- 
   data.frame(poisson_binomial = PoiBinsim_combined,
            MVN_no_covariance = meanA_MVNsim_no_cov_bounded,
-           #MVN_no_bounds = meanA_MVNsim,
-           MVN_with_covariance = meanA_MVNsim_bounded,
-           #observed_data = meanA) %>%
-           observed_data = sample(meanA, n_sim, replace = F)) %>% # downsample data to match length of simulations
-  tidyr::gather(., "distribution", "A")
+           #observed_data = sample(meanA, n_sim, replace = F), # downsample data to match length of simulations
+           MVN_with_covariance = meanA_MVNsim_bounded) %>%
+  tidyr::gather(., "distribution", "A") %>%
+  bind_rows(., data.frame(distribution = "observed_data", A = meanA, stringsAsFactors = F))
+           
 # plot
 p_sim_compare <- sim_compare %>%
   ggplot(., aes(x = A, color = distribution)) +
@@ -1367,28 +1391,21 @@ p_sim_compare2
 ggsave("plots/distribution_data_vs_poibin_vs_MVN_sim.png",
        plot = p_sim_compare2,
        device = "png",
-       width = 5.2, height = 4, units = "in")
+       width = 5.2, height = 3, units = "in")
 ggsave("../../bee_manuscript/figures/distribution_data_vs_poibin_vs_MVN_sim.png",
        plot = p_sim_compare2,
        device = "png",
-       width = 5.2, height = 4, units = "in")
+       width = 5.2, height = 3, 
+       units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures_main/distribution_data_vs_poibin_vs_MVN_sim.tiff",
+       plot = p_sim_compare2,
+       device = "tiff",
+       width = 5.2, height = 3, 
+       units = "in", dpi = 600)
 
 # make joint plot of kinship matrix and these distribution comparisons:
-dist_k_plots_combined <- arrangeGrob(k_plot_all +
-                                       theme(axis.line = element_blank(),
-                                             axis.ticks = element_blank(),
-                                             axis.text.x = element_text(angle = 0, hjust = 0.5),
-                                             axis.text.y = element_text(angle = 90, hjust = 0.5)) +
-                                       xlab("Population 1") +
-                                       ylab("Population 2") +
-                                       ggtitle("A") +
-                                       # add lines marking division between N. and S. American pops
-                                       geom_segment(aes(x = 21.5, xend = 21.5, y = 0.5, yend = 39.5)) +
-                                       geom_segment(aes(x = 0.5, xend = 39.5, y = 21.5, yend = 21.5)) +
-                                       #geom_text(colour = "darkgray", aes(y = -3, label = zone1),  position = position_dodge(width=0.9))
-                                       scale_x_discrete("Population 1", breaks = c("CA09","AR14"), labels = c("N. America", "S. America")) +
-                                       scale_y_discrete("Population 2", breaks = c("CA09","AR14"), labels = c("N. America", "S. America")),
-                                       #xlab("Ancestry correlation matrix"),
+
+dist_k_plots_combined <- arrangeGrob(k_plot_fancy + ggtitle("A"),
                                       p_sim_compare2 + ggtitle("B"),
                                       ncol = 2,
                                       widths = c(3, 3))
@@ -1692,6 +1709,7 @@ p_density2 <- ggplot() +
                aes(x = x, y = y),
                fill = NA, color = "orange", lwd = 1)
 plot(p_density2)
+
 ggsave("plots/A_CA_vs_AR_density.png",
        plot = p_density2,
        height = 4.3, width = 5.2, 
@@ -1707,6 +1725,157 @@ ggsave("../../bee_manuscript/figures_main/A_CA_vs_AR_density.tiff",
        height = 4.3, width = 5.2, 
        units = "in", dpi = 600, 
        device = "tiff")
+
+
+sim_compare_CA <- 
+  data.frame(poisson_binomial = PoiBinsim_CA,
+             MVN_no_covariance = meanA_MVNsim_CA_no_cov_bounded,
+             MVN_with_covariance = meanA_MVNsim_CA_bounded) %>%
+  tidyr::gather(., "distribution", "A") %>%
+  bind_rows(., data.frame(distribution = "observed_data", A = meanA_CA, stringsAsFactors = F))
+
+p_sim_compare_CA_with_legend <- sim_compare_CA %>%
+  filter(., distribution != "observed_data") %>%
+  ggplot(., aes(x = A, color = distribution)) +
+  geom_histogram(data = filter(sim_compare_CA, distribution == "observed_data"),
+                 aes(y = ..density..), bins = 50, fill = "none", color = "black") +
+  geom_line(stat = "density", alpha = .75, lwd = 1) +
+  theme_classic() +
+  xlab("Mean African ancestry") +
+  ylab("Density") +
+  #viridis(4)[c(1,4,3,2)]
+  scale_color_manual(values = c("orange", viridis(4)[2:3]), name = "Model", 
+                        limits = c("MVN_with_covariance", "MVN_no_covariance", "poisson_binomial"),
+                        labels = c("poisson_binomial"="Poisson Binomial", "MVN_no_covariance"="MVN variance only", "MVN_with_covariance"="MVN")) +
+  #xlim(c(0.05, 0.6)) +
+  scale_x_continuous(breaks = c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6),
+                     labels = c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6),
+                     limits = c(0.05, 0.6)) +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.ticks.length.y = unit(0, "pt"),
+        axis.line.y = element_blank(),
+        axis.title.x = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "in"),
+        panel.border = element_blank(), 
+        panel.spacing = unit(0, "in"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+p_sim_compare_CA_with_legend
+p_sim_compare_CA <- p_sim_compare_CA_with_legend + guides(color = F)
+
+
+sim_compare_AR <- 
+  data.frame(poisson_binomial = PoiBinsim_AR,
+             MVN_no_covariance = meanA_MVNsim_AR_no_cov_bounded,
+             MVN_with_covariance = meanA_MVNsim_AR_bounded) %>%
+  tidyr::gather(., "distribution", "A") %>%
+  bind_rows(., data.frame(distribution = "observed_data", A = meanA_AR, stringsAsFactors = F))
+
+p_sim_compare_AR <- sim_compare_AR %>%
+  filter(., distribution != "observed_data") %>%
+  ggplot(., aes(x = A, color = distribution)) +
+  geom_histogram(data = filter(sim_compare_AR, distribution == "observed_data"),
+                 aes(y = ..density..), bins = 50, fill = "none", color = "black") +
+  geom_line(stat = "density", alpha = .75, lwd = 1) +
+  theme_classic() +
+  xlab("Mean African ancestry") +
+  ylab("Density") +
+  scale_color_manual(values = c("orange", viridis(4)[2:3]), name = NULL, 
+                     limits = c("MVN_with_covariance", "MVN_no_covariance", "poisson_binomial"),
+                     labels = c("poisson_binomial"="Poisson Binomial", "MVN_no_covariance"="MVN variance only", "MVN_with_covariance"="MVN")) +
+  guides(color = F) +
+  xlim(c(0.15, 0.7)) +
+  coord_flip() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.ticks.length.x = unit(0, "pt"),
+        axis.line.x = element_blank(),
+        axis.title.y = element_blank(),
+        #axis.ticks.y = element_blank(),
+        #axis.text.y = element_blank(),
+        #axis.line.y = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "in"),
+        panel.border = element_blank(), 
+        panel.spacing = unit(0, "in"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+p_sim_compare_AR
+
+# extract legends
+legend_p_sim_compare_bottom <- get_legend(p_sim_compare_CA_with_legend +
+                                     theme(plot.margin = unit(c(1,1,1,1), "lines"),
+                                           legend.box.margin = unit(c(1,1,1,1), "lines"),
+                                           legend.position = "bottom"))
+legend_p_sim_compare <- get_legend(p_sim_compare_CA_with_legend +
+                                     theme(plot.margin = unit(c(1,1,1,1), "lines"),
+                                           legend.box.margin = unit(c(1,1,1,1), "lines")))
+legend_p_density3 <- get_legend(p_density2 +
+                                  theme(legend.position = "right",
+                                    plot.margin = unit(c(1,1,1,1), "lines"),
+                                        legend.box.margin = unit(c(1,1,1,1), "lines")))
+
+p_density3 <- p_density2 + 
+  #guides(color = F, fill = F) +
+  theme(legend.position = "bottom",
+        legend.margin = margin(t = 0, unit='cm'),
+        legend.title = element_text(size = 10),
+        axis.text = element_blank(),
+        axis.ticks = element_blank()) +
+  guides(fill = guide_colorbar(title.vjust = 0.75)) +
+  #theme(legend.position = c(0.9, 0.25)) +
+  #xlim(c(0.05, 0.6)) +
+  ylim(c(0.15, 0.7)) +
+  scale_x_continuous(breaks = c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6),
+                     labels = c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6),
+                     limits = c(0.05, 0.6))#+
+  #geom_vline(xintercept = c(0.2, 0.4, 0.6)) +
+  #geom_hline(yintercept = c(0.2, 0.4, 0.6))
+plot(p_density3)
+
+
+g0 <- ggplotGrob(p_density3)
+#plot(g)
+panel_id <- g0$layout[g0$layout$name == "panel", c("t","l")]
+#g <- grid.arrange(nrow = 2, grobs = list(g0, legend_p_sim_compare_bottom$grobs[[1]]))
+g <- g0
+g <- gtable_add_cols(g, unit(1.5, "in"))
+g <- gtable_add_grob(g, ggplotGrob(p_sim_compare_AR),
+                     t = panel_id$t, l = ncol(g))
+g <- gtable_add_rows(g, unit(1.5, "in"), 0) # add row on top
+g <- gtable_add_grob(g, ggplotGrob(p_sim_compare_CA),
+                     t = 1, l = panel_id$l)
+g <- gtable_add_rows(g, unit(0.4, "in"), -1)
+g <- gtable_add_grob(g, legend_p_sim_compare_bottom$grobs[[1]],
+                     t = -1, l = panel_id$l) # add row to bottom?
+#g <- gtable_add_rows(g, unit(0.25, "in"), 0)
+#g <- gtable_add_grob(g, legend_p_sim_compare_bottom$grobs[[1]],
+#                     t = -1, l = panel_id$l) # add row to bottom?
+grid.newpage()
+grid.draw(g)
+#grid.arrange(nrow = 2, grobs = list(g, legend_p_sim_compare_bottom$grobs[[1]]))
+
+ggsave("plots/A_CA_vs_AR_density_marginal_hist.png",
+       plot = g,
+       height = 5.4, width = 5.2, 
+       units = "in", dpi = 600,
+       device = "png")
+ggsave("../../bee_manuscript/figures/A_CA_vs_AR_density_marginal_hist.png",
+       plot = g,
+       height = 5.4, width = 5.2, 
+       #height = 6.4, width = 6, 
+       units = "in", dpi = 600, 
+       device = "png")
+ggsave("../../bee_manuscript/figures_main/A_CA_vs_AR_density_marginal_hist.tiff",
+       plot = g,
+       height = 5.4, width = 5.2, 
+       units = "in", dpi = 600, 
+       device = "tiff")
+
+
+
 # thin points and plot nearest neighbors:
 p_neighbors <- ggplot(data = data.frame(CA = meanA_CA, AR = meanA_AR)[c(T, rep(F, 100)), ],
                     aes(x = CA, y = AR)) +
