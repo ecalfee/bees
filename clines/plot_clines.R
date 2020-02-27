@@ -96,55 +96,7 @@ d_A %>%
 
 ############-----logistic clines w/ nls()------#########
 
-# fit_d just has distance brazil
-# fit_lat just has latitude
-start_lat <- getInitial(alpha ~ SSlogis(abs_lat, Asym, 
-                                   xmid, scal), 
-                       d = d_A)
-fit_lat0 <- nls(alpha ~ logistic3(x = abs_lat, b = b, mu = mu),
-              start = list(b = 1/unname(start_lat["scal"]),
-                           mu = unname(start_lat["xmid"])),
-              data = d_A,
-              trace = F)
-sum_lat0 <- summary(fit_lat0)
-info_lat0 <- c(converged = sum_lat0$convInfo$isConv,
-               mu = sum_lat0$coefficients["mu", "Estimate"],
-               b = sum_lat0$coefficients["b", "Estimate"],
-               residual_error = sum_lat0$sigma,
-               AIC = AIC(fit_lat0),
-               w = sum_lat0$coefficients["b", "Estimate"]*4)
 
-
-
-fit_lat <- nls_multstart(alpha ~ logistic3(x = abs_lat, 
-                                              b = b, mu = mu),
-                            start_lower = list(b = -1, mu = min(d_A$abs_lat)),
-                            start_upper = list(b = 1, mu = max(d_A$abs_lat)),
-                            supp_errors = 'Y',
-                            iter = 250,
-                            convergence_count = 100,
-                            data = d_A)
-glance(fit_lat)
-summary(fit_lat)
-coef_lat = tidy(fit_lat) %>%
-  dplyr::select(., term, estimate) %>%
-  spread(., term, estimate)
-
-# how well does the model fit?
-cor(d_A$alpha, predict(fit_lat)) # very high correlation!
-# high correlation for S. America
-cor(d_A$alpha[d_A$S_America == 1], predict(fit_lat, newdata = d_A[d_A$S_America == 1, ]))
-
-# pure lat. model has lower correlation for N. America
-cor(d_A$alpha[d_A$S_America == 0], predict(fit_lat, newdata = d_A[d_A$S_America == 0, ]))
-
-#plot
-with(d_A, plot(abs_lat, alpha))
-curve(logistic3(x, b = coef_lat$b, mu = coef_lat$mu), 
-      from = min(d_A$abs_lat), to = max(d_A$abs_lat), add = T,
-      col = "blue", lwd = 3)
-# can do the same w/ 'predict()' but need to sort data
-lines(d_A$abs_lat[order(d_A$abs_lat)], predict(fit_lat)[order(d_A$abs_lat)], lty=2, col="red", lwd=3)
 # what width would be expect for neutral diffusion?
 km_per_degree_lat = 111 # 111.699 km at the poles, 110.567 estimate from the equator
 curve((coef_lat$b*4*km_per_degree_lat)^2/(2*pi*x), from = 20, to = 90,
@@ -169,55 +121,7 @@ max(max_pos)/nrow(x) # mean distance gained per year
 
 #1957 to 2018 is approx 30 to 60 generations depending on whether you believe 1 gen every year or every other year
 (2018-1970)/2 # ~24 generations if you think of time since reaching current cline center
-# how do I add other predictors to an nls() model?
-# start by just fitting separate clines for NA and SA based on lat.
-start_lat_NA <- getInitial(alpha ~ SSlogis(abs_lat, Asym, 
-                                        xmid, scal), 
-                        d = d_A[d_A$S_America == 0, ])
-fit_lat_NA0 <- nls(alpha ~ logistic3(x = abs_lat, b = b, mu = mu),
-               start = list(b = 1/unname(start_lat_NA["scal"]),
-                            mu = unname(start_lat_NA["xmid"])),
-              trace = F,
-              data = d_A[d_A$S_America == 0, ])
-# can alternatively fit w/ multstart
-fit_lat_NA <- nls_multstart(alpha ~ logistic3(x = abs_lat, 
-                              b = b, mu = mu),
-                start_lower = list(b = -1, mu = min(d_A$abs_lat)),
-                start_upper = list(b = 1, mu = max(d_A$abs_lat)),
-                supp_errors = 'Y',
-                iter = 250,
-                convergence_count = 100,
-                data = d_A[d_A$S_America == 0, ])
-glance(fit_lat_NA)
-summary(fit_lat_NA)
-coef(fit_lat_NA0)
 
-start_lat_SA <- getInitial(rescale ~ SSlogis(abs_lat, Asym, 
-                                           xmid, scal), 
-                           d = d_A[d_A$S_America == 1, ])
-fit_lat_SA <- nls_multstart(alpha ~ logistic3(x = abs_lat, 
-                                                            b = b, mu = mu),
-                                          start_lower = list(b = -1, mu = min(d_A$abs_lat)),
-                                          start_upper = list(b = 1, mu = max(d_A$abs_lat)),
-                                          supp_errors = 'Y',
-                                          iter = 250,
-                                          convergence_count = 100,
-                                          data = d_A[d_A$S_America == 1, ])
-
-glance(fit_lat_SA)
-summary(fit_lat_SA)
-summary(fit_lat)
-summary(fit_lat_NA)
-summary(fit_lat_SA)
-tidy(fit_lat)
-info(fit_lat)
-
-coef_lat_NA = tidy(fit_lat_NA) %>%
-  dplyr::select(., term, estimate) %>%
-  spread(., term, estimate)
-coef_lat_SA = tidy(fit_lat_SA) %>%
-  dplyr::select(., term, estimate) %>%
-  spread(., term, estimate)
 
 # ok what about fitting 1 model with a SA variable? joint fit. No rescaling
 fit_lat_zone_mu_and_b <- nls_multstart(alpha ~ logistic3(x = abs_lat, 
@@ -286,6 +190,29 @@ coef_lat_zone_mu_.84 = tidy(fit_lat_zone_mu_.84) %>%
   dplyr::select(., term, estimate) %>%
   spread(., term, estimate) %>%
   mutate(width_NA = abs(4/b))
+
+# don't allow any slope or center differences between clines:
+# fit latitude
+fit_lat_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
+                                               b = b, 
+                                               mu = mu,
+                                               K = 0.84),
+                             start_lower = list(b = -5, mu = min(d_A$abs_lat)),
+                             start_upper = list(b = 5, mu = max(d_A$abs_lat)),
+                             supp_errors = 'Y',
+                             iter = 250,
+                             convergence_count = 100,
+                             data = d_A)
+summary(fit_lat_.84)
+tidy(fit_lat_.84)
+glance(fit_lat_.84)
+coef_lat_.84 = tidy(fit_lat_.84) %>%
+  dplyr::select(., term, estimate) %>%
+  spread(., term, estimate) %>%
+  mutate(width = abs(4/b))
+coef_lat_.84
+
+
 # ANOVA compare nested models
 anova(fit_lat_zone_mu_and_b_.84, fit_lat_zone_mu_.84) # not sig.
 anova(fit_lat_zone_mu_.84, fit_lat_.84) # is sig.
@@ -425,6 +352,13 @@ fifty_perc_lat <- c(CA = find_x(mu = coef_lat_zone_mu_b_.84$mu,
                                 K = 0.84, A = 0.5, 
                                 b =coef_lat_zone_mu_b_.84$b + coef_lat_zone_mu_b_.84$b_SA))
 fifty_perc_lat
+fifty_perc_lat_mu <- c(CA = find_x(mu = coef_lat_zone_mu_.84$mu, 
+                                K = 0.84, A = 0.5, 
+                                b = coef_lat_zone_mu_.84$b),
+                    AR = find_x(mu = coef_lat_zone_mu_.84$mu + coef_lat_zone_mu_.84$mu_SA, 
+                                K = 0.84, A = 0.5, 
+                                b =coef_lat_zone_mu_.84$b))
+fifty_perc_lat_mu # still <.6 degrees lat diff.
 twenty_perc_lat <- c(CA = find_x(mu = coef_lat_zone_mu_b_.84$mu, 
                                  K = 0.84, A = 0.2, 
                                  b =coef_lat_zone_mu_b_.84$b),
@@ -455,24 +389,6 @@ curve(width_SA/sqrt(2*pi*x), from = 20, to = 120, n = 100,
 curve(500/sqrt(2*pi*x), from = 20, to = 120, n = 100, col = "blue", add = T)
 legend("topright", legend = c(paste0(round(width_SA), "km"), "500km"), lty = 1, col = c("black", "blue"))
 dev.off()
-
-# only fit different centers
-fit_lat_zone <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
-                                                        b = b, 
-                                                        mu = mu + mu_SA*S_America),
-                              start_lower = list(b = -1, mu = min(d_A$abs_lat), mu_SA = -5),
-                              start_upper = list(b = 1, mu = max(d_A$abs_lat), mu_SA = 5),
-                              supp_errors = 'Y',
-                              iter = 250,
-                              convergence_count = 100,
-                              data = d_A)
-summary(fit_lat_zone)
-glance(fit_lat_zone_mu_and_b)
-glance(fit_lat_zone)
-glance(fit_lat)
-coef_lat_zone = tidy(fit_lat_zone) %>%
-  dplyr::select(., term, estimate) %>%
-  spread(., term, estimate) 
 
 
 # fit wing length phenotypic cline:
@@ -864,25 +780,8 @@ ggsave("../wing_analysis/plots/wing_A_cline.png",
 
 # climate vs. latitude model comparison:
 # don't allow SA and NA to have different intercepts
-# fit latitude
-fit_lat_.84 <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
-                                                b = b, 
-                                                mu = mu,
-                                                K = 0.84),
-                              start_lower = list(b = -5, mu = min(d_A$abs_lat)),
-                              start_upper = list(b = 5, mu = max(d_A$abs_lat)),
-                              supp_errors = 'Y',
-                              iter = 250,
-                              convergence_count = 100,
-                              data = d_A)
-summary(fit_lat_.84)
-tidy(fit_lat_.84)
-glance(fit_lat_.84)
-coef_lat_.84 = tidy(fit_lat_.84) %>%
-  dplyr::select(., term, estimate) %>%
-  spread(., term, estimate) %>%
-  mutate(width = abs(4/b))
-coef_lat_.84
+# I fit latitude above
+# plot fit_lat_.84 predictions:
 plot(alpha ~ abs_lat, data = d_A, 
      col = NULL,
      ylim = c(0, 1), 
@@ -900,7 +799,6 @@ curve(logistic4(x = x,
                 K = 0.84),
       range(d_A$abs_lat), n = 1000,
       col = "black", lwd = 2, add = T, lty = 2)
-
 
 # distance from brazil
 fit_dist_.84 <- nls_multstart(alpha ~ logistic4(x = km_from_sao_paulo, 
@@ -1143,6 +1041,7 @@ print(xtable(t_all,
       file = "../../bee_manuscript/tables/AIC_cline_fits_climate.tex")
 
 
+# explore the effects of outliers on these model rankings:
 # 2018 data only -- temp clearly best
 m_2018only <- lapply(model_vars, function(x) fit_cline_m(var = x, data = filter(d_A, year == 2018)))
 do.call(rbind, lapply(1:length(models), function(i) glance(m_2018only[[i]]) %>% mutate(model = model_names[i]))) %>%
@@ -1163,7 +1062,6 @@ t_noRiv2014 <- do.call(rbind, lapply(1:length(models), function(i) glance(m_noRi
   dplyr::select(predictor, df.residual, deviance, dAIC, weight)
 t_noRiv2014
 
-
 # just no skyvalley (desert) -- lat is best
 m_noSkyValley <- lapply(model_vars, function(x) fit_cline_m(var = x, data = filter(d_A, !(population == "Riverside_2014" & lat == 33.84))))
 do.call(rbind, lapply(1:length(models), function(i) glance(m_noSkyValley[[i]]) %>% mutate(model = model_names[i]))) %>%
@@ -1172,7 +1070,6 @@ do.call(rbind, lapply(1:length(models), function(i) glance(m_noSkyValley[[i]]) %
 m_noIdyllwild <- lapply(model_vars, function(x) fit_cline_m(var = x, data = filter(d_A, !(population == "Riverside_2014" & lat != 33.84))))
 do.call(rbind, lapply(1:length(models), function(i) glance(m_noIdyllwild[[i]]) %>% mutate(model = model_names[i]))) %>%
   arrange(AIC)
-
 
 
 AIC(fit_lat_zone_mu_and_b_.84_2018)
@@ -1208,263 +1105,6 @@ coef_lat_2014_2018_.84 = tidy(fit_lat_2014_2018_.84) %>%
   mutate(width_2018 = abs(4/b),
          width_2014 = abs(4/(b + b_2014)))
 coef_lat_2014_2018_.84
-
-
-
-
-# also add in 2014 (vs. 2018) as something to fit
-# I removed Avalon_2014 because it's such an outlier for ancestry
-# and there's no 2018 sampling. I should explore if other outliers are driving this effect
-# also to compare to other models I need to use same data (also excluding Avalon).
-# This suggests hybrid zone advanced a little in the past 4 years.
-fit_lat_zone_2014 <- nls(alpha ~ rescale*logistic3(x = abs_lat, b = b, 
-                                              mu = mu + mu_SA*S_America + mu_2014*from2014),
-                    start = list(b = 1/unname(start_lat["scal"]),
-                                 mu = unname(start_lat["xmid"]),
-                                 mu_SA = 0,
-                                 mu_2014 = 0),
-                    data = d_A[d_A$population != "Avalon_2014", ],
-                    trace = F)
-summary(fit_lat_zone_2014)
-
-fit_winter_.84 <- nls_multstart(alpha ~ logistic4(x = MeanTempColdestQuarter, 
-                                                b = -4/w, 
-                                                mu = mu,
-                                                K = 0.84),
-                              start_lower = list(w = 0, mu = min(d_A$MeanTempColdestQuarter)),
-                              start_upper = list(w = 15, mu = max(d_A$MeanTempColdestQuarter)),
-                              supp_errors = 'Y',
-                              iter = 250,
-                              convergence_count = 100,
-                              data = d_A)
-
-fit_winter <- nls_multstart(alpha ~ rescale*logistic3(x = MeanTempColdestQuarter, 
-                                                              b = b, mu = mu),
-                                    start_lower = list(b = -5, mu = min(d_A$MeanTempColdestQuarter)),
-                                    start_upper = list(b = 5, mu = max(d_A$MeanTempColdestQuarter)),
-                                    supp_errors = 'Y',
-                                    iter = 250,
-                                    convergence_count = 100,
-                                    data = d_A)
-
-# what if I fit on mean temp. instead of latitude?
-start_temp <- getInitial(alpha/rescale ~ SSlogis(AnnualMeanTemp, Asym, 
-                                                     xmid, scal), 
-                             d = d_A)
-fit_temp_no_2014 <- nls_multstart(alpha ~ rescale*logistic3(x = AnnualMeanTemp, 
-                                                    b = b, mu = mu),
-                          start_lower = list(b = -5, mu = min(d_A$AnnualMeanTemp)),
-                          start_upper = list(b = 5, mu = max(d_A$AnnualMeanTemp)),
-                          supp_errors = 'Y',
-                          iter = 250,
-                          convergence_count = 100,
-                          data = d_A[d_A$year != 2014, ])
-fit_lat_no_2014 <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
-                                                    b = b, mu = mu),
-                          start_lower = list(b = -5, mu = min(d_A$abs_lat)),
-                          start_upper = list(b = 5, mu = max(d_A$abs_lat)),
-                          supp_errors = 'Y',
-                          iter = 250,
-                          convergence_count = 100,
-                          data = d_A[d_A$year != 2014, ])
-fit_winter_no_2014 <- nls_multstart(alpha ~ rescale*logistic3(x = MeanTempColdestQuarter, 
-                                                           b = b, mu = mu),
-                                 start_lower = list(b = -5, mu = min(d_A$MeanTempColdestQuarter)),
-                                 start_upper = list(b = 5, mu = max(d_A$MeanTempColdestQuarter)),
-                                 supp_errors = 'Y',
-                                 iter = 250,
-                                 convergence_count = 100,
-                                 data = d_A[d_A$year != 2014, ])
-fit_lat_zone_no_2014 <- nls_multstart(alpha ~ rescale*logistic3(x = abs_lat, 
-                                                        b = b, 
-                                                        mu = mu + mu_SA*S_America),
-                              start_lower = list(b = -1, mu = min(d_A$abs_lat), mu_SA = -5),
-                              start_upper = list(b = 1, mu = max(d_A$abs_lat), mu_SA = 5),
-                              supp_errors = 'Y',
-                              iter = 250,
-                              convergence_count = 100,
-                              data = d_A[d_A$year != 2014, ])
-
-tidy(fit_temp)
-glance(fit_temp)
-glance(fit_winter)
-glance(fit_lat)
-glance(fit_lat_zone)
-
-glance(fit_temp_no_2014)
-glance(fit_winter_no_2014)
-glance(fit_lat_no_2014)
-glance(fit_lat_zone_no_2014)
-
-nls(alpha ~ rescale*logistic3(x = AnnualMeanTemp, b = b, 
-                                              mu = mu),
-                    start = list(b = 1/unname(start_temp["scal"]),
-                                 mu = unname(start_temp["xmid"])),
-                    data = d_A,
-                    trace = F)
-summary(fit_temp)
-
-# split up temp by zone (I'm not sure if this makes sense..)
-# only fit different centers
-fit_temp_zone <- nls(alpha ~ rescale*logistic3(x = AnnualMeanTemp, b = b, 
-                                              mu = mu + mu_SA*S_America),
-                    start = list(b = 1/unname(start_temp["scal"]),
-                                 mu = unname(start_temp["xmid"]),
-                                 mu_SA = 0),
-                    data = d_A,
-                    trace = F)
-summary(fit_temp_zone)
-
-
-start_winter <- getInitial(alpha/rescale ~ SSlogis(MeanTempColdestQuarter, Asym, 
-                                                 xmid, scal), 
-                         d = d_A)
-fit_winter <- nls(alpha ~ rescale*logistic3(x = MeanTempColdestQuarter, b = b, 
-                                          mu = mu),
-                start = list(b = 1/unname(start_winter["scal"]),
-                             mu = unname(start_winter["xmid"])),
-                data = d_A,
-                trace = F)
-summary(fit_winter)
-
-start_coldest <- getInitial(alpha/rescale ~ SSlogis(MinTempColdestMonth, Asym, 
-                                                   xmid, scal), 
-                           d = d_A)
-fit_coldest <- nls(alpha ~ rescale*logistic3(x = MinTempColdestMonth, b = b, 
-                                            mu = mu),
-                  start = list(b = 1/unname(start_coldest["scal"]),
-                               mu = unname(start_coldest["xmid"])),
-                  data = d_A,
-                  trace = F)
-summary(fit_coldest)
-
-# compare LL: 
-all_models <- list(fit_lat, fit_lat_zone, fit_lat_zone_mu_and_b, fit_lat_zone_2014,
-                   fit_temp, fit_temp_zone, fit_winter, fit_coldest)
-sapply(all_models, AIC)
-str(fit_lat)
-
-# TO DO: draw predictions for 2014, CA vs. AR zone, all together.
-# how diff. are these?
-# also plot predictions for mean temp and min annual temp
-
-# look up how to use tails vs. center of hybrid zone to estimate dispersal/strength of sel.
-# try to fit all snps to clines -- id which ones don't fit..
-
-
-# load in individual snp clines
-#a0 <- a
-a <- read.table("results/ind_snp_nls_clines/A1.txt", # data subset
-           header = T,
-           stringsAsFactors = F)
-str(a)
-table(is.na(a$mu))
-no_fit <- which(is.na(a$mu))
-plot(a0$mu + mean(d_A$abs_lat[d_A$group == "AR_2018"]) ~ a$mu)
-# plot a 'good' cline estimate
-load(paste0("../local_ancestry/results/A.RData"))
-load(paste0("../local_ancestry/results/meta.RData"))
-i = sample(no_fit, 1)
-i = sample(1:nrow(a)[-no_fit], 1)
-
-plot_a_cline <- function(i){
-  plot(meta.AR.order.by.lat$lat, 
-     A[i, meta.AR.order.by.lat$population],
-     ylim = c(0, 1),
-     xlim = range(d_A$lat[d_A$group == "AR_2018"]),
-     ylab = "A ancestry - logistic",
-     xlab = "latitude",
-     main = paste("snp", i))
-curve(logistic3(mu = a$mu[i], b = a$b[i], x), 
-      from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
-      to = range(d_A$lat[d_A$group == "AR_2018"])[2],
-      n = 100,
-      ylab = "A ancestry - logistic",
-      xlab = "latitude",
-      col = "black", 
-      ylim = c(0, 1),
-      add = T,
-      lwd = 2, 
-      lty = 2)
-curve(logistic(a0$mu[i] + a0$b[i]*
-                 (abs(x) - mean(d_A$abs_lat[d_A$group == "AR_2018"]))), 
-      from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
-      to = range(d_A$lat[d_A$group == "AR_2018"])[2],
-      n = 100,
-      ylab = "A ancestry - logistic",
-      xlab = "latitude",
-      col = "blue", 
-      ylim = c(0, 1),
-      add = T,
-      lwd = 2, 
-      lty = 2)
-}
-plot_a_cline(sample(1:nrow(a)[-no_fit], 1))
-plot_a_cline(i = sample(no_fit, 1))
-i0 <- 31104
-d0 <- data.frame(A = unname(t(A[i0, meta.AR.order.by.lat$population])),
-                 lat = meta.AR.order.by.lat$lat)
-start0 <- getInitial(A ~ SSlogis(lat, Asym, 
-                                 xmid, scal),
-                     control = nls.control(#tol
-                       minFactor = .00001),
-                     d = d0)
-fit0 <- nls(A ~ logistic3(x = lat, b = b, mu = mu),
-            start = list(b = 1/unname(start0["scal"]),
-                         mu = unname(start0["xmid"])),
-            data = snp,
-            trace = F)
-fit0cc <- nls(A ~ logistic3(x = lat, b = b, mu = mu),
-            start = list(b = 1/unname(cc["b"]),
-                         mu = unname(cc["a"])),
-            data = d0,
-            trace = F)
-fit0cc
-sum0 <- summary(fit0)
-
-
-x <- d0$lat
-z <- d0$A
-z <- z/(1.05 * max(z))  ## scale to max=1/(1.05)
-zlogit <- log(z/(1-z))
-cc <- setNames(coef(lm(x~zlogit)),c("a","b"))
-#This is the linear function that SSlogis() fits (!!)
-qplot(zlogit, x) + 
-  geom_smooth(method="lm", se=FALSE, colour="red")
-plot(zlogit, x)
-predfun <- function(x) {
-  with(as.list(cc),
-       plogis((x - a)/b)*1.05*max(z))
-}
-ggplot(d0, aes(x = lat, y = A)) + 
-  geom_point() +
-  stat_function(fun = predfun, colour="red")
-ggplot(d0, aes(x = lat, y = A)) + 
-  geom_point() +
-  stat_function(fun = logistic3(x = d0$lat, 
-                                b = coef(fit0cc)["b"],
-                                mu = coef(fit0cc)["mu"]), colour="red")
-plot(meta.AR.order.by.lat$lat, 
-     A[i0, meta.AR.order.by.lat$population],
-     ylim = c(0, 1),
-     xlim = range(d_A$lat[d_A$group == "AR_2018"]),
-     ylab = "A ancestry - logistic",
-     xlab = "latitude",
-     main = paste("snp", i0))
-curve(logistic3(mu = coef(fit0cc)["mu"], 
-                b = coef(fit0cc)["b"], 
-                x), 
-      from = range(d_A$lat[d_A$group == "AR_2018"])[1], 
-      to = range(d_A$lat[d_A$group == "AR_2018"])[2],
-      n = 100,
-      ylab = "A ancestry - logistic",
-      xlab = "latitude",
-      col = "orange", 
-      ylim = c(0, 1),
-      add = T,
-      lwd = 2, 
-      lty = 2)
-# maybe for tricky loci I should start with many initial values and then pick the one with lowest error
 
 
 ### --------------------- INDIVIDUAL SNP CLINES --------------------------------- #####
@@ -1541,30 +1181,52 @@ rbind(mutate(mvn_zero$params, data = "MVN_sim_zero_bounded"),
             aes(xintercept = estimate, linetype = model))
 ggsave("plots/compare_ind_snp_to_genomewide_cline_model_estimates.png", height = 3, width = 7.5, units = "in", dpi = 600, device = "png")
 
+# tag outliers:
+load("../local_ancestry/results/mean_ancestry_AR_CA.RData")
 # violin plot alternative
 d_clines_combined <- rbind(mutate(mvn$params, data = "Simulated SNPs (MVN)"), 
       mutate(clines$params, data = "Observed SNPs")) %>%
   mutate(term = ifelse(term == "b", "Width", "Center"),
-         estimate = ifelse(term == "Width", 4/estimate, estimate)) 
+         estimate = ifelse(term == "Width", 4/estimate, estimate)) %>%
+  left_join(., mutate(A_AR_CA, snp_index = 1:nrow(A_AR_CA), data = "Observed SNPs"), by = c("snp_index", "data")) %>%
+  mutate(data = factor(data, levels = c("Simulated SNPs (MVN)", "Observed SNPs"), ordered = T)) %>%
+  mutate(outlier_status = ifelse(data == "Simulated SNPs (MVN)", "", 
+                          ifelse(!is.na(FDR_AR_high), "(High A)", ifelse(!is.na(FDR_AR_low), "(Low A)", "(Non-outliers)"))))
+
+d_clines_combined %>%
+  filter(data == "Observed SNPs") %>%
+  pivot_wider(data = ., id_cols = c(snp_index, outlier_status), names_from = term, values_from = estimate) %>%
+  ggplot(., aes(y = Width, x = Center, color = outlier_status)) +
+  geom_point() +
+  ylim(0, 15)
+
 violin_ind_clines <- d_clines_combined %>%
+  bind_rows(., filter(d_clines_combined, data == "Observed SNPs") %>% mutate(outlier_status = "(All)")) %>%
+  mutate(group = paste(data, outlier_status)) %>%
+  #group_by(group, data) %>%
+  #summarise(n = n())
+  #mutate(outlier_status = factor(outlier_status, levels = c("Combined", "High A", "Low A", "Non-outliers"), ordered = T)) %>%
+  mutate(group = factor(group, levels = c("Simulated SNPs (MVN) ", "Observed SNPs (All)", "Observed SNPs (Non-outliers)", "Observed SNPs (High A)", "Observed SNPs (Low A)"), ordered = T)) %>%
   ggplot(.) +
-  geom_violin(aes(y = estimate, x = data, fill = data)) +
+  geom_violin(aes(y = estimate, x = group, fill = group, color = group)) +
   facet_wrap(~term, scales = "free_y") +
   ylab("Degrees latitude") +
   xlab("") +
   theme_classic() +
-  scale_fill_manual(values = viridis(4)[1:2], name = "") +
+  scale_fill_manual(values = c(viridis(4)[1:2], magma(3, end = .9)), name = "") +
+  scale_color_manual(values = c(viridis(4)[1:2], magma(3, end = .9)), name = "") +
+  guides(color = "none") +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) +
-  geom_point(data = d_clines_combined %>% 
-               group_by(data, term) %>%
-               summarise(low = quantile(estimate, 0.025),
-                         high = quantile(estimate, 0.975),
-                         mean = mean(estimate)) %>%
-               pivot_longer(cols = c("low", "high", "mean"), names_to = "summary", values_to = "estimate"),
-             aes(y = estimate, x = data),
-             shape = 18, size = 1, color = "white")#  +
+        axis.ticks.x=element_blank()) #+
+  #geom_point(data = d_clines_combined %>% 
+  #             group_by(data, term) %>%
+  #             summarise(low = quantile(estimate, 0.025),
+   #                      high = quantile(estimate, 0.975),
+  #                       mean = mean(estimate)) %>%
+  #             pivot_longer(cols = c("low", "high", "mean"), names_to = "summary", values_to = "estimate"),
+  #           aes(y = estimate, x = data),
+  #           shape = 18, size = 1, color = "white")#  +
   #guides(color = "none") +
   #scale_color_manual(values = c("white", "white", "black"))
 violin_ind_clines
@@ -2146,6 +1808,7 @@ lowr_estimate = (table(sites_r$r_bin5[steepest_clines05])/table(sites_r$r_bin5))
 lowr_estimate
 # basic bootstrap conf. intervals
 2*lowr_estimate - quantile(boot$top5_sample_lowr_perc, c(.975, .025))
+lowr_estimate - quantile(boot$top5_sample_lowr_perc - lowr_estimate, c(0.975, 0.025)) # same
 
 # plot bootstrap lowr
 hist(boot$top5_sample_lowr_perc, main = "low r bootstrap - % steep clines")
@@ -2172,21 +1835,26 @@ with(boot, hist(top5_cutoff)) # 5% cutoff is very similar across bootstraps,
 mean_b_r_bin5 = sites_r %>%
   mutate(., b = clines$params$estimate[clines$params$term == "b"]) %>%
   group_by(r_bin5) %>%
-  summarise(mean_b = mean(b))
-diff_mean_slope_estimate = as.numeric(mean_b_r_bin5[5,2] - mean_b_r_bin5[1,2])
+  summarise(mean_b = mean(b),
+            mean_w = mean(4/b))
+diff_mean_slope_estimate = as.numeric(mean_b_r_bin5[5, "mean_b"] - mean_b_r_bin5[1, "mean_b"])
 diff_mean_slope_estimate
 # basic bootstrap conf. intervals
 2*diff_mean_slope_estimate - quantile(boot$mean_b_5 - boot$mean_b_1, c(.975, .025))
+4/(2*diff_mean_slope_estimate - quantile(boot$mean_b_5 - boot$mean_b_1, c(.975, .025))) # wrong
+(2*4/diff_mean_slope_estimate - quantile(4/boot$mean_b_5 - 4/boot$mean_b_1, c(.975, .025))) # also wrong
+diff_mean_w_estimate = mean_b_r_bin5[5, "mean_w"] - mean_b_r_bin5[1, "mean_w"]
+diff_mean_w_estimate*111
+# I'd need to redo the bootstrap if I want to get CI for means of w instead of means of b for each boot
+
+
+
 
 # plot bootstrap lowr
 hist(boot$mean_b_5 - boot$mean_b_1, main = "diff mean cline slope high to low r", xlim = range(c(0, boot$mean_b_5 - boot$mean_b_1)))
 abline(v = diff_mean_slope_estimate, col = "orange")
 abline(v = 2*diff_mean_slope_estimate - quantile(boot$mean_b_5 - boot$mean_b_1, c(.975, .025)), col = "blue")
 abline(v = 0, col = "red")
-
-# for supplement, plot mean clines low vs. high recomb. rate quintiles:
-
-
 
 
 plot(sites_r$cM_Mb, clines$params$estimate[clines$params$term == "b"], main = "slope b by r (cM/Mb)")
@@ -2203,7 +1871,15 @@ table(sites_r$r_bin5[steepest_clines05 & non_outlier_cline_center])/table(sites_
 
 mutate(sites_r, b = clines$params$estimate[clines$params$term == "b"]) %>%
   group_by(r_bin5) %>%
-  summarise(mean = mean(b))
+  summarise(mean_b = mean(b),
+            mean_w = mean(4/b))
+mutate(sites_r, b = clines$params$estimate[clines$params$term == "b"]) %>%
+  mutate(w = 4/b) %>%
+  lm(data = ., w ~ r_bin5) %>%
+  summary()
+mutate(sites_r, b = clines$params$estimate[clines$params$term == "b"]) %>%
+  lm(data = ., b ~ r_bin5) %>%
+  anova()
 mutate(sites_r, b = clines$params$estimate[clines$params$term == "b"]) %>% # still true if I exclude clines with somewhat skewed centers
   filter(non_outlier_cline_center) %>%
   group_by(r_bin5) %>%
