@@ -86,6 +86,7 @@ data/bees_new_positions/lowLDA4$ for i in $(ls *.frq.counts); do awk '$1!="CHR" 
 data/bees_new_positions/lowLDA4$ paste all.pos A.frq.counts.strp C.frq.counts.strp M.frq.counts.strp all.rpos \
 $(ls SRCD*frq.counts.strp) -d '\t' > ../../sims_downsample/ancestry_hmm/ACM_Riv2014.counts
 
+
 # making ancestry_hmm sample file with admixed sample ind's ploidy
 data/bees_new_positions/lowLDA4$ ls SRC*.frq.counts.strp | sed 's/.frq.counts.strp/\t2/' > ../../sims_downsample/ancestry_hmm/Riv2014.ploidy
 
@@ -489,4 +490,35 @@ sims_downsample$ nohup parallel --joblog logs/transposing_genotypes_for_mosaic_A
 # TO DO: get genetic position of all SNPs in ACM_Riv2014_var_sites for MOSAIC input. Run MOSAIC.
 
 # For use of riverside_2014 genotype calls at same SNPs as I’m calling local ancestry, see local_ancestry/commands.txt
+
+#################################################################################################################################
+#################################################################################################################################
+# CORRECT ORDER OF ADMIXING POPULATIONS ACM -> CMA:
+# (makes output order more clear & 100% sure correct ancestry interpretation)
+
+# remake input file for called genotypes:
+data/bees_new_positions/lowLDA4$ paste all.pos C.frq.counts.strp M.frq.counts.strp A.frq.counts.strp all.rpos \
+$(ls SRCD*frq.counts.strp) -d '\t' > ../../sims_downsample/ancestry_hmm/CMA_Riv2014.counts
+data/sims_downsample/ancestry_hmm$ mkdir CMA
+
+# Run ancestry_hmm on genotypes (estimate times):
+data/sims_downsample/ancestry_hmm/CMA/highx$ nohup ancestry_hmm -g -e 1e-3 -a 3 0.4 0.2 0.4 -p 0 100000 0.4 -p 1 -100 0.2 -p 2 -60 0.4 --tmax 150 --tmin 2 --ne 670000 -i ../../CMA_Riv2014.counts -s ../../Riv2014.ploidy &> ancestry_hmm.out &
+[1] 17631
+
+# Simulate downsampling reads (includes .01 sequencing error):
+bees/sims_downsample$ nohup parallel --jobs 5 --joblog downsampling_CMA.log --noswap "mkdir -p ../data/sims_downsample/ancestry_hmm/CMA/{1}x/{3}/seed{2}; Rscript sim_sample_x_coverage.R ../data/sims_downsample/ancestry_hmm/CMA_Riv2014.counts {1} {2} {3} ../data/sims_downsample/ancestry_hmm/CMA/{1}x/{3}/seed{2}/CMA_Riv2014" ::: {1..10} ::: 100 ::: negbinom &> downsampling_CMA.out &
+
+# Run ancestry_hmm on simulated allele counts:
+data/sims_downsample/ancestry_hmm/CMA$ nohup parallel --jobs 5 --joblog ancestry_hmm_1-10x_est_t2.log --noswap \
+"cd {1}x/{3}/seed{2}; mkdir -p est_t2; cd est_t2; \
+ancestry_hmm -e 3e-3 -a 3 0.4 0.2 0.4 -p 0 100000 0.4 -p 1 -100 0.2 -p 2 -60 0.4 \
+--tmax 150 --tmin 2 --ne 670000 -i ../CMA_Riv2014.{1}x.{2}.{3} -s ../../../../../Riv2014.ploidy" \
+::: {1..10} ::: 100 ::: negbinom &> ancestry_hmm_1-10x_est_t2.out &
+[1] 21984
+
+# Produce plot of results using compare_local_ancestry.R . add to manuscript supplement.
+plots/sims_downsample.png
+
+
+
 
