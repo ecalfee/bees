@@ -90,7 +90,7 @@ results <- do.call(rbind, lapply(1:10,
   pivot_longer(cols = ancTypes, names_to = "ancestry", values_to = "p") 
 
 # plot
-labels_type <- c("Correct (same ancestry)", "Incorrect (different ancestry)")
+labels_type <- c("Correct\n(same ancestry)", "Incorrect\n(diff. ancestry)")
 names(labels_type) = c("correct", "error")
 pr <- ggplot(results, aes(x = x, y = p, color = ancestry, lty = ancestry)) +
   geom_line() +
@@ -98,19 +98,19 @@ pr <- ggplot(results, aes(x = x, y = p, color = ancestry, lty = ancestry)) +
   theme_light() +
   scale_color_viridis_d(option = "viridis", name = "Ancestry") +
   scale_linetype_manual(values = c(1, 2, 1, 2, 2, 1), name = "Ancestry") +
-  scale_x_continuous(breaks = 1:10, labels = 1:10) +
+  scale_x_continuous(breaks = seq(2, 10, by = 2), labels = seq(2, 10, by = 2)) +
   xlab("Coverage") +
   ylab("% High confidence ancestry calls") +
   scale_y_continuous(expand = c(0, 0), limits = c(0, 1))
 pr
 pc <- data.frame(x = 1:10,
            p = d_corr,
-           type = "Correlation") %>%
+           type = "Correlation\n") %>%
   ggplot(., aes(x = x, y = p)) +
   geom_line() +
   theme_light() +
   facet_wrap(~type)+
-  scale_x_continuous(breaks = 1:10, labels = 1:10) +
+  scale_x_continuous(breaks = seq(2, 10, by = 2), labels = seq(2, 10, by = 2)) +
   xlab("Coverage") +
   ylab("African ancestry correlation") +
   scale_y_continuous(expand = c(0, 0), limits = c(0, 1))
