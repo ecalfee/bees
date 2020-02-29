@@ -1732,19 +1732,23 @@ sim_compare_CA <-
              MVN_no_covariance = meanA_MVNsim_CA_no_cov_bounded,
              MVN_with_covariance = meanA_MVNsim_CA_bounded) %>%
   tidyr::gather(., "distribution", "A") %>%
-  bind_rows(., data.frame(distribution = "observed_data", A = meanA_CA, stringsAsFactors = F))
+  bind_rows(., data.frame(distribution = "observed_data", A = meanA_CA, stringsAsFactors = F)) %>%
+  mutate(distribution = factor(distribution, levels = c("MVN_with_covariance", "MVN_no_covariance", "poisson_binomial", "observed_data"), ordered = T))
 
 p_sim_compare_CA_with_legend <- sim_compare_CA %>%
   filter(., distribution != "observed_data") %>%
   ggplot(., aes(x = A, color = distribution)) +
   geom_histogram(data = filter(sim_compare_CA, distribution == "observed_data"),
-                 aes(y = ..density..), bins = 50, fill = "none", color = "black") +
-  geom_line(stat = "density", alpha = .75, lwd = 1) +
+                 aes(y = ..density..), bins = 40, fill = "white", color = "black", lwd = 0.3) +
+  geom_line(stat = "density", alpha = 0.75, lwd = 1, aes(linetype = distribution)) +
   theme_classic() +
   xlab("Mean African ancestry") +
   ylab("Density") +
   #viridis(4)[c(1,4,3,2)]
   scale_color_manual(values = c("orange", viridis(4)[2:3]), name = "Model", 
+                        limits = c("MVN_with_covariance", "MVN_no_covariance", "poisson_binomial"),
+                        labels = c("poisson_binomial"="Poisson Binomial", "MVN_no_covariance"="MVN variance only", "MVN_with_covariance"="MVN")) +
+  scale_linetype_manual(values=c(1, 2, 3), name = "Model",
                         limits = c("MVN_with_covariance", "MVN_no_covariance", "poisson_binomial"),
                         labels = c("poisson_binomial"="Poisson Binomial", "MVN_no_covariance"="MVN variance only", "MVN_with_covariance"="MVN")) +
   #xlim(c(0.05, 0.6)) +
@@ -1763,7 +1767,7 @@ p_sim_compare_CA_with_legend <- sim_compare_CA %>%
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank())
 p_sim_compare_CA_with_legend
-p_sim_compare_CA <- p_sim_compare_CA_with_legend + guides(color = F)
+p_sim_compare_CA <- p_sim_compare_CA_with_legend + guides(color = F, linetype = F)
 
 
 sim_compare_AR <- 
@@ -1771,21 +1775,25 @@ sim_compare_AR <-
              MVN_no_covariance = meanA_MVNsim_AR_no_cov_bounded,
              MVN_with_covariance = meanA_MVNsim_AR_bounded) %>%
   tidyr::gather(., "distribution", "A") %>%
-  bind_rows(., data.frame(distribution = "observed_data", A = meanA_AR, stringsAsFactors = F))
+  bind_rows(., data.frame(distribution = "observed_data", A = meanA_AR, stringsAsFactors = F)) %>%
+  mutate(distribution = factor(distribution, levels = c("MVN_with_covariance", "MVN_no_covariance", "poisson_binomial", "observed_data"), ordered = T))
 
 p_sim_compare_AR <- sim_compare_AR %>%
   filter(., distribution != "observed_data") %>%
   ggplot(., aes(x = A, color = distribution)) +
   geom_histogram(data = filter(sim_compare_AR, distribution == "observed_data"),
-                 aes(y = ..density..), bins = 50, fill = "none", color = "black") +
-  geom_line(stat = "density", alpha = .75, lwd = 1) +
+                 aes(y = ..density..), bins = 40, fill = "white", color = "black", lwd = 0.3) +
+  geom_line(stat = "density", alpha = 0.75, lwd = 1, aes(linetype = distribution)) +
   theme_classic() +
   xlab("Mean African ancestry") +
   ylab("Density") +
   scale_color_manual(values = c("orange", viridis(4)[2:3]), name = NULL, 
                      limits = c("MVN_with_covariance", "MVN_no_covariance", "poisson_binomial"),
                      labels = c("poisson_binomial"="Poisson Binomial", "MVN_no_covariance"="MVN variance only", "MVN_with_covariance"="MVN")) +
-  guides(color = F) +
+  scale_linetype_manual(values=c(1, 2, 3), name = "Model",
+                        limits = c("MVN_with_covariance", "MVN_no_covariance", "poisson_binomial"),
+                        labels = c("poisson_binomial"="Poisson Binomial", "MVN_no_covariance"="MVN variance only", "MVN_with_covariance"="MVN")) +
+  guides(color = F, linetype = F) +
   xlim(c(0.15, 0.7)) +
   coord_flip() +
   theme(axis.title.x = element_blank(),

@@ -93,7 +93,7 @@ results <- do.call(rbind, lapply(1:10,
 labels_type <- c("Correct\n(same ancestry)", "Incorrect\n(diff. ancestry)")
 names(labels_type) = c("correct", "error")
 pr <- ggplot(results, aes(x = x, y = p, color = ancestry, lty = ancestry)) +
-  geom_line() +
+  geom_line(alpha = .8) +
   facet_wrap(~type, labeller = labeller(type = labels_type)) +
   theme_light() +
   scale_color_viridis_d(option = "viridis", name = "Ancestry") +
@@ -135,7 +135,7 @@ ggsave("../../bee_manuscript/figures_supp/sims_downsample.tiff",
 
 
 
-# ~72% genome is called confidently for ancestry
+  # ~72% genome is called confidently for ancestry
 sum(d$X2.0.0>=postH | d$X1.1.0>=postH |
       d$X0.2.0>=postH | d$X0.1.1>=postH |
       d$X0.0.2>=postH | d$X1.0.1>=postH)/nrow(d)
