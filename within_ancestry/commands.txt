@@ -366,3 +366,30 @@ within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/block_bootstrap_
 
 
 # I could alternative, or in addition, visualize within-ancestry associations by PCA
+
+
+# TRYING AGAIN TO FIGURE OUT WHAT'S UP WITH PI ESTIMATES FROM ANGSD.
+# small test case: 5Mb of chr2 (NC_037639.1) from riverside 2014 compared to CA04
+# (just N of riverside, from other estimates has nearly identical pi combined, and just a touch lower pi within A)
+
+within_ancestry$ parallel --jobs 2 'angsd -bam ../bee_samples_listed/byPop/{1}.bams -r NC_037639.1:10000000-15000000 -doSaf 1 -out test/small_{1} \
+-anc ../data/honeybee_genome/Amel_HAv3.1.fasta -GL 2 -P 4 -minMapQ 30 -minQ 20' ::: Riverside_2014 CA04
+# only took <20s each for 1Mb, a few minutes for 5Mb
+within_ancestry$ parallel --jobs 2 'realSFS test/small_{1}.saf.idx -maxIter 100 -P 4 > test/small_{1}.sfs' ::: Riverside_2014 CA04
+# a few seconds
+plotted with within_ancestry/test_sfs.R : within_ancestry/plots/bias_angsd_sfs_example_low_vs_high_coverage.png
+# conclusion: ANGSD gives biased SFS for low coverage populations, calling more SNPs than in similar
+# high coverage populations, and therefore inflating diversity (pi) estimates for low coverage pops
+# The only thing non-standard about my use of ANGSD is lack of an outgroup (I use the european honey bee reference genome instead)
+# which should produce more of an uptick at the lower tail of the SFS
+
+
+
+
+
+
+
+
+
+
+
