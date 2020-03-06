@@ -1793,6 +1793,7 @@ ggsave("../../bee_manuscript/figures/A_outliers_grob.png",
        plot = p_outliers_combined,
        height = 6, width = 7.5, units = "in", dpi = 600, device = "png")
 ggsave("../../bee_manuscript/figures_main/A_outliers_grob.tiff",
+       plot = p_outliers_combined,
        height = 6, width = 7.5, units = "in", dpi = 600, device = "tiff")
 
 

@@ -192,6 +192,59 @@ ggsave(paste0("plots/NGS_admix_MX_2019_", name, ".png"),
 
 #--------------------------------------------------------------------------------
 # plots for manuscript:
+# all populations individually for the supplement:
+d_admix %>% 
+  filter(population %in% c("C", "M", "A")) %>%
+  mutate(geographic_location_short = ifelse(geographic_location_short == "Pag Island, Croatia", "Croatia", geographic_location_short)) %>%
+  mutate(place = paste(population, geographic_location_short)) %>%
+  arrange(place) %>%
+  mutate(order = 1:nrow(.)) %>%
+  mutate(label = factor(Bee_ID, levels = .$Bee_ID, ordered = T)) %>%
+  #mutate(bee_n = do.call(c, sapply((group_by(., place) %>% summarise(n = n()))$n, function(x) 1:x))) %>%
+  tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+  left_join(., anc, by = "ancestry") %>%
+  #ggplot(., aes(fill = ancestry_label, y = p, x = order, group = place)) +
+  #ggplot(., aes(fill = ancestry_label, y = p, x = factor(order), group = place)) +
+  ggplot(., aes(fill = ancestry_label, y = p, x = label)) +
+  geom_bar(stat = "identity", position = "fill", width = 0.99) + # width=1 gets rid of lines, but some are still visible in pdf. better to make them uniform
+  ylab("Ancestry fraction") +
+  #theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_manual(values = col_ACM, name = "Ancestry") + 
+  #facet_grid(population~place) +
+  #xlab("Individual bee samples (ordered by latitude)") +
+  theme_classic() +
+  geom_text(position = position_dodge(width = 1), aes(x = place, y = 0, label = place))
+
+d_ref_places <- d_admix %>% 
+  filter(population %in% c("C", "M", "A")) %>%
+  mutate(geographic_location_short = ifelse(geographic_location_short == "Pag Island, Croatia", "Croatia", geographic_location_short)) %>%
+  mutate(place = paste(population, geographic_location_short)) %>%
+  arrange(place) %>%
+  mutate(order = 1:nrow(.) + as.integer(factor(place))) 
+p_admix_ref_places <- d_ref_places %>%
+  tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+  left_join(., anc, by = "ancestry") %>%
+  ggplot(., aes(y = p, x = order, labels = place)) +
+  geom_bar(aes(fill = ancestry_label), stat = "identity", position = "fill", width = 0.95) + # width=1 gets rid of lines, but some are still visible in pdf. better to make them uniform
+  ylab("Ancestry fraction") +
+  scale_fill_manual(values = col_ACM, name = "Ancestry") + 
+  theme_classic() +
+  scale_x_continuous(breaks = (group_by(d_ref_places, place) %>% summarise(pos = mean(order)))$pos, 
+                     labels = unique(d_ref_places$place), name = element_blank()) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("plots/NGS_admix_refACM.png", 
+       plot = p_admix_ref_places,
+       device = "png", 
+       width = 5.2, height = 4, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures/NGS_admix_refACM.png", 
+       plot = p_admix_ref_places,
+       device = "png", 
+       width = 5.2, height = 4, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures_supp/NGS_admix_refACM.tiff", 
+       plot = p_admix_ref_places,
+       device = "tiff", 
+       width = 5.2, height = 4, units = "in", dpi = 600)
+
 
 # CA 2014 and 2018
 p2_2014 <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
@@ -279,6 +332,15 @@ admix.pops <- admix.ind %>%
 world <- map_data("world")
 states <- map_data("state")
 
+world %>%
+  filter(., ! region %in% c("Greenland", "Antarctica", "Canada")) %>%
+  ggplot(data = .) +
+  geom_polygon(aes(x = long, y = lat, group = group), 
+               alpha = .3,
+               #alpha = .7,
+               fill = dark2[8]) +
+  coord_map("mercator")
+
 p_world <- world %>%
   filter(., ! region %in% c("Greenland", "Antarctica", "Canada")) %>%
   ggplot(data = .) +
@@ -288,8 +350,8 @@ p_world <- world %>%
                fill = dark2[8]
                ) +
   xlim(c(-140, -20)) +
-  coord_fixed(1.1, 
-              xlim = c(-126, -23), 
+  coord_fixed(1.1,
+              xlim = c(-126, -23),
               ylim = c(-39, 39.5)) +
   theme_classic() +
   geom_point(data = sao_paulo, 
@@ -475,11 +537,33 @@ plot(SA_points +
        coord_fixed(1.1, 
                    xlim = c(-62, -57),
                    ylim = c(-36.5, -28.5)))
+# approx lat vs. long scaling for this map latitude
+#distm(c(-60.5, -33), c(-60.5, -32), fun = distHaversine)/distm(c(-60, -32.5), c(-61, -32.5), fun = distHaversine)
+
+#SA_points_zoom <- SA_points + 
+#  coord_quickmap(# approximate mercator projection where lat = long distances (ok for zoomed in maps)
+#            xlim = c(-62, -55),
+#            ylim = c(-37, -27))
+
+#SA_scale <- data.frame(long = c(-56.610385, -55.5),
+#                       lat = c(-36, -36))
+dist_100km_lat <- 100000/111319.5 # in degrees latitude
+
+SA_scale <- data.frame(long = c(-55.5 - 0.5, -55.5 - 0.5),
+                       lat = c(-35.5, -35.5-dist_100km_lat))
+
+distm(c(SA_scale$long[1], SA_scale$lat[1]), c(SA_scale$long[2], SA_scale$lat[2]), fun = distHaversine)
 
 SA_points_zoom <- SA_points + 
-  coord_fixed(1.1, 
-              xlim = c(-62, -55),
-              ylim = c(-37, -27))
+  coord_quickmap(# approximate mercator projection where lat = long distances (ok for zoomed in maps)
+    xlim = c(-62, -55),
+    ylim = c(-37, -27)) +
+  geom_line(data = SA_scale, aes(x = long, y = lat), color = "black") +
+  geom_text(data = data.frame(lat = rep(mean(SA_scale$lat), 2), 
+                              long = SA_scale$long + c(-.4, 0.4), dist = c("100", "km")),
+             aes(x = long, y = lat, label = dist), size = 2, angle = 90)
+SA_points_zoom
+
 ggsave("plots/SA_point_map_samples_zoom_out.png",
        plot = SA_points_zoom +
          ggtitle("Argentina"), 
@@ -489,6 +573,10 @@ ggsave("../../bee_manuscript/figures/SA_point_map_samples_zoom_out.png",
        plot = SA_points_zoom, 
        device = "png", 
        width = 3, height = 6, units = "in", dpi = 600)
+
+
+
+
 
 # NA just colored points, not pie charts:
 NA_points <- world %>%
@@ -521,10 +609,19 @@ NA_points <- world %>%
   theme(legend.position = "None")
 
 # smaller points
+NA_scale <- data.frame(long = c(-122.5, -122.5),
+                       lat = c(33.5, 33.5-dist_100km_lat))
 NA_points_zoom <- NA_points +
-  coord_fixed(1.1, 
+  #coord_fixed(1.1,
+  coord_quickmap(
               xlim = c(-124, -114.5), 
-              ylim = c(32, 39.5))
+              ylim = c(32, 39.5)) +
+  geom_line(data = NA_scale, aes(x = long, y = lat), color = "black") +
+
+  geom_text(data = data.frame(lat = rep(mean(NA_scale$lat), 2), 
+                              long = NA_scale$long + c(-.4, 0.4), dist = c("100", "km")),
+            aes(x = long, y = lat, label = dist), size = 2, angle = 90)
+NA_points_zoom
 ggsave("plots/NA_point_map_samples_zoom_out.png",
        NA_points_zoom +
          ggtitle("California"), 
@@ -540,6 +637,7 @@ AR_end1 <- filter(admix.pops,
 AR_end2 <- filter(admix.pops,
                   continent == "S. America") %>%
   filter(., lat == max(lat))
+distm(AR_end1[ , c("long", "lat")], AR_end2[ , c("long", "lat")], fun = distHaversine)
 distm(AR_end1[ , c("long", "lat")], AR_end2[ , c("long", "lat")], fun = distGeo)
 
 # make a scale bar with the symbols for my structure-like plot:
@@ -658,10 +756,13 @@ p_world_together <- p_world_labels +
                                                                       size = 2),
                                           plot.title = element_text(hjust = 0.5, size = 10,
                                                                     margin = margin(t = 0.2, r = 0, b = 0, l = 0, unit = "in")))), 
-                    xmin = -55, 
-                    xmax = -20, 
+                    #xmin = -55, 
+                    #xmin = -48,
+                    xmin = -50,
+                    xmax = -20,
                     ymin = 10) +
   annotation_custom(grob = ggplotGrob(SA_points_zoom +
+                                        
                                         ggtitle("Argentina") +
                                         theme( # get rid of axes
                                           axis.line = element_blank(),
@@ -716,6 +817,33 @@ ggsave("../../bee_manuscript/figures/world_map_ngsadmix.png",
 
 # redo components so they fit together better in the plot:
 NA_plot <- d_admix %>% 
+  left_join(., meta.pop[ , c("population", "lat")], by = "population") %>%
+  arrange(desc(lat.y), desc(lat.x)) %>% # lat within populations, but then group by pop (b/c some 2014 and 2018 pops overlap slightly in CA)
+  mutate(order = 1:nrow(.)) %>%
+  tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
+  filter(group == "CA_2018" | population %in% pop2014_incl) %>%
+  left_join(., anc, by = "ancestry") %>%
+  ggplot(., aes(fill=ancestry_label, alpha = as.factor(year), y=p, x=reorder(label, order))) +
+  geom_bar(stat = "identity", position = "fill", width = 1) +
+  scale_alpha_discrete(range = c(0.6, 1)) +
+  labs(alpha = "Collection") +
+  scale_fill_manual(values = col_ACM, name = "Ancestry") + 
+  theme_classic() +
+  scale_y_reverse(name = "California", breaks = c(0, 0.5, 1), labels = c("1", "0.5", "0")) +
+  ggtitle("<- Brazil") +
+  theme( # get rid of axes
+    plot.title = element_blank(),
+    #plot.title = element_text(size = 10, hjust = 0.5),
+    #legend.title = element_text(size = 1), 
+    #legend.text = element_text(size = 1),
+    axis.line = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.title.x = element_blank()) +
+  guides(fill = "none",
+         alpha = "none")
+NA_plot
+NA_plot_byindlat <- d_admix %>% 
   tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "CA_2018" | population %in% pop2014_incl) %>%
   left_join(., anc, by = "ancestry") %>%
@@ -738,10 +866,10 @@ NA_plot <- d_admix %>%
     axis.title.x = element_blank()) +
   guides(fill = "none",
          alpha = "none")
-NA_plot +
+NA_w_shapes <- NA_plot +
   geom_point(data = CA_bar,
              aes(x = center + 0.5, 
-                 y = 1.05, 
+                 y = 1.1, 
                  color = population_factor,
                  shape = factor(shape)), 
              fill = "white",
@@ -751,13 +879,13 @@ NA_plot +
                         begin = 0.1, end = 0.85) +
   scale_shape_manual(values = c(15, 1, 17, 5, 19, 6)) +
   guides(color = "none", shape = "none") +
-  geom_segment(data = CA_bar %>% mutate(ancestry_label = "A"), 
+  geom_segment(data = CA_bar %>% mutate(ancestry_label = "A") %>% bind_rows(., data.frame(end = 0)), 
                aes(x = end + 0.5, xend = end + 0.5, 
-                                  y = 1, yend = 1.1,
+                                  y = 1, yend = 1.15,
                    lwd = 0.1),
                color = "black", size = 0.1, alpha = 1)
   #scale_x_discrete(breaks = c(10,30,40))
-
+NA_w_shapes
 SA_plot <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
   filter(group == "AR_2018") %>%
   left_join(., anc, by = "ancestry") %>%
@@ -774,7 +902,24 @@ SA_plot <- d_admix %>% tidyr::gather(., "ancestry", "p", colnames(admix)) %>%
     axis.ticks.x = element_blank(),
     axis.title.x = element_blank()) +
   guides(color = "none", fill = "none")
-
+SA_w_shapes <- SA_plot + 
+  geom_point(data = AR_bar,
+             aes(x = center + 0.5, 
+                 y = 1.1, 
+                 color = population_factor,
+                 shape = factor(shape)), 
+             fill = "white",
+             size = 1,
+             alpha = 1) +
+  scale_color_viridis_d(option = "viridis", direction = 1,
+                        begin = 0, end = .8) +
+  scale_shape_manual(values = c(15, 1, 17, 5, 19, 6)) +
+  guides(color = "none", shape = "none") +
+  geom_segment(data = AR_bar %>% mutate(ancestry_label = "A") %>% bind_rows(., data.frame(end = 0)), 
+               aes(x = end + 0.5, xend = end + 0.5, 
+                   y = 1, yend = 1.15,
+                   lwd = 0.1),
+               color = "black", size = 0.1, alpha = 1)
 AMC_legend = ggplot(data = data.frame(Ancestry = factor(ACM, levels = c("A", "M", "C"), ordered = T), x = 1:3, y = 1:3), aes(x = x, y = y, color = Ancestry)) +
   geom_point() +
   scale_color_manual(values = col_ACM, name = expression(""*symbol('\254')* " Brazil")) +
@@ -783,18 +928,19 @@ AMC_legend = ggplot(data = data.frame(Ancestry = factor(ACM, levels = c("A", "M"
         legend.key.size = unit(0.4, units = "cm"),
         legend.spacing = unit(0, units = "cm"))
 p_world_admix_tall <- grid.arrange(grobs = list(ggplotGrob(p_world_together),
-                                  get_legend(AMC_legend),              
-                                  #get_legend(p3 + guides(alpha = "none", 
-                                  #                       legend.title = element_text(size = 5),
-                                  #                       theme(legend.key.height=unit(0.1,"line")))),
-                                  ggplotGrob(NA_plot),
-                               ggplotGrob(SA_plot)),
-                               layout_matrix = rbind(c(1,1),
-                                                     c(NA, 2),
-                                                     c(3,2),
-                                                     c(4,4)),
-                             heights = c(7, 0.25, 1, 1),
-                             widths = c(8, 1))
+                                                get_legend(AMC_legend),              
+                                                #get_legend(p3 + guides(alpha = "none", 
+                                                #                       legend.title = element_text(size = 5),
+                                                #                       theme(legend.key.height=unit(0.1,"line")))),
+                                                ggplotGrob(NA_w_shapes),
+                                                ggplotGrob(SA_w_shapes)),
+                                   layout_matrix = rbind(c(1,1),
+                                                         c(NA, 2),
+                                                         c(3,2),
+                                                         c(4,4)),
+                                   heights = c(7, 0.2, 1.1, 1.1),
+                                   widths = c(8, 1))
+plot(p_world_admix_tall)
 ggsave("plots/world_map_ngsadmix_tall.png",
        plot = p_world_admix_tall, 
        device = "png", 
@@ -808,6 +954,125 @@ ggsave("../../bee_manuscript/figures_main/world_map_ngsadmix_tall.tiff",
        device = "tiff", 
        width = 7.5, height = 6.75, units = "in", dpi = 600)
 ggsave("../../bee_manuscript/figures_main/world_map_ngsadmix_tall_300dpi.tiff",
+       plot = p_world_admix_tall, 
+       device = "tiff", 
+       width = 7.5, height = 6.75, units = "in", dpi = 300)
+
+### simpler version:
+# putting plots together
+p_world_together_simple <- p_world_labels +
+  annotation_custom(grob = ggplotGrob(world %>%
+                                        ggplot(data = .) +
+                                        geom_polygon(aes(x = long, y = lat, group = group), 
+                                                     alpha = .3,
+                                                     color = "white",
+                                                     fill = dark2[8]) +
+                                        geom_polygon(aes(x = long, y = lat, group = group),
+                                                     alpha = 0, 
+                                                     color = "white",
+                                                     fill = dark2[8],
+                                                     data = filter(states, region %in% c("nevada", "arizona"))) +
+                                        geom_point(aes(x = long,
+                                                       y = lat,
+                                                   shape = factor(year)),
+                                                   color = col_NA_SA_both["N. America"],
+                                                   data = filter(admix.pops, continent == "N. America"),
+                                                   size = 1.75) +
+                                        scale_shape_manual(values = c(17, 19)) +
+                                        xlim(c(-140, -20)) +
+                                        theme_classic() +
+                                        theme(legend.position = "None") +
+                                        coord_quickmap(
+                                          xlim = c(-124, -114.5), 
+                                          ylim = c(32, 39.5)) +
+                                        geom_line(data = NA_scale, aes(x = long, y = lat), color = "black") +
+                                        
+                                        geom_text(data = data.frame(lat = rep(mean(NA_scale$lat), 2), 
+                                                                    long = NA_scale$long + c(-.4, 0.4), dist = c("100", "km")),
+                                                  aes(x = long, y = lat, label = dist), size = 2, angle = 90) +
+                                        ggtitle("California") +
+                                        theme( # get rid of axes
+                                          axis.line = element_blank(),
+                                          axis.text = element_blank(),
+                                          axis.ticks = element_blank(),
+                                          axis.title = element_blank(),
+                                          panel.background = element_rect(fill = "transparent", colour = NA),
+                                          plot.margin = unit(c(0,0,0,0), "null"),
+                                          panel.border = element_rect(colour = col_NA_SA_both["N. America"], 
+                                                                      fill = NA, 
+                                                                      size = 2),
+                                          plot.title = element_text(hjust = 0.5, size = 10,
+                                                                    margin = margin(t = 0.2, r = 0, b = 0, l = 0, unit = "in")))), 
+                    xmin = -50,
+                    xmax = -20,
+                    ymin = 10) +
+  annotation_custom(grob = ggplotGrob(world %>%
+                                        filter(., ! region %in% c("Greenland", "Antarctica", "Canada")) %>%
+                                        ggplot(data = .) +
+                                        geom_polygon(aes(x = long, y = lat, group = group), 
+                                                     alpha = .3,
+                                                     fill = dark2[8],
+                                                     color = "white") +
+                                        xlim(c(-140, -20)) +
+                                        theme_classic() +
+                                        geom_point(aes(x = long,
+                                                       y = lat),
+                                                   color = col_NA_SA_both["S. America"],
+                                                   shape = 19,
+                                                   data = filter(admix.pops, continent == "S. America"),
+                                                   size = 1.75) +
+                                        theme(legend.position = "None") +
+                                        coord_quickmap(
+                                          xlim = c(-62, -55),
+                                          ylim = c(-37, -27)) +
+                                        geom_line(data = SA_scale, aes(x = long, y = lat), color = "black") +
+                                        geom_text(data = data.frame(lat = rep(mean(SA_scale$lat), 2), 
+                                                                    long = SA_scale$long + c(-.4, 0.4), dist = c("100", "km")),
+                                                  aes(x = long, y = lat, label = dist), size = 2, angle = 90) +
+                                        ggtitle("Argentina") +
+                                        theme( # get rid of axes
+                                          axis.line = element_blank(),
+                                          axis.text = element_blank(),
+                                          axis.ticks = element_blank(),
+                                          axis.title = element_blank(),
+                                          panel.background = element_rect(fill = "transparent", colour = NA),
+                                          panel.border = element_rect(colour = col_NA_SA_both["S. America"], 
+                                                                      fill = NA, 
+                                                                      size = 2),
+                                          plot.title = element_text(hjust = 0.5, size = 10,
+                                                                    margin = margin(t = 0.2, r = 0, b = 0, l = 0, unit = "in")))), 
+                    xmin = -125, 
+                    xmax = -90, 
+                    ymax = 0)
+p_world_together_simple
+
+p_world_admix_tall_simple <- grid.arrange(grobs = list(ggplotGrob(p_world_together_simple),
+                                  get_legend(AMC_legend),              
+                                  #get_legend(p3 + guides(alpha = "none", 
+                                  #                       legend.title = element_text(size = 5),
+                                  #                       theme(legend.key.height=unit(0.1,"line")))),
+                                  ggplotGrob(NA_plot_byindlat),
+                               ggplotGrob(SA_plot)),
+                               layout_matrix = rbind(c(1,1),
+                                                     c(NA, 2),
+                                                     c(3,2),
+                                                     c(4,4)),
+                             heights = c(7, 0.25, 1, 1),
+                             widths = c(8, 1))
+ggsave("plots/world_map_ngsadmix_tall_simple.png",
+       plot = p_world_admix_tall_simple, 
+       device = "png", 
+       width = 7.5, height = 6.75, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures/world_map_ngsadmix_tall_simple.png",
+       plot = p_world_admix_tall_simple, 
+       device = "png", 
+       width = 7.5, height = 6.75, units = "in", dpi = 600)
+#ggsave("../../bee_manuscript/figures_main/world_map_ngsadmix_tall_simple.tiff",
+ggsave("plots/world_map_ngsadmix_tall_simple.tiff",
+       plot = p_world_admix_tall_simple, 
+       device = "tiff", 
+       width = 7.5, height = 6.75, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures_main/world_map_ngsadmix_tall_simple_300dpi.tiff",
        plot = p_world_admix_tall, 
        device = "tiff", 
        width = 7.5, height = 6.75, units = "in", dpi = 300)
@@ -1037,27 +1302,18 @@ ggsave("plots/ref_bees_ACM_well_identifiable_across_rbin5.png", device = "png",
 # Comparison of ancestry_hmm and NGSAdmix global ancestry estimates:
 # first read in data from ancestry_hmm, summarised by individual:
 # first read in individual alpha estimates for mean A ancestry
-CA_indAlpha <- do.call(rbind,
-                       lapply(CA_pops_included$population, function(p) 
-                         read.table(paste0("../local_ancestry/results/ancestry_hmm/combined_sept19/posterior/anc/", p, ".alpha.anc"),
-                                    stringsAsFactors = F, header = T)))
-AR_indAlpha <- do.call(rbind,
-                       lapply(AR_pops_included$population, function(p) 
-                         read.table(paste0("../local_ancestry/results/ancestry_hmm/combined_sept19/posterior/anc/", p, ".alpha.anc"),
-                                    stringsAsFactors = F, header = T)))
-
+indAlpha <- do.call(rbind,
+                    lapply(meta.pop$population, function(p)
+                      read.table(paste0("../local_ancestry/results/ancestry_hmm/combined_sept19/posterior/anc/", p, ".alpha.anc"),
+                                 stringsAsFactors = F, header = T)))
 
 
 # compare the priors with the mean inferred ancestry from ancestry_hmm
 # make individual ancestry plots too:
-compare_anc_ind <- rbind(CA_indAlpha, AR_indAlpha) %>% # ancestry_hmm genomewide estimates for individuals
+compare_anc_ind <- indAlpha %>% # ancestry_hmm genomewide estimates for individuals
   tidyr::gather(., "ancestry", "ancestry_hmm", c("A", "C", "M")) %>%
   left_join(., tidyr::gather(admix.ind[ , c("Bee_ID", "A", "C", "M")], "ancestry", "NGSAdmix", c("A", "C", "M")), # NGSAdmix genomewide estimates for individuals
             by = c("ancestry"="ancestry", "ID"="Bee_ID"))
-compare_anc_pop <- admix_proportions %>% # ancestry_hmm genomewide estimates for individuals
-  tidyr::gather(., "ancestry", "ancestry_hmm", c("A", "C", "M")) %>%
-  left_join(., tidyr::gather(admix.pops[ , c("population", "A", "C", "M")], "ancestry", "NGSAdmix", c("A", "C", "M")), # NGSAdmix genomewide estimates for individuals
-            by = c("ancestry"="ancestry", "population"="population"))
 p_ind <- compare_anc_ind %>%
   ggplot(., aes(NGSAdmix, ancestry_hmm, color = ancestry)) +
   geom_point(alpha = .5, pch = 1) +
@@ -1065,29 +1321,42 @@ p_ind <- compare_anc_ind %>%
   geom_abline(slope = 1, intercept = 0, color = "darkgrey") +
   xlab("NGSAdmix") +
   ylab("ancestry_hmm") +
-  ggtitle("B.") +
-  scale_color_manual(values = col_ACM, name = "Ancestry")
-p_pop <- compare_anc_pop %>%
+  scale_color_manual(values = col_ACM, name = "Ancestry") +
+  coord_fixed()
+p_pop <- compare_anc_ind %>%
+  left_join(., meta.ind, by = c("ID"="Bee_ID")) %>%
+  group_by(population, ancestry) %>%
+  summarise(NGSAdmix = mean(NGSAdmix),
+            ancestry_hmm = mean(ancestry_hmm)) %>%
   ggplot(., aes(NGSAdmix, ancestry_hmm, color = ancestry)) +
   geom_point(alpha = .75) +
   theme_classic() +
   geom_abline(slope = 1, intercept = 0, color = "darkgrey") +
   xlab("NGSAdmix") +
   ylab("ancestry_hmm") +
-  ggtitle("A.") +
-  scale_color_manual(values = col_ACM)
-p_pop_ind <- grid.arrange(p_pop + theme(legend.position = "none"), p_ind, nrow = 1, ncol = 2, right = 2)
+  scale_color_manual(values = col_ACM, name = "Ancestry") +
+  coord_fixed()
+p_pop
+p_pop_ind <- grid.arrange(p_ind + ggtitle("A") + theme(legend.position = "none"), 
+                          p_pop + ggtitle("B") + theme(legend.position = "none"), 
+                          get_legend(p_pop)$grobs[[1]],
+                          widths = c(5, 5, 2),
+                          nrow = 1, ncol = 3, right = 2)
 p_pop_ind
 # save plot locally and in bee_manuscript figures folder.
 ggsave("plots/mean_ancestry_prior_posterior_ancestry_hmm.png",
        plot = p_pop_ind,
        device = "png",
-       width = 8, height = 5, units = "in")
-ggsave("../../bee_manuscript/figures/mean_ancestry_prior_posterior_ancestry_hmm.pdf",
+       width = 7.5, height = 4, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures/mean_ancestry_prior_posterior_ancestry_hmm.png",
        plot = p_pop_ind,
-       device = "pdf",
-       width = 8, height = 5, units = "in")
-compare_anc_pop %>%
+       device = "png",
+       width = 7.5, height = 4, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures_main/mean_ancestry_prior_posterior_ancestry_hmm.tiff",
+       plot = p_pop_ind,
+       device = "tiff",
+       width = 7.5, height = 4, units = "in", dpi = 600)
+compare_anc_ind %>%
   group_by(ancestry) %>%
   summarise(corr = cor(ancestry_hmm, NGSAdmix, method = "pearson"))
 compare_anc_ind %>%

@@ -5,30 +5,10 @@ library(viridis)
 library(gridExtra)
 library(boot)
 source("../colors.R") # get color palette
+source("het_fst_functions.R") # get pi and fst functions
 # this script takes the population allele frequencies
 # from combine_pop_allele_freqs.R
 # and calculates pi and Fst between all populations
-# some functions:
-# heterozygosity corrected for small sample size:
-# by default also drop any snps with fewer than 2 individuals with data (<= 2 alleles observed, i.e. 1 ind.)
-het_small_sample_correction <- function(p, n, filter_under_2 = T){
-  ifelse(filter_under_2 & n <= 2, NA, 2*(p - p^2*(n/(n-1)) + p*(1/(n-1))))}
-chr_length_tot <- sum(read.table("../data/honeybee_genome/chr.lengths")$V2)
-gaps_tot <- read.table("../data/honeybee_genome/gaps.bed") %>%
-  mutate(length = V3 - V2) %>%
-  summarise(tot = sum(length)) %>%
-  unlist(.)
-n_snps <- 3510834 # from wc -l chr.var.sites
-# genome_size <- chr_length_tot - gaps_tot #236*10^6 # genome size
-# actually, use all sites passing quality filters for the denominator of pi:
-all_sites <- data.frame(
-  bin_name = read.table("../geno_lik_and_SNPs/results/1cM_bins.names", header = F, stringsAsFactors = F)$V1,
-  n_sites = read.table("../geno_lik_and_SNPs/results/1cM_bins_total_counts.txt",
-                        header = F, sep = "\t")$V2)
-genome_size <- sum(all_sites$n_sites)
-frac_snps <- n_snps/genome_size # multiplier for any snp-based heterozygosity estimate
-# fraction of the genome that is variable, i.e. snps
-
 
 # get data
 pops <- read.table("../bee_samples_listed/byPop/combined_sept19_pops.list",
@@ -470,8 +450,6 @@ freqs_predicted <- cbind(freqs_predicted_SA, freqs_predicted_NA) %>%
 rm(freqs_predicted_NA, freqs_predicted_SA)
 
 
-
-
 # what are expected pi?
 hets_predicted <- 2*freqs_predicted*(1-freqs_predicted)
 het_mean_predicted <- apply(hets_predicted, 2, 
@@ -522,21 +500,6 @@ d_het_small_sample %>%
 #ggsave("plots/pi_by_latitude_including_mexico.png", device = "png",
 #       width = 10, height = 5)
 
-#d_het_small_sample %>%
-#  filter(!ref_pop) %>%
-#  left_join(., data.frame(population = pops, 
-#                       predicted_admix = het_small_sample_mean_predicted,
-#                       predicted_ref = het_small_sample_mean_predicted_ACM), 
-#                       by = "population") %>%
-#  rename(observed = Combined) %>%
-#  tidyr::gather(., "diversity", "pi", c("observed", "predicted_admix", "predicted_ref")) %>%
-#  mutate(year = factor(year)) %>%
-#  ggplot(., aes(x = abs(lat), y = pi, color = diversity, shape = year)) +
-#  geom_point() +
-#  xlab("Degrees latitude from the equator") +
-#  facet_grid(zone ~ ., scales = "free_x") + 
-#  theme_classic() +
-#  scale_color_manual(values = dark2[c(2,8,7)], name = NULL)
 d_het_small_sample %>%
   filter(!ref_pop) %>%
   left_join(., data.frame(population = pops, 
@@ -544,20 +507,80 @@ d_het_small_sample %>%
                        predicted_ref = het_small_sample_mean_predicted_ACM), 
                        by = "population") %>%
   rename(observed = Combined) %>%
-  ggplot(., aes(x = predicted_admix, y = observed, color = zone, shape = population=="Avalon_2014")) +
+  tidyr::gather(., "diversity", "pi", c("observed", "predicted_admix", "predicted_ref")) %>%
+  mutate(year = factor(year)) %>%
+  ggplot(., aes(x = abs(lat), y = pi, color = diversity, shape = year)) +
+  geom_point(alpha= 0.75) +
+  xlab("Degrees latitude from the equator") +
+  facet_grid(zone ~ ., scales = "free_x") + 
+  theme_classic() +
+  ylab(expression(pi)) +
+  scale_color_manual(values = col_pi_predictions3, labels = c("Observed", "Predicted (zone specific)", "Predicted (ref ACM)"), name = "Diversity estimate")
+
+p_predicted_pi <- d_het_small_sample %>%
+  filter(!ref_pop) %>%
+  left_join(., data.frame(population = pops, 
+                          predicted_ref = het_small_sample_mean_predicted_ACM), 
+            by = "population") %>%
+  rename(observed = Combined) %>%
+  tidyr::gather(., "diversity", "pi", c("observed", "predicted_ref")) %>%
+  mutate(year = factor(year)) %>%
+  ggplot(., aes(x = abs(lat), y = pi, color = diversity, shape = year)) +
+  geom_point(alpha= 0.75) +
+  xlab("Degrees latitude from the equator") +
+  facet_grid(zone ~ ., scales = "free_x") + 
+  theme_classic() +
+  ylab(expression(pi)) +
+  scale_color_manual(values = col_pi_predictions, labels = c("Observed", "Predicted"), name = "Diversity estimate") +
+  labs(shape = "Year") +
+  guides(shape = guide_legend(order = 2), color = guide_legend(order = 1))
+
+
+p_predicted_pi_comparison <- d_het_small_sample %>%
+  filter(!ref_pop) %>%
+  left_join(., data.frame(population = pops, 
+                       #predicted_admix = het_small_sample_mean_predicted,
+                       predicted_ref = het_small_sample_mean_predicted_ACM), 
+                       by = "population") %>%
+  rename(observed = Combined) %>%
+  ggplot(., aes(x = predicted_ref, y = observed, color = zone, shape = population=="Avalon_2014")) +
   geom_point() +
   xlab(expression(paste("Predicted ", pi))) +
   ylab(expression(paste("Observed ", pi))) +
   theme_classic() +
-  geom_abline(intercept = 0, slope = 1) +
-  scale_color_manual(values = col_NA_SA_both, name = NULL) +
-  guides(shape = F)
-ggsave("plots/pi_observed_and_predicted_from_admixture.png", device = "png",
-       width = 10, height = 5)
-ggsave("../../bee_manuscript/figures/pi_observed_and_predicted_from_admixture.pdf", device = "pdf",
-       width = 6, height = 4)
-ggsave("../../bee_manuscript/figures/pi_observed_and_predicted_from_admixture.tiff", device = "tiff",
-       width = 6, height = 4)
+  geom_abline(intercept = 0, slope = 1, lty = 2) +
+  scale_color_manual(values = col_NA_SA_both, name = "Continent") +
+  guides(shape = F) +
+  coord_fixed()
+
+g_predicted_pi <- grid.arrange(nrow = 2, grobs = list(p_predicted_pi + ggtitle("A"), p_predicted_pi_comparison + ggtitle("B")))
+ggsave("plots/pi_observed_and_predicted_from_admixture.png",
+       plot = g_predicted_pi,
+       width = 5.4, height = 7, units = "in", dpi = 600, device = "png")
+ggsave("../../bee_manuscript/figures/pi_observed_and_predicted_from_admixture.png",
+       plot = g_predicted_pi,
+       width = 5.4, height = 7, units = "in", dpi = 600, device = "png")
+ggsave("../../bee_manuscript/figures_supp/pi_observed_and_predicted_from_admixture.tiff",
+       plot = g_predicted_pi,
+       width = 5.4, height = 7, units = "in", dpi = 600, device = "tiff")
+
+d_het_small_sample %>%
+  filter(!ref_pop) %>%
+  left_join(., data.frame(population = pops, 
+                          #predicted_admix = het_small_sample_mean_predicted,
+                          predicted_ref = het_small_sample_mean_predicted_ACM), 
+            by = "population") %>%
+  rename(observed = Combined) %>%
+  with(., lm(observed ~ predicted_ref)) %>%
+  summary()
+d_het_small_sample %>%
+  filter(!ref_pop) %>%
+  left_join(., data.frame(population = pops, 
+                          #predicted_admix = het_small_sample_mean_predicted,
+                          predicted_ref = het_small_sample_mean_predicted_ACM), 
+            by = "population") %>%
+  rename(observed = Combined) %>%
+  with(., cor(observed, predicted_ref))
 
 # old plot:
 d_het_small_sample %>%
@@ -655,21 +678,7 @@ calc_dxy <- function(v1, v2){
   dxy = mean(v_1*(1-v_2) + v_2*(1-v_1))
   return(dxy) 
 }
-# Hudson pairwise Fst estimator from Bhatia 2012 
-# (I implement equation 10 from the supplement & take the ratio of the avg. numerator & denominator) 
-calc_hudson_Fst <- function(v1, v2, n1, n2){ # allele frequencies and number of alleles sampled
-  exclude = is.na(v1) | is.na(v2)
-  p_1 = v1[!exclude]
-  p_2 = v2[!exclude]
-  n_1 = n1[!exclude]
-  n_2 = n2[!exclude]
 
-  N = (p_1 - p_2)^2 - p_1*(1 - p_1)/(n_1 - 1) - p_2*(1-p_2)/(n_2 - 1)
-  D = p_1*(1 - p_2) + (1 - p_1)*p_2
-  
-  fst = mean(N)/mean(D)
-  return(fst)
-}
 
 # sort populations by latitude
 pops_order_lat <- meta.pop$population[order(meta.pop$lat)]
@@ -727,7 +736,7 @@ plots_fst_by_ancestry
 fst_hudson_matrix <- matrix(0, length(ACM_pops), length(ACM_pops))
 for (i in 1:length(ACM_pops)){
   for (j in 1:length(ACM_pops)){
-    fst_hudson_matrix[i, j] <- calc_hudson_Fst(v1 = freqs[ , ACM_pops[i]], 
+    fst_hudson_matrix[i, j] <- calc_avg_hudson_Fst(v1 = freqs[ , ACM_pops[i]], 
                                                v2 = freqs[ , ACM_pops[j]],
                                                n1 = ns[ , ACM_pops[i]],
                                                n2 = ns[ , ACM_pops[j]])
@@ -754,7 +763,7 @@ fst_hudson_matrix_by_ancestry <- lapply(1:3, function(a){
   fst_hudson_matrix_a <- matrix(0, length(ACM_pops), length(ACM_pops))
   for (i in 1:length(ACM_pops)){
     for (j in 1:length(ACM_pops)){
-      fst_hudson_matrix_a[i, j] <- calc_hudson_Fst(v1 = freqs_by_ancestry[[a]][ , ACM_pops[i]], 
+      fst_hudson_matrix_a[i, j] <- calc_avg_hudson_Fst(v1 = freqs_by_ancestry[[a]][ , ACM_pops[i]], 
                                             v2 = freqs_by_ancestry[[a]][ , ACM_pops[j]],
                                             n1 = ns_by_ancestry[[a]][ , ACM_pops[i]],
                                             n2 = ns_by_ancestry[[a]][ , ACM_pops[j]]
