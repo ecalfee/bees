@@ -238,6 +238,7 @@ for (a in 1:5){
 # on how the slopes don't appear to get steeper from low to high recombination.
 # also try excluding + outliers again. And if you have it, your steepest sloped loci, to see if that's driving
 # the effect -- mean slope doesn't get steeper, but top 1% are in low r regions
+# NOTE: this isn't how I shoudl run this analysis .. I try again in the clines script. there's a modest effect of r on steepness, and enrichment of steep clines in low r regions
 
 # calculate mean correlations for different recombination rate bins:
 # function get_mean_from_K needs to be loaded from plotLocalAncestryTracts.R:
@@ -258,7 +259,7 @@ mean_corrs = left_join(mean_corrs0, pair_types, by = "type")
 mean_corrs %>%
   write.table(., "results/mean_anc_corr_grouped_by_r.txt",
               col.names = T, row.names = F, quote = F, sep = "\t")
-mean_corrs %>%
+mean_corrs_plot <- mean_corrs %>%
   ggplot(., aes(x = label, y = mean_anc_corr, color = r_bin5_factor)) +
   geom_point(alpha = .75) +
   geom_point(data = left_join(mean_corr_k, pair_types, by = "type"), 
@@ -268,12 +269,19 @@ mean_corrs %>%
   xlab("") +
   scale_color_viridis_d(name = "Recombination bin (cM/Mb)") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+mean_corrs_plot
 ggsave(paste0("plots/mean_k_corr_by_groups_and_r.png"), 
-       height = 4, width = 6, 
+       height = 4, width = 5.2,
+       plot = mean_corrs_plot,
        units = "in", device = "png")
-ggsave(paste0("../../bee_manuscript/figures/mean_k_corr_by_groups_and_r.pdf"), 
-       height = 4, width = 6, 
-       units = "in", device = "pdf")
+ggsave(paste0("../../bee_manuscript/figures/mean_k_corr_by_groups_and_r.png"), 
+       height = 4, width = 5.2, dpi = 600,
+       plot = mean_corrs_plot,
+       units = "in", device = "png")
+ggsave(paste0("../../bee_manuscript/figures_supp/mean_k_corr_by_groups_and_r.tiff"), 
+       height = 4, width = 5.2, dpi = 600,
+       plot = mean_corrs_plot,
+       units = "in", device = "tiff")
 
 # is this finding robust across all chromosomes?
 K_by_chr <- lapply(1:16, function(chr)
@@ -291,7 +299,7 @@ mean_covs_chr <- do.call(rbind,
 
 
 # plot with bars representing all chromosomes:
-mean_corrs_chr %>%
+p_corrs_chr <- mean_corrs_chr %>%
   ggplot(., aes(x = label, y = mean_anc_corr)) +
 
   #stat_summary(data = mean_corrs_chr, #%>%
@@ -318,14 +326,21 @@ mean_corrs_chr %>%
                      labels = 1:16,
                      values = rep(c(1:3,19), 10)[1:16]) +
   guides(color=guide_legend(ncol=2)) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ggtitle("Ancestry correlations by chromosome")
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  
+p_corrs_chr
 ggsave(paste0("plots/mean_k_corr_by_groups_and_chr.png"), 
-       height = 4, width = 6, 
+       height = 4, width = 5.2, dpi = 600,
+       plot = p_corrs_chr + ggtitle("Ancestry correlations by chromosome"),
        units = "in", device = "png")
-ggsave(paste0("../../bee_manuscript/figures/mean_k_corr_by_groups_and_chr.pdf"), 
-       height = 4, width = 6, 
-       units = "in", device = "pdf")
+ggsave(paste0("../../bee_manuscript/figures/mean_k_corr_by_groups_and_chr.png"), 
+       height = 4, width = 5.2, dpi = 600,
+       plot = p_corrs_chr,
+       units = "in", device = "png")
+ggsave(paste0("../../bee_manuscript/figures_main/mean_k_corr_by_groups_and_chr.tiff"), 
+       height = 4, width = 5.2, dpi = 600,
+       plot = p_corrs_chr,
+       units = "in", device = "tiff")
 
 # plot with bars representing 95% CI from t-test excluding outlier chromosome 1 and 11:
 mean_corrs_chr %>%
