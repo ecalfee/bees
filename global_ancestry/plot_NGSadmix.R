@@ -684,10 +684,7 @@ ggsave("plots/CA_bar_symbols.png",
        plot = CA_bar_symbols, 
        device = "png", 
        width = 0.4, height = 6, units = "in")
-ggsave("../../bee_manuscript/figures/CA_bar_symbols.pdf",
-       plot = CA_bar_symbols, 
-       device = "pdf", 
-       width = 0.4, height = 6, units = "in")
+
 
 # make the same symbol set for AR Argentina samples:
 AR_bar <- admix.pops %>%
@@ -733,10 +730,7 @@ ggsave("plots/AR_bar_symbols.png",
        plot = AR_bar_symbols, 
        device = "png", 
        width = 0.4, height = 6, units = "in")
-ggsave("../../bee_manuscript/figures/AR_bar_symbols.pdf",
-       plot = AR_bar_symbols, 
-       device = "pdf", 
-       width = 0.4, height = 6, units = "in")
+
 
 
 # putting plots together
@@ -938,7 +932,7 @@ p_world_admix_tall <- grid.arrange(grobs = list(ggplotGrob(p_world_together),
                                                          c(NA, 2),
                                                          c(3,2),
                                                          c(4,4)),
-                                   heights = c(7, 0.2, 1.1, 1.1),
+                                   heights = c(7, 0.25, 1.1, 1.1),
                                    widths = c(8, 1))
 plot(p_world_admix_tall)
 ggsave("plots/world_map_ngsadmix_tall.png",
@@ -1073,7 +1067,7 @@ ggsave("plots/world_map_ngsadmix_tall_simple.tiff",
        device = "tiff", 
        width = 7.5, height = 6.75, units = "in", dpi = 600)
 ggsave("../../bee_manuscript/figures_main/world_map_ngsadmix_tall_simple_300dpi.tiff",
-       plot = p_world_admix_tall, 
+       plot = p_world_admix_tall_simple, 
        device = "tiff", 
        width = 7.5, height = 6.75, units = "in", dpi = 300)
 
