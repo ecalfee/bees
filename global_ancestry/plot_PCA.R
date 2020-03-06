@@ -88,18 +88,25 @@ pca_for_manuscript <- p12 +
                      name = NULL) # + ggtitle("PCA")
 
 plot(pca_for_manuscript)
-ggsave(paste0("../../bee_manuscript/figures/PCA_12_", prefix, "_byGroup.pdf"), 
-       plot = pca_for_manuscript, 
-       device = "pdf", 
-       width = 6, height = 5, 
-       units = "in",
-       dpi = 200)
 ggsave(paste0("plots/PCA_12_", prefix, "_byGroup.png"), 
        plot = pca_for_manuscript, 
        device = "png", 
-       width = 6, height = 5, 
+       width = 5.2, height = 4, 
        units = "in",
-       dpi = 200)
+       dpi = 600)
+ggsave(paste0("../../bee_manuscript/figures/PCA_12_", prefix, "_byGroup.png"), 
+       plot = pca_for_manuscript, 
+       device = "png", 
+       width = 5.2, height = 4, 
+       units = "in",
+       dpi = 600)
+ggsave(paste0("../../bee_manuscript/figures_supp/PCA_12_", prefix, "_byGroup.tiff"), 
+       plot = pca_for_manuscript, 
+       device = "tiff", 
+       width = 5.2, height = 4, 
+       units = "in",
+       dpi = 600)
+
 
 
 # look at reference bees more carefully:

@@ -2444,3 +2444,32 @@ coef_lat_zone_mu_b
 coef_lat_zone_mu_b_.84_2018
 
 
+# feral hives
+fit_lat_zone_mu_and_b_.84_feral <- nls_multstart(alpha ~ logistic4(x = abs_lat, 
+                                                                  b = b + b_feral*enjambre, 
+                                                                  mu = mu + mu_feral*enjambre,
+                                                                  K = 0.84),
+                                                start_lower = list(b = -5, mu = min(d_A$abs_lat), b_feral = -5, mu_feral = -10),
+                                                start_upper = list(b = 5, mu = max(d_A$abs_lat), b_feral = 5, mu_feral = 10),
+                                                supp_errors = 'Y',
+                                                iter = 250,
+                                                convergence_count = 100,
+                                                data = d_A)
+summary(fit_lat_zone_mu_and_b_.84_feral)
+
+# or just simple logistic
+fit_logistic_lat_feral <- nls_multstart(alpha ~ logistic(x = a + b_lat*abs_lat + b_feral*enjambre),
+                                                 start_lower = list(a = -30, b_lat = -5, b_feral = -5),
+                                                 start_upper = list(a = 30, b_lat = 5, b_feral = 5),
+                                                 supp_errors = 'Y',
+                                                 iter = 250,
+                                                 convergence_count = 100,
+                                                 data = d_A)
+summary(fit_logistic_lat_feral)
+gaussian(link = "identity")
+glm.fit = glm(alpha ~ abs_lat + enjambre, data = d_A, family = gaussian)
+summary(glm.fit)
+glm.fit2 = glm(alpha ~ abs_lat + enjambre, data = d_A, family = gaussian(link = "logit"))
+summary(glm.fit2)
+
+

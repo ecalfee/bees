@@ -1,4 +1,5 @@
 library(RColorBrewer)
+library(scales)
 # color palettes to use in R plots:
 # IBM color-blind palette + green, grey and black
 # don't mix the green and grey
@@ -14,6 +15,7 @@ col_blind <- cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442
 dark2 <- brewer.pal(n = 8, "Dark2")
 #col_ACM <- col_ibm[c(3,5,4)]
 #col_NA_SA_both <- col_ibm[c(1, 2, 7)]
+ACM = c("A", "C", "M")
 col_ACM = dark2[c(4,3,1)]
 names(col_ACM) = c("A", "C", "M")
 col_ACM_all = dark2[c(2,4,3,1)] 
@@ -39,4 +41,18 @@ retro <- c("#ee442f", "#601a4a", "#63abce")
 #plot(1:3, 1:3, cex = 5, pch = 20, col = retro)
 #col_ACM <- retro
 
-# I can use viridis and magma (or plasma) for density plots and outliers, respectively.
+# larger set of colors for Fst contrasts:
+col_fst <- c(hue_pal()(6), hue_pal()(6)[4:6])
+#col_fst <- viridis(9)
+#col_fst <- plasma(9)
+fst_names <- paste("fst", c("M_A", "C_A", "C_M", "A.NA_A", "A.SA_A", "A.NA_SA", "M.NA_M", "M.SA_M", "M.NA_SA"), sep = ".")
+names(col_fst) <- fst_names
+labels_col_fst <- c("A vs. M", "A vs. C", "M vs. C",
+                    "A vs. N. America (within A)", "A vs. S. America (within A)", "N. America vs. S. America (within A)",
+                    "M vs. N. America (within M)", "M vs. S. America (within M)", "N. America vs. S. America (within M)")
+names(labels_col_fst) <- fst_names
+
+col_pi_predictions <- dark2[c(2,8)]
+names(col_pi_predictions) <- c("observed", "predicted_ref")
+col_pi_predictions3 <- dark2[c(2,7,8)] 
+names(col_pi_predictions3) <- c("observed", "predicted_admix", "predicted_ref")
