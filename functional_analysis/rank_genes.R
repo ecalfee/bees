@@ -237,7 +237,7 @@ low.AR.only.outliers <- bedr(
   engine = "bedtools", 
   input = list(i = low.AR.only), 
   method = "merge", 
-  params = "-d 10000 -c 7 -o min", # merge if within 1kb
+  params = "-d 10000 -c 7 -o min", # merge if within 10kb
   check.chr = F
 ) %>%
   mutate(region = rownames(.)) %>%
@@ -263,7 +263,7 @@ high.CA.outliers <- bedr(
   engine = "bedtools", 
   input = list(i = high.CA.intersect), 
   method = "merge", 
-  params = "-d 10000 -c 7,8 -o min,sum", # merge if within 1kb
+  params = "-d 10000 -c 7,8 -o min,sum", # merge if within 10kb
   check.chr = F
 ) %>%
   data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers")) %>%
@@ -294,7 +294,7 @@ high.AR.outliers <- bedr(
   engine = "bedtools", 
   input = list(i = high.AR.intersect), 
   method = "merge", 
-  params = "-d 10000 -c 7,8 -o min,sum", # merge if within 1kb
+  params = "-d 10000 -c 7,8 -o min,sum", # merge if within 10kb
   check.chr = F
 ) %>%
   data.table::setnames(c("chr", "start", "end", "min_FDR", "bp_shared_outliers")) %>%
@@ -368,6 +368,7 @@ for (i in 1:length(outlier_sets)){
               quote = F, col.names = F, row.names = F, sep = "\t")
 }
 # write one file with all types of outliers
+# NOTE: These merge outlier regions if within 10kb
 outliers_all <- do.call(bind_rows,
                         lapply(1:length(outlier_sets), function(i)
    return(mutate(outlier_sets[[i]], outlier_type = outlier_set_names[i])))) %>%
@@ -382,7 +383,7 @@ outliers_all_genome_sort <- bedr(
 ) %>%
   data.table::setnames(colnames(outliers_all)) %>%
   mutate(region_n = 1:nrow(.))
-  
+# NOTE: These merge outlier regions if within 10kb
 write.table(outliers_all_genome_sort,
             paste0("results/outlier_regions/all.bed"),
             quote = F, col.names = T, row.names = F, sep = "\t")
@@ -408,6 +409,7 @@ write.table(outliers_all_buffer,
             quote = F, col.names = F, row.names = F, sep = "\t")
 
 #******************************************************** WHICH GENES FALL IN OUTLIER REGIONS?
+# simple case: which genes 
 genes_high_AR <- bedr(
     engine = "bedtools", 
     input = list(a = gene_file,
@@ -450,6 +452,9 @@ genes_high_CA <- bedr(
 ) %>%
   data.table::setnames(c(gene_file_columns, "FDR_CA_high")) %>%
   filter(FDR_CA_high != ".")
+
+
+
 genes_high_shared <- inner_join(genes_high_CA, genes_high_AR, by = gene_file_columns)
 genes_high_CA_only <- left_join(genes_high_CA, genes_high_AR, by = gene_file_columns) %>%
   filter(is.na(FDR_AR_high))
@@ -461,12 +466,14 @@ genes_combined <- bind_rows(mutate(genes_high_shared, outlier_type = "high_share
                mutate(genes_low_AR, outlier_type = "low_AR_only")) %>%
   dplyr::arrange(scaffold, start)
 table(genes_combined$outlier_type) # mostly in the low AR category (very large region)
+length(unique(genes_combined$gene_info))
 table(genes_combined[ , c("scaffold", "outlier_type")])
 write.table(genes_combined, "results/genes_0.1FDR_combined.txt",
             col.names = T, row.names = F, quote = F, sep = "\t")
 nrow(genes)
 
-
+# note: all subsequent analyses use 'genes_combined" from txt file above
+# the below list contains 1 extra outlier, made by linking 2 outlier regions in CA 10kb apart
 gene_outliers <- bedr(
   engine = "bedtools", 
   input = list(a = gene_file,
@@ -480,8 +487,14 @@ gene_outliers <- bedr(
   left_join(., genes, by = colnames(genes)[1:6])
 dim(gene_outliers)
 View(gene_outliers)
+# note one gene is in gene_outliers, but not genes_combined: NC_037638.1	25775448	25778510	Gnomon	gene	ID=gene1486;Dbxref=GeneID:107965104
+left_join(gene_outliers, genes_combined, by = c("gene_info")) %>% filter(is.na(gene.y))
+
+
 # Note: several genes are within multiple outliers regions, e.g. high_shared and high_CA or nearby high_shared and high_shared regions
 table(gene_outliers$scaffold) # 288 genes, mostly in two large outlier regions
+gene_outliers %>% group_by(outlier_type) %>% summarise(n = n())
+sum(table(gene_outliers$scaffold))
 head(gene_outliers)
 gene_outliers2 <- gene_outliers %>%
   tidyr::separate(., region, paste0("region", 1:max(.$overlaps_n_regions)), sep = ",") %>%
@@ -1850,3 +1863,13 @@ write.table(dplyr::select(genes_combined2, -Dbxref),
             "results/genes_0.1FDR_combined_with_DAVID_functions.txt",
             sep = "\t",
             col.names = T, row.names = F)  
+
+A_AR_CA %>%
+  filter(scaffold == "NC_037638.1") %>%
+  filter(pos >= 25775448, pos <= 25778510) %>%
+  dplyr::select(CA) %>%
+  max()
+  filter(pos >= 25775448-10^5, pos <= 25778510+10^5) %>%
+  pivot_longer(cols = c("AR", "CA"), names_to = "zone", values_to = "A") %>%
+  ggplot(aes(x = pos, y = A, col = zone)) +
+  geom_line()

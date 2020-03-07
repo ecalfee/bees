@@ -153,6 +153,14 @@ results$ cat genes_within_outlier_regions.txt | grep 'BEEBASE' | cut -f6 | tr \;
 https://www.ncbi.nlm.nih.gov/gene/?term=GB41047#general-gene-info
 # also maybe look more in depth at : apis mellifera multidrug resistance-associated protein 4-like (LOC725051) -- can't remember which outlier set now. But this gene is overexpressed in the brains of non-hygeinic bees (all within-italian variation using freeze-killed brood): https://core.ac.uk/download/pdf/81873565.pdf. Also this same paper (https://core.ac.uk/download/pdf/81873565.pdf) has coordinates for hygeine QTLs on Amel4.5
 
+########################## March 6 2020: REDO BEEBASE LOOKUP USING 0.1FDR OVERLAP REGIONS AND SEPARATE HIGH/LOW ######################33
+functional_analysis/results$ cat genes_0.1FDR_combined.txt | grep 'low_AR_only' | grep 'BEEBASE' | cut -f6 | tr \; \\t | cut -f2 | tr \: \\t | tr \, \\t | cut -f2 > genes_0.1FDR_low_AR_only.txt
+functional_analysis/results$ cat genes_0.1FDR_combined.txt | grep -v 'low_AR_only' | grep 'BEEBASE' | cut -f6 | tr \; \\t | cut -f2 | tr \: \\t | tr \, \\t | cut -f2 > genes_0.1FDR_high_any.txt
+functional_analysis/results$ cat genes_0.1FDR_combined.txt | grep 'high_shared' | grep 'BEEBASE' | cut -f6 | tr \; \\t | cut -f2 | tr \: \\t | tr \, \\t | cut -f2 > genes_0.1FDR_high_shared.txt
+
+
+
+
 ### -------- Getting Amel HAv3.1 QTL positions using BLASTN ------- ####
 First I followed instructions to ftp download blast+ software suite from ncbi:
 https://www.ncbi.nlm.nih.gov/books/NBK52640/
