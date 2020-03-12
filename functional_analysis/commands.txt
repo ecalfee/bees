@@ -138,7 +138,7 @@ QTLs, we added an additional 50Kb to either side of the QTL"
 "We performed hypergeometric tests with DAVID 6.8 (Huang et al. 2009) to identify if
 our gene set was enriched for Gene Ontology (GO) and KEGG pathway terms using Apis
 mellifera gene calls against a background of all genes in the honeybee genome."
-
+	
 
 # subset outlier genes to just those found in beebase:
 results$ cat genes_within_outlier_regions.txt | grep 'BEEBASE' | cut -f6 | tr \; \\t | cut -f2 | tr \: \\t | tr \, \\t | cut -f2 > beebase_genes_outliers.txt
@@ -162,8 +162,21 @@ functional_analysis/results$ cat genes_0.1FDR_combined.txt | grep 'high_shared' 
 
 
 ### -------- Getting Amel HAv3.1 QTL positions using BLASTN ------- ####
+Cite BLAST?
 First I followed instructions to ftp download blast+ software suite from ncbi:
 https://www.ncbi.nlm.nih.gov/books/NBK52640/
 Then I created a local blast db for the HAv3.1 genome
 honeybee_genome$ makeblastdb -in Amel_HAv3.1.fasta -input_type fasta -dbtype nucl
 To search:
+blastn -query test.fa -subject Amel_HAv3.1.fasta -max_target_seqs 1 -outfmt "6 delim= qseqid sseqid sstart send pident evalue bitscore score"
+# put all 44k SNP left.flanking sequences in a fasta file:
+data/Spoetter_2012_QTLs$ for i in {1..16}; do grep 'Group'$i SNPs_44k.txt | awk '{print "> "$1"\n"$5}' > Group"$i"_SNPs_44k.fasta; done
+# then blast these to get coordinates against the honey bee genome:
+bees/functional_analysis$ nohup parallel --noswap --jobs 4 --joblog logs/blast_44k_SNPs.log 'blastn -query ../data/Spoetter_2012_QTLs/Group{1}_SNPs_44k.fasta -subject ../data/honeybee_genome/Amel_HAv3.1.fasta -max_target_seqs 1 -outfmt "6 delim= qseqid sseqid sstart send pident evalue bitscore score" > results/SNPs_44k_blast_pos/Group{1}_blast_results.txt' ::: {1..16} &> logs/blast_44k_SNPs.out &
+[1] 22078 - RUNNING 3.10.20. Then load into R and make endpoints for QTLs based on SNPs that fall within range of QTL positions listed.
+
+# I got the sequences for primers for Oxley 2010's 3 microsatellite marker hits from Solignac 2007 (doi: 10.1186/gb-2007-8-4-r66, note A0058 is listed as A058 and has expected position on map). I blast P1 and P2 to HAv3.1: (using option for short sequence alignment)
+bees/functional_analysis$ blastn -query ../data/Oxley_2010_QTLs/oxley_2010_markers.fasta -subject ../data/honeybee_genome/Amel_HAv3.1.fasta -max_target_seqs 1 -outfmt "6 delim= qseqid sseqid sstart send pident evalue bitscore score" -task "blastn-short"
+While technically I could blast all the markers within the confidence intervals for these QTLs, so I use the CI's from the table in Oxley 2010 and match agaisnt all microsatellites from Solignac 2007's supplementary data within these CI's, based on Haldane's cumulative mapping position.
+
+

@@ -1873,3 +1873,103 @@ A_AR_CA %>%
   pivot_longer(cols = c("AR", "CA"), names_to = "zone", values_to = "A") %>%
   ggplot(aes(x = pos, y = A, col = zone)) +
   geom_line()
+
+  
+# plot of ancestry frequencies for supplement, showing no extreme high A introgressed far:
+cbind(A, dplyr::select(A_AR_CA, c("scaffold", "pos", "FDR_shared_high", "FDR_CA_high", "FDR_AR_high"))) %>%
+  filter(!is.na(FDR_shared_high)) %>%
+  filter(FDR_shared_high == .01) %>%
+  pivot_longer(cols = colnames(A), names_to = "population", values_to = "A") %>%
+  left_join(., meta.pop, by = "population") %>%
+  ggplot(data = ., aes(x = abs(lat), y = A, col = factor(FDR_shared_high), group = pos)) +
+  geom_line() +
+  facet_wrap(~zone)
+
+A_AR_CA_bed <- A_AR_CA %>%
+  dplyr::select(-chr) %>%
+  rename(chr = scaffold) %>%
+  filter(!(is.na(FDR_AR_low) & is.na(FDR_CA_low) & is.na(FDR_AR_high) & is.na(FDR_CA_high))) %>%
+  arrange(chr, pos)
+mapped_A_AR_CA_high_shared <- bedr(
+  engine = "bedtools", 
+  input = list(a = A_AR_CA_bed,
+               b = high.shared.outliers3), #"results/outlier_regions/high_shared2.bed"
+  method = "map",
+  params = "-g ../data/honeybee_genome/chr.lengths -c 4,5 -o collapse,min",
+  check.chr = F,
+  check.sort = F
+) %>%
+  data.table::setnames(c(colnames(A_AR_CA_bed), "outlier_region_high_shared", "outlier_region_min_FDR_high_shared"))
+mapped_A_AR_CA_high_CA <- bedr(
+  engine = "bedtools", 
+  input = list(a = A_AR_CA_bed,
+               b = high.CA.outliers3),
+  method = "map",
+  params = "-g ../data/honeybee_genome/chr.lengths -c 4,5 -o collapse,min",
+  check.chr = F,
+  check.sort = F
+) %>%
+  data.table::setnames(c(colnames(A_AR_CA_bed), "outlier_region_high_CA", "outlier_region_min_FDR_high_CA"))
+mapped_A_AR_CA_high_AR <- bedr(
+  engine = "bedtools", 
+  input = list(a = A_AR_CA_bed,
+               b = high.AR.outliers3),
+  method = "map",
+  params = "-g ../data/honeybee_genome/chr.lengths -c 4,5 -o collapse,min",
+  check.chr = F,
+  check.sort = F
+) %>%
+  data.table::setnames(c(colnames(A_AR_CA_bed), "outlier_region_high_AR", "outlier_region_min_FDR_high_AR"))
+mapped_A_AR_CA_low_AR <- bedr(
+  engine = "bedtools", 
+  input = list(a = A_AR_CA_bed,
+               b = low.AR.outliers3),
+  method = "map",
+  params = "-g ../data/honeybee_genome/chr.lengths -c 4,5 -o collapse,min",
+  check.chr = F,
+  check.sort = F
+) %>%
+  data.table::setnames(c(colnames(A_AR_CA_bed), "outlier_region_low_AR", "outlier_region_min_FDR_low_AR"))
+
+mapped_A_AR_CA_regions <- cbind(A_AR_CA_bed, 
+                                mapped_A_AR_CA_high_shared[ , c("outlier_region_high_shared", "outlier_region_min_FDR_high_shared")],
+                                mapped_A_AR_CA_high_CA[ , c("outlier_region_high_CA", "outlier_region_min_FDR_high_CA")],
+                                mapped_A_AR_CA_high_AR[ , c("outlier_region_high_AR", "outlier_region_min_FDR_high_AR")],
+                                mapped_A_AR_CA_low_AR[ , c("outlier_region_low_AR", "outlier_region_min_FDR_low_AR")])
+mapped_A_AR_CA_regions[mapped_A_AR_CA_regions == "."] <- NA
+View(mapped_A_AR_CA_regions)
+cbind(A, dplyr::select(A_AR_CA, c("scaffold", "pos"))) %>%
+  rename(chr = scaffold) %>%
+  left_join(mapped_A_AR_CA_regions %>%
+              filter(!is.na(outlier_region_low_AR)) %>%
+              group_by(outlier_region_low_AR) %>%
+              summarise(min_AR = min(AR),
+                        pos = pos[which.min(AR)],
+                        chr = chr[which.min(AR)],
+                        FDR_AR_low = FDR_AR_low[which.min(AR)]), ., by = c("chr", "pos")) %>%
+  #filter(!is.na(outlier_region_low_AR)) %>%
+  pivot_longer(cols = colnames(A), names_to = "population", values_to = "A") %>%
+  left_join(., meta.pop, by = "population") %>%
+  ggplot(data = ., aes(x = abs(lat), y = A, col = factor(outlier_region_low_AR), group = pos)) +
+  geom_line() +
+  facet_wrap(~zone)
+
+
+cbind(A, dplyr::select(A_AR_CA, c("scaffold", "pos"))) %>%
+  rename(chr = scaffold) %>%
+  left_join(mapped_A_AR_CA_regions %>%
+              filter(!is.na(outlier_region_high_shared)) %>%
+              group_by(outlier_region_high_shared) %>%
+              summarise(max_combined = max(combined),
+                        pos = pos[which.max(combined)],
+                        chr = chr[which.max(combined)],
+                        FDR_AR_high = FDR_AR_high[which.max(combined)],
+                        FDR_CA_high = FDR_CA_high[which.max(combined)]), 
+            ., by = c("chr", "pos")) %>%
+  pivot_longer(cols = colnames(A), names_to = "population", values_to = "A") %>%
+  left_join(., meta.pop, by = "population") %>%
+  ggplot(data = ., aes(x = abs(lat), y = A)) +
+  geom_line(col = factor(outlier_region_high_shared)) +
+  geom_point(data = , )
+  facet_wrap(~zone) # make shape FDR
+
