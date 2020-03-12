@@ -145,19 +145,25 @@ results$ cat genes_within_outlier_regions.txt | grep 'BEEBASE' | cut -f6 | tr \;
 # ran through DAVID for enrichment analysis (probs shouldn't run all together w/ diff types of outliers).
 # found 203 genes with DAVID IDs for Apis mellifera
 # of these, 185 records of potential functions https://david.ncifcrf.gov/annotationReport.jsp?annot=12,87,88,30,38,46,55,53,70,79&currentList=2
-# one gene is related to defense on chr11 for Apoidea level and when I search for this gene I find another paper that finds 
-# a single chalkbrood resistance QTL, on chr11 
+# one gene is related to defense on chr11 for Apoidea level and when I search for this gene I find another paper that finds
+# a single chalkbrood resistance QTL, on chr11
 # https://pdfslide.net/documents/association-of-single-nucleotide-polymorphisms-to-association-of-single.html
 # defined by SNPs on Amel4.5 at 13636.1kb and 13698.3kb
 # NCBI and orthodb gene lookups possible https://www.orthodb.org/?level=&species=&query=6878at34735
 https://www.ncbi.nlm.nih.gov/gene/?term=GB41047#general-gene-info
-# also maybe look more in depth at : apis mellifera multidrug resistance-associated protein 4-like (LOC725051) -- can't remember which outlier set now. But this gene is overexpressed in the brains of non-hygeinic bees (all within-italian variation using freeze-killed brood): https://core.ac.uk/download/pdf/81873565.pdf. Also this same paper (https://core.ac.uk/download/pdf/81873565.pdf) has coordinates for hygeine QTLs on Amel4.5
+# also maybe look more in depth at (in low AR set; maybe ok to skip for now): apis mellifera multidrug resistance-associated protein 4-like (LOC725051) -- can't remember which outlier set now. But this gene is overexpressed in the brains of non-hygeinic bees (all within-italian variation using freeze-killed brood): https://core.ac.uk/download/pdf/81873565.pdf. Also this same paper (https://core.ac.uk/download/pdf/81873565.pdf) has coordinates for hygeine QTLs on Amel4.5
+# I looked at orthobd too but don't really know how to use it effectively.
+# for all shared gene high A outliers, I looked up genes on NCBI gene database (found names for some missing in DAVID)
+# only found 1 citation in addition to regular genome citations. I also looked up gene IDs, e.g. LOC***, in google and found 2 references with expression data related to varroa -- emailed author to confirm 1 of these 2 for raw data.
+# I added these annotations as comments to genes_0.1FDR_combined_with_DAVID_gene_names_3.7.20_added_lit_search.txt
 
 ########################## March 6 2020: REDO BEEBASE LOOKUP USING 0.1FDR OVERLAP REGIONS AND SEPARATE HIGH/LOW ######################33
 functional_analysis/results$ cat genes_0.1FDR_combined.txt | grep 'low_AR_only' | grep 'BEEBASE' | cut -f6 | tr \; \\t | cut -f2 | tr \: \\t | tr \, \\t | cut -f2 > genes_0.1FDR_low_AR_only.txt
 functional_analysis/results$ cat genes_0.1FDR_combined.txt | grep -v 'low_AR_only' | grep 'BEEBASE' | cut -f6 | tr \; \\t | cut -f2 | tr \: \\t | tr \, \\t | cut -f2 > genes_0.1FDR_high_any.txt
 functional_analysis/results$ cat genes_0.1FDR_combined.txt | grep 'high_shared' | grep 'BEEBASE' | cut -f6 | tr \; \\t | cut -f2 | tr \: \\t | tr \, \\t | cut -f2 > genes_0.1FDR_high_shared.txt
-
+# https://david.ncifcrf.gov/summary.jsp uploaded low_AR_only and high_any as gene lists with BEEBASE background
+# ran functional annotation clustering and functional annotation chart w/ defaults -- no sig. GO categories sig. enriched for either gene set
+# also downloaded the gene list, which has gene names; added the other gene info in rank_genes.R:
 
 
 

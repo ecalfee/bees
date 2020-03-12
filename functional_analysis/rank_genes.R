@@ -1,7 +1,7 @@
 library(dplyr)
 library(ggplot2)
 library(bedr)
-library(ggrastr)# to rasterize points but not legends in ggplot graphs
+#library(ggrastr)# to rasterize points but not legends in ggplot graphs
 source("../colors.R") # for color palette
 load("../local_ancestry/results/A.RData")
 load("../local_ancestry/results/C.RData")
@@ -507,15 +507,6 @@ gene_outliers2 <- gene_outliers %>%
 # write list of genes 2 file:  
 write.table(gene_outliers2, "results/genes_within_outlier_regions.txt",
             col.names = T, row.names = F, quote = F, sep = "\t")
-
-# TO DO: make plots of local ancestry showing outliers and genes within outlier regions. And add QTLs.
-# TO DO: note any interesting candidate genes/pathways
-
-
-
-
-
-
 
 
 # plots
@@ -1809,20 +1800,17 @@ ggsave("../../bee_manuscript/figures_main/A_outliers_grob.tiff",
        plot = p_outliers_combined,
        height = 6, width = 7.5, units = "in", dpi = 600, device = "tiff")
 
-
-
-# mirrored plot example:
-#par(mfrow=c(2,1))
-#Make the plot
-#par(mar=c(0,5,3,3))
-#plot(density(x1) , main="" , xlab="", ylim=c(0,1) , xaxt="n", las=1 , col="slateblue1" , lwd=4 )
-#par(mar=c(5,5,0,3))
-#plot(density(x2) , main="" , xlab="Value of my variable", ylim=c(1,0) , las=1 , col="tomato3" , lwd=4)  
-
 ###-------------------------------------------------------###
 # read in genes list with beebase IDs:
-beebase_outlier_genes <- read.table("results/DAVID_results_genes_0.1FDR_combined_with_beebase.csv",
-                                    sep = ",", header = T)
+# first all outlier genes (file made above)
+genes_combined <- read.table("results/genes_0.1FDR_combined.txt", header = T, 
+                             stringsAsFactors = F)
+
+# then add DAVID gene name results
+DAVID_results <- read.table("results/DAVID_results_gene_names.txt",
+                            sep = "\t", header = T, stringsAsFactors = F)
+
+
 #"([A-Z]+|[a-z]+)[=]"
 remove_id <- function(x, link) stringr::str_replace(x, paste0("(.+)[", link, "]"), "") # turns ID=3253 into just 3253
 get_id <- function(x, link) stringr::str_replace(stringr::str_extract(x, paste0("(.+)[", link, "]")), paste0("[", link, "]"), "") # returns "ID"
@@ -1834,7 +1822,6 @@ get_gene_id_info <- function(x, split = ";", link = "="){ # takes in dictionary 
 }
 
 #gene_id_cols <- c("ID", "Dbxref", "Name", "gbkey", "gene", "gene_biotype")
-
 get_gene_id_info(x = "BEEBASE:2,GeneID:LOC213", split = ",", link = ":")
 genes_combined2 = do.call(bind_rows,
                           lapply(genes_combined$gene_info,
@@ -1844,24 +1831,23 @@ genes_combined2 = do.call(bind_rows,
         do.call(bind_rows,
                 lapply(.$Dbxref, function(x)
                   get_gene_id_info(x, split = ",", link = ":")))) %>%
-  left_join(., beebase_outlier_genes[ , c("BEEBASE_ID", "Gene.Name", "Related.Genes", "Species")], 
+  left_join(., DAVID_results[ , c("BEEBASE_ID", "Name")] %>%
+              rename(DAVID_gene_name = Name), 
             by = c("BEEBASE"="BEEBASE_ID")) %>%
-  rename(DAVID_gene_name = Gene.Name, 
-         DAVID_related_genes = Related.Genes, 
-         DAVID_species = Species) %>%
   dplyr::arrange(desc(outlier_type), scaffold, start) %>%
   mutate(FDR_AR_high = as.numeric(FDR_AR_high),
          FDR_CA_high = as.numeric(FDR_CA_high),
          FDR_AR_low = as.numeric(FDR_AR_low))
-table(!is.na(genes_combined2$BEEBASE))
-dim(beebase_outlier_genes)
-beebase_outlier_genes$BEEBASE_ID[!(beebase_outlier_genes$BEEBASE_ID %in% genes_combined2$BEEBASE)]
-genes_combined2$BEEBASE[!(genes_combined2$BEEBASE %in% beebase_outlier_genes$BEEBASE_ID) & !is.na(genes_combined2$BEEBASE)]
+table(is.na(genes_combined2$BEEBASE))
+
+DAVID_results$BEEBASE_ID[!(DAVID_results$BEEBASE_ID %in% genes_combined2$BEEBASE)]
+genes_combined2$BEEBASE[!(genes_combined2$BEEBASE %in% DAVID_results$BEEBASE_ID) & !is.na(genes_combined2$BEEBASE)]
+
 
 # write genes and DAVID functional information to file
-write.table(dplyr::select(genes_combined2, -Dbxref), 
-            "results/genes_0.1FDR_combined_with_DAVID_functions.txt",
-            sep = "\t",
+write.table(dplyr::select(genes_combined2, -c(Dbxref, gene)), 
+            "results/genes_0.1FDR_combined_with_DAVID_gene_names_3.7.20.txt",
+            sep = "\t", quote = F,
             col.names = T, row.names = F)  
 
 A_AR_CA %>%
@@ -1873,3 +1859,10 @@ A_AR_CA %>%
   pivot_longer(cols = c("AR", "CA"), names_to = "zone", values_to = "A") %>%
   ggplot(aes(x = pos, y = A, col = zone)) +
   geom_line()
+
+with(filter(A_AR_CA, scaffold == "NC_037638.1"),
+     plot(pos, CA))
+abline(v = 3043773, col = "red")
+abline(v = 8745182, col = "red")
+abline(v = 9835021, col = "green")
+abline(v = 18793186, col = "green")
