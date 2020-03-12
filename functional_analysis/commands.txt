@@ -152,10 +152,6 @@ results$ cat genes_within_outlier_regions.txt | grep 'BEEBASE' | cut -f6 | tr \;
 # NCBI and orthodb gene lookups possible https://www.orthodb.org/?level=&species=&query=6878at34735
 https://www.ncbi.nlm.nih.gov/gene/?term=GB41047#general-gene-info
 # also maybe look more in depth at (in low AR set; maybe ok to skip for now): apis mellifera multidrug resistance-associated protein 4-like (LOC725051) -- can't remember which outlier set now. But this gene is overexpressed in the brains of non-hygeinic bees (all within-italian variation using freeze-killed brood): https://core.ac.uk/download/pdf/81873565.pdf. Also this same paper (https://core.ac.uk/download/pdf/81873565.pdf) has coordinates for hygeine QTLs on Amel4.5
-# I looked at orthobd too but don't really know how to use it effectively.
-# for all shared gene high A outliers, I looked up genes on NCBI gene database (found names for some missing in DAVID)
-# only found 1 citation in addition to regular genome citations. I also looked up gene IDs, e.g. LOC***, in google and found 2 references with expression data related to varroa -- emailed author to confirm 1 of these 2 for raw data.
-# I added these annotations as comments to genes_0.1FDR_combined_with_DAVID_gene_names_3.7.20_added_lit_search.txt
 
 ########################## March 6 2020: REDO BEEBASE LOOKUP USING 0.1FDR OVERLAP REGIONS AND SEPARATE HIGH/LOW ######################33
 functional_analysis/results$ cat genes_0.1FDR_combined.txt | grep 'low_AR_only' | grep 'BEEBASE' | cut -f6 | tr \; \\t | cut -f2 | tr \: \\t | tr \, \\t | cut -f2 > genes_0.1FDR_low_AR_only.txt
@@ -164,8 +160,13 @@ functional_analysis/results$ cat genes_0.1FDR_combined.txt | grep 'high_shared' 
 # https://david.ncifcrf.gov/summary.jsp uploaded low_AR_only and high_any as gene lists with BEEBASE background
 # ran functional annotation clustering and functional annotation chart w/ defaults -- no sig. GO categories sig. enriched for either gene set
 # also downloaded the gene list, which has gene names; added the other gene info in rank_genes.R:
+# I looked at orthobd too but don't really know how to use it effectively.
+# for all shared gene high A outliers, I looked up genes on NCBI gene database (found names for some missing in DAVID)
+# only found 1 citation in addition to regular genome citations. I also looked up gene IDs, e.g. LOC***, in google and found 2 references with expression data related to varroa -- emailed author to confirm 1 of these 2 for raw data.
+# I added these annotations as comments to genes_0.1FDR_combined_with_DAVID_gene_names_3.7.20_added_lit_search.txt
 
-
+# Spoetter 2012 QTL's -- got Amel4.5 positions from paper and put them in
+# data/Spoetter_2012_QTLs/spoetter_2012_Amel4.5.bed
 
 ### -------- Getting Amel HAv3.1 QTL positions using BLASTN ------- ####
 First I followed instructions to ftp download blast+ software suite from ncbi:
