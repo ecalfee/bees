@@ -174,3 +174,19 @@ https://www.ncbi.nlm.nih.gov/books/NBK52640/
 Then I created a local blast db for the HAv3.1 genome
 honeybee_genome$ makeblastdb -in Amel_HAv3.1.fasta -input_type fasta -dbtype nucl
 To search:
+# blasted 44k SNP chip left flanking sequences for all snps to HAv3.1
+bees/functional_analysis$ nohup parallel --noswap --jobs 4 --joblog logs/blast_44k_SNPs.log 'blastn -query ../data/Spoetter_2012_QTLs/Group{1}_SNPs_44k.fasta -subject ../data/honeybee_genome/Amel_HAv3.1.fasta -max_target_seqs 1 -outfmt "6 delim= qseqid sseqid sstart send pident evalue bitscore score" > results/SNPs_44k_blast_pos/Group{1}_blast_results.txt' ::: {1..16} &> logs/blast_44k_SNPs.out &
+# blasted Oxley sequences for confirming QTL markers using short sequence search option:
+functional_analysis$ blastn -query ../data/Oxley_2010_QTLs/oxley_2010_markers.fasta -subject ../data/honeybee_genome/Amel_HAv3.1.fasta -outfmt "6 delim= qseqid sseqid sstart send pident evalue bitscore score" -task "blastn-short" > results/blast_results_oxley_2010_markers.txt
+# to get Fasta for Oxley 2010, I took marker names from the original paper (Oxley 2010) and then found the sequences for the map in the supplement of the reference cited for the microsatellite markers (Solignac 2007):
+Solignac  M,  Mougel  F,  Vautrin  D,  Monnerot  M,  Cornuet  J-M(2007)  A  third  generation  microsatellite-based  linkage  mapof  the  honey  bee,Apis mellifera,  and  its  comparison  with  thesequence-based physical map.Genome Biology,8, R66. 
+#Arechavaleta-Velasco 2012
+# Found one sig. time to grooming QTL on LG5 (study in mexico, so not explicitly, but possibly Africanized honey bees)
+# I downloaded from supplementary table S1 the sequences for the markers in the QTL and saved them as a fasta:
+functional_analysis$ blastn -query ../data/Arechavaleta-Velasco_2012_QTLs/Arechavaleta-Velasco_grooming_qtl.fasta -subject ../data/honeybee_genome/Amel_HAv3.1.fasta -outfmt "6 delim= qseqid sseqid sstart send pident evalue bitscore score" -task "blastn-short" > results/blast_results_arechavaleta-velasco_2012_markers.txt
+# NOTE: >5_1644271 is the closest marker under the main peak
+# used R script qtl_pos.R to summarise qtl start and end points from these blast results:
+
+
+
+
