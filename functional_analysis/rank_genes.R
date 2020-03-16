@@ -1947,8 +1947,9 @@ cbind(A, dplyr::select(A_AR_CA, c("scaffold", "pos"))) %>%
   geom_line() +
   facet_wrap(~zone)
 
-
-cbind(A, dplyr::select(A_AR_CA, c("scaffold", "pos"))) %>%
+meanA <- meta.pop %>%
+  mutate(A = sapply(1:nrow(.), function(i) mean(A[ , .$population[i]])))
+test <- cbind(A, dplyr::select(A_AR_CA, c("scaffold", "pos"))) %>%
   rename(chr = scaffold) %>%
   left_join(mapped_A_AR_CA_regions %>%
               filter(!is.na(outlier_region_high_shared)) %>%
@@ -1960,9 +1961,130 @@ cbind(A, dplyr::select(A_AR_CA, c("scaffold", "pos"))) %>%
                         FDR_CA_high = FDR_CA_high[which.max(combined)]), 
             ., by = c("chr", "pos")) %>%
   pivot_longer(cols = colnames(A), names_to = "population", values_to = "A") %>%
+  left_join(., meta.pop, by = "population")
+ggplot(test, aes(x = abs(lat), y = A, color = outlier_region_high_shared)) +
+  geom_point()
+# plot single SNP per shared high region with highest combined frequency
+p_clines_high_A_shared <- cbind(A, dplyr::select(A_AR_CA, c("scaffold", "pos"))) %>%
+  rename(chr = scaffold) %>%
+  left_join(mapped_A_AR_CA_regions %>%
+              filter(!is.na(outlier_region_high_shared)) %>%
+              group_by(outlier_region_high_shared) %>%
+              summarise(snp_id = snp_id[which.max(combined)],
+                        pos = pos[which.max(combined)],
+                        chr = chr[which.max(combined)],
+                        FDR_AR_high = FDR_AR_high[which.max(combined)],
+                        FDR_CA_high = FDR_CA_high[which.max(combined)]), 
+            ., by = c("chr", "pos")) %>%
+  pivot_longer(cols = colnames(A), names_to = "population", values_to = "A") %>%
   left_join(., meta.pop, by = "population") %>%
+  mutate(FDR = ifelse(zone == "S. America", FDR_AR_high, FDR_CA_high)) %>%
   ggplot(data = ., aes(x = abs(lat), y = A)) +
-  geom_line(col = factor(outlier_region_high_shared)) +
-  #geom_point(data = , )
-  facet_wrap(~zone) # make shape FDR
+  geom_abline(intercept = 0.5, slope = 0, color = "grey", linetype = "dashed") +
+  geom_abline(intercept = c(0, 1), slope = 0, color = "grey") +
+  geom_point(aes(col = factor(outlier_region_high_shared), shape = factor(FDR))) +
+  scale_y_continuous(limits = c(0,1), breaks = c(0,0.5,1)) +
+  theme_classic() +
+  theme(strip.text.y = element_blank(),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6)) +
+  facet_grid(outlier_region_high_shared~zone, scales = "free_x") + # make shape FDR
+  geom_point(data = meanA, aes(x = abs(lat), y = A), color = "black", pch = 1) +
+  labs(shape = "FDR", color = "Shared high A outlier region") +
+  ylab("African ancestry frequency") +
+  xlab("Degrees latitude from the equator") +
+  scale_shape_manual(values = shapes_sig)
+p_clines_high_A_shared
+ggsave("plots/outliers_high_shared_top_snp_clines.png", device = "png",
+       plot = p_clines_high_A_shared,
+       height = 7.5, width = 5.4, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures/outliers_high_shared_top_snp_clines.png", device = "png",
+       plot = p_clines_high_A_shared,
+       height = 7.5, width = 5.4, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures_supp/outliers_high_shared_top_snp_clines.tiff", device = "tiff",
+       plot = p_clines_high_A_shared,
+       height = 7.5, width = 5.4, units = "in", dpi = 600)
+
+# low AR only:
+p_clines_low_A_AR <- cbind(A, dplyr::select(A_AR_CA, c("scaffold", "pos"))) %>%
+  rename(chr = scaffold) %>%
+  left_join(mapped_A_AR_CA_regions %>%
+              filter(!is.na(outlier_region_low_AR)) %>%
+              group_by(outlier_region_low_AR) %>%
+              summarise(snp_id = snp_id[which.min(AR)],
+                        pos = pos[which.min(AR)],
+                        chr = chr[which.min(AR)],
+                        FDR_AR_low = FDR_AR_low[which.min(AR)],
+                        FDR_CA_low = FDR_CA_low[which.min(AR)]), 
+            ., by = c("chr", "pos")) %>%
+  pivot_longer(cols = colnames(A), names_to = "population", values_to = "A") %>%
+  left_join(., meta.pop, by = "population") %>%
+  mutate(FDR = ifelse(zone == "S. America", FDR_AR_low, FDR_CA_low)) %>%
+  mutate(FDR = ifelse(is.na(FDR), "n.s.", FDR)) %>% # not significant category
+  ggplot(data = ., aes(x = abs(lat), y = A)) +
+  geom_abline(intercept = 0.5, slope = 0, color = "grey", linetype = "dashed") +
+  geom_abline(intercept = c(0, 1), slope = 0, color = "grey") +
+  geom_point(aes(col = factor(outlier_region_low_AR), shape = factor(FDR))) +
+  scale_y_continuous(limits = c(0,1), breaks = c(0,0.5,1)) +
+  theme_classic() +
+  theme(strip.text.y = element_blank(),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6)) +
+
+  facet_grid(outlier_region_low_AR~zone, scales = "free_x") + # make shape FDR
+  geom_point(data = meanA, aes(x = abs(lat), y = A), color = "black", pch = 1) +
+  labs(shape = "FDR", color = "Low A in S. America outlier region") +
+  ylab("African ancestry frequency") +
+  xlab("Degrees latitude from the equator") +
+  scale_shape_manual(values = shapes_sig)
+p_clines_low_A_AR
+ggsave("plots/outliers_low_AR_top_snp_clines.png", device = "png",
+       plot = p_clines_low_A_AR,
+       height = 4, width = 5.4, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures/outliers_low_AR_top_snp_clines.png", device = "png",
+       plot = p_clines_low_A_AR,
+       height = 4, width = 5.4, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures_supp/outliers_low_AR_top_snp_clines.tiff", device = "tiff",
+       plot = p_clines_low_A_AR,
+       height = 4, width = 5.4, units = "in", dpi = 600)
+
+
+# both clines together:
+top2_snp_clines <- cbind(A, dplyr::select(A_AR_CA, c("scaffold", "pos"))) %>%
+  rename(chr = scaffold) %>%
+  left_join(mapped_A_AR_CA_regions, ., by = c("chr", "pos")) %>%
+  filter(., combined == max(combined) | AR == min(AR)) %>% # top outliers 
+  pivot_longer(cols = colnames(A), names_to = "population", values_to = "A") %>%
+  left_join(., meta.pop, by = "population") %>%
+
+  ggplot(data = ., aes(x = abs(lat), y = A)) +
+  geom_abline(intercept = 0.5, slope = 0, color = "grey", linetype = "dashed") +
+  geom_abline(intercept = c(0, 1), slope = 0, color = "grey") +
+  geom_point(aes(shape = snp_id, color = snp_id)) +
+  scale_y_continuous(limits = c(0,1), breaks = c(0,0.5,1)) +
+  theme_classic() +
+  theme(strip.text.x = element_blank(),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6),
+        legend.position = "top") +
+
+  facet_grid(zone~snp_id, scales = "free_x") + # make shape FDR
+  geom_point(data = meanA, aes(x = abs(lat), y = A), color = "black", pch = 1) +
+  labs(shape = "Outlier SNP", color = "Outlier SNP") +
+  ylab("African ancestry frequency") +
+  xlab("Degrees latitude from the equator") +
+  scale_shape_manual(values = c(15, 17), labels = c("Chr1:10921910", "Chr11:14490150")) +
+  scale_color_manual(values = c("orange", "blue"), labels = c("Chr1:10921910", "Chr11:14490150"))
+ggsave("plots/top_snp_clines.png", device = "png",
+       plot = top2_snp_clines,
+       height = 5, width = 5.4, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures/top_snp_clines.png", device = "png",
+       plot = top2_snp_clines,
+       height = 5, width = 5.4, units = "in", dpi = 600)
+ggsave("../../bee_manuscript/figures_supp/top_snp_clines.tiff", device = "tiff",
+       plot = top2_snp_clines,
+       height = 5, width = 5.4, units = "in", dpi = 600)
+
+# just plot top snp per chromosome!
+
 
