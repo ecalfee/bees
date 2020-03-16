@@ -1854,7 +1854,7 @@ A_AR_CA %>%
   filter(scaffold == "NC_037638.1") %>%
   filter(pos >= 25775448, pos <= 25778510) %>%
   dplyr::select(CA) %>%
-  max()
+  #max()
   filter(pos >= 25775448-10^5, pos <= 25778510+10^5) %>%
   pivot_longer(cols = c("AR", "CA"), names_to = "zone", values_to = "A") %>%
   ggplot(aes(x = pos, y = A, col = zone)) +
