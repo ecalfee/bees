@@ -283,6 +283,10 @@ ggsave(paste0("../../bee_manuscript/figures_supp/mean_k_corr_by_groups_and_r.tif
        plot = mean_corrs_plot,
        units = "in", device = "tiff")
 
+# paired t-test for manuscript:
+with(filter(mean_corrs, type %in%  c("CA_ARS", "ARN_ARS")) %>% arrange(r_bin5), 
+     t.test(mean_anc_corr ~ type, paired = T), alternative = "two.sided")
+
 # is this finding robust across all chromosomes?
 K_by_chr <- lapply(1:16, function(chr)
   calcK(t(A[sites_r$chr_n == chr, pops_by_lat]),
@@ -379,16 +383,19 @@ ggsave(paste0("../../bee_manuscript/figures/mean_k_corr_by_groups_and_chr_outlie
        height = 4, width = 6, 
        units = "in", device = "pdf")
 
-# run t-tests: I'm not sure if we expect there to be correlation across chromosomes (paired t-test) or not. I run both test, all sig.
-with(filter(mean_corrs_chr, type %in%  c("CA_ARS", "ARN_ARS")), t.test(mean_anc_corr ~ type), alternative = "two.sided")
-with(filter(mean_corrs_chr, type %in%  c("CA_ARS", "ARN_ARS") &
-              !(chr_n %in% c(1, 11))), t.test(mean_anc_corr ~ type), alternative = "two.sided")
+# report paired t-test in main text (paired because chromosomes are 'resampled' for all comparisons):
 with(filter(mean_corrs_chr, type %in%  c("CA_ARS", "ARN_ARS")) %>% arrange(chr_n), 
-     t.test(mean_anc_corr ~ type, paired = T))
+     t.test(mean_anc_corr ~ type, paired = T), alternative = "two.sided")
+# sensitive to including chr 1 and chr 11 (in diff. directions), but result still valid without either large outlier chromosomes
 with(filter(mean_corrs_chr, type %in%  c("CA_ARS", "ARN_ARS") &
               !(chr_n %in% c(1, 11))) %>% arrange(chr_n), 
      t.test(mean_anc_corr ~ type, paired = T))
-
+with(filter(mean_corrs_chr, type %in%  c("CA_ARS", "ARN_ARS") &
+              chr_n != 1) %>% arrange(chr_n), 
+     t.test(mean_anc_corr ~ type, paired = T))
+with(filter(mean_corrs_chr, type %in%  c("CA_ARS", "ARN_ARS") &
+              chr_n != 11) %>% arrange(chr_n), 
+     t.test(mean_anc_corr ~ type, paired = T))
 
 # plot covariances:
 # plot with bars representing all chromosomes:

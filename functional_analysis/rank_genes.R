@@ -2081,7 +2081,7 @@ ggsave("plots/top_snp_clines.png", device = "png",
 ggsave("../../bee_manuscript/figures/top_snp_clines.png", device = "png",
        plot = top2_snp_clines,
        height = 5, width = 5.4, units = "in", dpi = 600)
-ggsave("../../bee_manuscript/figures_supp/top_snp_clines.tiff", device = "tiff",
+ggsave("../../bee_manuscript/figures_main/top_snp_clines.tiff", device = "tiff",
        plot = top2_snp_clines,
        height = 5, width = 5.4, units = "in", dpi = 600)
 

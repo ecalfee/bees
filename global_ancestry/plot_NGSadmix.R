@@ -61,6 +61,8 @@ colnames(IDs) <- c("Bee_ID")
 # get coverage estimates
 coverage <- read.table(paste0("../geno_lik_and_SNPs/results/", prefix, "/coverage/mean_ind_coverage.chr.random_pos_1000.txt"),
                        header = T, stringsAsFactors = F, sep = "\t")
+# mean coverage all samples:
+left_join(meta.ind, coverage, by = "Bee_ID") %>% group_by(source) %>% summarise(mean = mean(est_coverage))
 
 # join all data together
 bees <- dplyr::left_join(IDs, meta, by = "Bee_ID") %>%

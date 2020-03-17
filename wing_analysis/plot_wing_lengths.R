@@ -23,7 +23,7 @@ bees <- do.call(rbind,
 meta.ind <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
   left_join(bees, ., by = c("Bee_ID", "population")) 
 # get admixture data
-load("../global_ancestry/results/NGSAdmix/ACM_K3_combined_sept19_chr_prunedBy250.rData")
+load("../global_ancestry/results/NGSAdmix/ACM_K3_combined_sept19_chr_prunedBy250.rData") #d_admix_ACM_labelled
 
 # load measurements and metadata for reference bee populations:
 acm.meta <- read.table("results/reference_samples_scut_car_lig_iber_mell.csv",
@@ -99,6 +99,7 @@ wings <- filter(wings, Label != "RW-D-AR0605-01-25-20.JPG") # just use the origi
 wings %>%
   ggplot(., aes(x = Bee_ID, y = wing_cm)) +
   geom_point()
+
 
 # combine data
 wings.meta <- wings %>%
@@ -411,3 +412,60 @@ min(fits_counts$p.value[!is.na(A_AR_CA$FDR_CA_high)])
 min(fits_counts$p.value[!is.na(A_AR_CA$FDR_AR_low)])
 #plot(log10(fits_counts$p.value), clines$params[clines$params$term == "b", "estimate"])
 #cor(log10(fits_counts$p.value), log10(clines$params[clines$params$term == "b", "p.value"]))     
+
+
+
+
+# make output file of all samples for supplementary information:
+german_names <- data.frame(LANDNAM = c("Italien", "Tanzania", "England", "Norwegen", "Rhodesien", 
+                                       "Frankreich", "Kenya", "Osterreich", "JugoslawienSlow", 
+                                       "JugoslawienSerb", "Rumanien", "Ungarn", "Burundi", 
+                                       "Rusland", "JugoslawienKroa", "Spanien", "Sud-Afrika"), 
+                           location = c("Italy", "Tanzania", "England", "Norway", "Rhodesia (Zimbabwe)", 
+                                        "France", "Kenya", "Austria", "Yugoslavia (Slovenia)", 
+                                        "Yugoslavia (Serbia)", "Romania", "Hungary", "Burundi", 
+                                        "Russia", "Yugoslavia (Croatia)", "Spain", "South Africa"))
+sources <- data.frame(source = c("Ramirez", "Sheppard", "Harpur", "Calfee"),
+                      publication = c("Published in Cridland et al. 2018, NCBI PRJNA385500",
+                                 "Published in Cridland et al. 2017, collected by Sheppard et al., NCBI PRJNA294105", 
+                                 "Published in Harpur et al. 2014, NCBI PRJNA216922",
+                                 "This study"))
+
+
+bees_all <- d_admix_ACM_labelled %>%
+  dplyr::select(Bee_ID, geographic_location_short, population, Date, Time, enjambre, lat, long, est_coverage, A, C, M, source) %>%
+  left_join(., full_join(wings, 
+                         filter(measurements, type == "ruler") %>%
+                           filter(!duplicated(Label)) %>%
+                           dplyr::select("Bee_ID", "Label"), 
+                         by = "Bee_ID") %>%
+              mutate(Label = ifelse(is.na(Label.x), as.character(Label.y), as.character(Label.x))) %>%
+              dplyr::select(., Bee_ID, Label, wing_cm), 
+            by = "Bee_ID") %>%
+  mutate(location = ifelse(source == "Ramirez", "California", 
+                           ifelse(geographic_location_short == "Pag Island, Croatia", "Croatia", geographic_location_short))) %>%
+  left_join(., sources, by = "source") %>%
+  bind_rows(., acm.wings %>%
+  mutate(Bee_ID = paste0("Pop", pop_id, "_Ind", bee_id)) %>% 
+  rename(population = ACM) %>%
+  left_join(., german_names, by = "LANDNAM") %>%
+  dplyr::select(Bee_ID, Label, wing_cm, location, population) %>%
+  mutate(publication = "Published in Ruttner 1988, Oberursel Collection, Germany")) %>%
+  rename(wing_image_file = Label) %>%
+  rename(wing_length_cm = wing_cm) %>%
+  rename(collection_date = Date,
+         collection_time = Time,
+         feral_nest = enjambre) %>%
+  mutate(collection_date = sapply(1:nrow(.), function(i)
+                                  ifelse(location[i] == "Argentina", paste(strsplit(collection_date[i], 
+                                                                          split = "[.]")[[1]][c(2,1,3)], 
+                                                                          collapse = "/"),
+                                  collection_date[i]))) %>% # fix dates reversed for Argentina samples
+  dplyr::select(Bee_ID, location, population, lat, long, collection_date, collection_time, 
+                feral_nest, publication, wing_image_file, wing_length_cm, est_coverage, A, C, M) %>%
+  arrange(lat, population, location) %>%
+  arrange(publication == "Published in Ruttner 1988, Oberursel Collection, Germany",
+          publication != "This study")
+#View(bees_all)
+write.table(bees_all, "../../bee_manuscript/files_supp/sample_information.txt",
+            col.names = T, row.names = F, sep = "\t", quote = F) # write out supplementary table with sample information
