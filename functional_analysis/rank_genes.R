@@ -14,7 +14,8 @@ sig_text = data.frame(FDR = c(0.01, 0.05, 0.1, NA),
 ACM = c("A", "C", "M")
 
 # load qtls
-qtl = read.csv("../data/QTL_markers_Hunt_lab/AMEL_QTLS.csv", sep = ",", stringsAsFactors = F)
+#qtl = read.csv("../data/QTL_markers_Hunt_lab/AMEL_QTLS.csv", sep = ",", stringsAsFactors = F)
+qtl = read.table("results/Approximate_QTL_positions_HAv3.1.txt", header = T, sep = "\t")
 
 # load pop/ind metadata for bees
 load("../local_ancestry/results/meta.RData")
@@ -1331,7 +1332,7 @@ p1_outliers <- AIMS_ACM_AR_CA %>%
              linetype = "solid") + # dashed
   geom_point(
     aes(x = pos_Mb, y = frequency, 
-        color = ancestry, size = 0.1)) +
+        color = ancestry), size = 0.1) +
   xlab("Chromosome 1 (Mb)") +
   ylab("Ancestry frequency") +
   geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
@@ -1760,11 +1761,18 @@ ggsave("../../bee_manuscript/figures_main/A_frequency_plot_AR_CA_FDR_whole_genom
        height = 3, width = 7.5, units = "in", dpi = 600, device = "tiff")
 
 
-p_small <- ggplot() +
-  geom_point(data = A_AR_CA_cumulative %>%
-               filter(!is.na(FDR)), # then plot sig points on top 
+p_small <- ggplot() + # need to fix
+  geom_point(data = A_AR_CA_cumulative%>%
+               filter(!is.na(FDR)), # just plot sig points
              aes(x = cum_pos, y = A_ancestry, 
                  color = color_by), size = .01) +
+  geom_segment(data = qtl,
+               aes(x = start + chr_start - buffer_4_visibility, # add 50kb for visibility only
+                   xend = end + chr_start + buffer_4_visibility, 
+                   y = 0.7, yend = 0.7, color = phenotype),
+               lwd = 4,
+               color = "black",
+               alpha = 0) +
   xlab("Chromosome") +
   ylab("Mean African ancestry") +
   scale_color_manual(name = NULL,
@@ -1779,7 +1787,7 @@ p_small <- ggplot() +
   facet_grid(zone_pretty ~ .) +
   theme(legend.position = "top", legend.margin = margin(t = 0, unit='cm')) +
   guides(colour = guide_legend(override.aes = list(size = 2, shape = 15)))
-
+p_small
 # put genomewide plot together with 2 outlier regions: p_outliers_genomewide
 p_outliers_combined <- arrangeGrob(p_outliers_genomewide + ggtitle("A"),
                                      p1_outliers + ggtitle("B"),
@@ -1847,6 +1855,18 @@ genes_combined2$BEEBASE[!(genes_combined2$BEEBASE %in% DAVID_results$BEEBASE_ID)
 # write genes and DAVID functional information to file
 write.table(dplyr::select(genes_combined2, -c(Dbxref, gene)), 
             "results/genes_0.1FDR_combined_with_DAVID_gene_names_3.7.20.txt",
+            sep = "\t", quote = F,
+            col.names = T, row.names = F)  
+# write out file for supplement
+genes_combined2 %>%
+  rename(High_A_outlier_North_America_FDR = FDR_CA_high,
+         High_A_outlier_South_America_FDR = FDR_AR_high,
+         Low_A_outlier_South_America_FDR = FDR_AR_low) %>%
+  mutate(Low_A_outlier_North_America_FDR = NA) %>%
+  dplyr::select(scaffold, start, end, source, Name, BEEBASE, gene_biotype, DAVID_gene_name, ends_with("FDR")) %>%
+  #View()
+  write.table(., 
+            "../../bee_manuscript/files_supp/Ancestry_outlier_genes.txt",
             sep = "\t", quote = F,
             col.names = T, row.names = F)  
 
@@ -2088,3 +2108,16 @@ ggsave("../../bee_manuscript/figures_main/top_snp_clines.tiff", device = "tiff",
 # just plot top snp per chromosome!
 
 
+
+
+# print out all outlier ancestry windows
+outliers_all2 <- read.table("results/outlier_regions/all.bed", header = T, stringsAsFactors = F) %>%
+  left_join(., data.frame(outlier_type = c("low_AR", "high_AR", "high_CA", "high_shared2"),
+                          outlier_group = c("Low_A_South_America", "High_A_South_America", "High_A_North_America", "High_A_Shared")), 
+            by = "outlier_type") %>%
+  rename(FDR_South_America = min_FDR_AR,
+         FDR_North_America = min_FDR_CA) %>%
+  dplyr::select(chr, start, end, region, outlier_group, FDR_South_America, FDR_North_America, bp_overlap_shared_outlier, percent_bp_shared) %>%
+  rename(outlier_type = outlier_group)
+View(outliers_all2)
+write.table(outliers_all2, "../../bee_manuscript/files_supp/Ancestry_outlier_regions.txt", col.names = T, row.names = T, quote = F, sep = "\t")
