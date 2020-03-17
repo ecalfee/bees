@@ -918,10 +918,12 @@ SA_w_shapes <- SA_plot +
                color = "black", size = 0.1, alpha = 1)
 AMC_legend = ggplot(data = data.frame(Ancestry = factor(ACM, levels = c("A", "M", "C"), ordered = T), x = 1:3, y = 1:3), aes(x = x, y = y, color = Ancestry)) +
   geom_point() +
-  scale_color_manual(values = col_ACM, name = expression(""*symbol('\254')* " Brazil")) +
+  scale_color_manual(values = col_ACM, 
+                     name = element_blank()) +
+                     #name = expression(""*symbol('\254')* " Brazil")) +
   theme_classic() +
   theme(legend.key = element_rect(size = 0.01, color = "white"),
-        legend.key.size = unit(0.4, units = "cm"),
+        legend.key.size = unit(0.5, units = "cm"),
         legend.spacing = unit(0, units = "cm"))
 p_world_admix_tall <- grid.arrange(grobs = list(ggplotGrob(p_world_together),
                                                 get_legend(AMC_legend),              
@@ -936,6 +938,8 @@ p_world_admix_tall <- grid.arrange(grobs = list(ggplotGrob(p_world_together),
                                                          c(4,4)),
                                    heights = c(7, 0.25, 1.1, 1.1),
                                    widths = c(8, 1))
+
+
 plot(p_world_admix_tall)
 ggsave("plots/world_map_ngsadmix_tall.png",
        plot = p_world_admix_tall, 

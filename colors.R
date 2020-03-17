@@ -56,3 +56,7 @@ col_pi_predictions <- dark2[c(2,8)]
 names(col_pi_predictions) <- c("observed", "predicted_ref")
 col_pi_predictions3 <- dark2[c(2,7,8)] 
 names(col_pi_predictions3) <- c("observed", "predicted_admix", "predicted_ref")
+
+
+shapes_sig <- c(17,16,15,4)
+names(shapes_sig) <- c("0.01", "0.05", "0.1", "n.s.")

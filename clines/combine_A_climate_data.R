@@ -124,7 +124,6 @@ d <- bees.clim %>%
   left_join(., anc_labels, by = "ancestry") %>%
   mutate(continent = ifelse(geographic_location == "Argentina", "S. America", "N. America"))
 
-
 # make some new variables, standardized for better model fitting
 d_A <- d %>%
   filter(geographic_location != "Mexico") %>% # filter out mexico
