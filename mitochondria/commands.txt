@@ -1,7 +1,19 @@
 
 # analysis of mitochondria diversity in the Africanized honey bee hybrid zone
+# mtDNA is scaffold NC_001566.1 in HAv3.1; reads were mapped to it during the genomewide read mapping
+# find SNPs (83) within mtDNA. Same as SNP calling in genome, but I raised the depth allowed to effectively no max depth
+geno_lik_and_SNPs$ ./calc_GL_all_SNPs.sh ../bee_samples_listed/combined_sept19.bams mtDNA_highDepthOK NC_001566.1 174 5500000 results/combined_sept19/GL_by_scaffold
+# limitation: genotype likelihoods are for outbred diploids. I can't figure out other options in angsd.
+# run PCA on all SNPs within mtDNA (not ideal, but can start here)
+bees/mitochondria$ mkdir -p results/PCA
+bees/mitochondria$ python2 ~/Software/pcangsd/pcangsd.py -beagle ../geno_lik_and_SNPs/results/combined_sept19/GL_by_scaffold/mtDNA_extrahighDepthOK.beagle.gz -threads 2 -iter 100 -minMaf 0 -admix -o results/PCA/mtDNA_extrahighDepthOK
 
 
+# get individual coverage estimates.
+# call genotypes.
+
+
+################ ------------ Old Amel4.5 genome analysis below --------------- ####################
 # (1) mapping reads to a mitochondria reference sequence:
 
 # map, sort, and dedup mtDNA for admixed bees:
@@ -32,7 +44,7 @@ bees/mitochondria$ nohup parallel --noswap --delay 5s --joblog logs/map_mtdna_Ke
 16343bp mtDNA
 mitochondria/results/bam_files$ for i in $(ls *.sort.dedup.baq.bam); do samtools view $i; done | wc -l
 5371895
-# but some of these are single read 50bp (Harpur) 
+# but some of these are single read 50bp (Harpur)
 mitochondria/results/bam_files$ for i in $(ls SRR9*.sort.dedup.baq.bam); do samtools view $i; done | wc -l
 979668
 or single 100bp (Kenya-Sheppard)

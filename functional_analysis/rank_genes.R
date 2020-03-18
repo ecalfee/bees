@@ -1760,25 +1760,29 @@ ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_whole_genome_wid
 ggsave("../../bee_manuscript/figures_main/A_frequency_plot_AR_CA_FDR_whole_genome_wide.tiff",
        height = 3, width = 7.5, units = "in", dpi = 600, device = "tiff")
 
-
+col_qtl <- c("deeppink", "orange", "blue", "purple")
+names(col_qtl) <- c("Defense response", "Grooming", "Hygienic behavior", "Varroa Sensitive Hygiene")
 p_small <- ggplot() + # need to fix
   geom_point(data = A_AR_CA_cumulative%>%
                filter(!is.na(FDR)), # just plot sig points
              aes(x = cum_pos, y = A_ancestry, 
                  color = color_by), size = .01) +
-  geom_segment(data = qtl,
-               aes(x = start + chr_start - buffer_4_visibility, # add 50kb for visibility only
-                   xend = end + chr_start + buffer_4_visibility, 
-                   y = 0.7, yend = 0.7, color = phenotype),
-               lwd = 4,
-               color = "black",
-               alpha = 0) +
+  geom_rect(data = qtl %>%
+                 left_join(., chr_lengths, by = "scaffold"),
+               aes(xmin = start + chr_start - buffer_4_visibility, # add 50kb for visibility only
+                   xmax = end + chr_start + buffer_4_visibility, 
+                   ymin = 0.3, ymax = 0.7, fill = phenotype),
+               #color = "black",
+               alpha = 0.1) +
   xlab("Chromosome") +
   ylab("Mean African ancestry") +
   scale_color_manual(name = NULL,
                      values = col_FDR,
                      limits = c("0.01", "0.05", "0.1"),
                      labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
+                     #values = c(col_FDR, col_qtl),
+                     #limits = c(c("0.01", "0.05", "0.1"), names(col_qtl)),
+                     #labels = c(c("0.01 FDR", "0.05 FDR", "0.10 FDR"), names(col_qtl))
   ) + 
   # add in means for reference
   geom_hline(data = mean_genomewide, aes(yintercept = A_ancestry), col = "black", linetype = "dashed") +
@@ -2120,4 +2124,5 @@ outliers_all2 <- read.table("results/outlier_regions/all.bed", header = T, strin
   dplyr::select(chr, start, end, region, outlier_group, FDR_South_America, FDR_North_America, bp_overlap_shared_outlier, percent_bp_shared) %>%
   rename(outlier_type = outlier_group)
 View(outliers_all2)
-write.table(outliers_all2, "../../bee_manuscript/files_supp/Ancestry_outlier_regions.txt", col.names = T, row.names = T, quote = F, sep = "\t")
+write.table(outliers_all2, "../../bee_manuscript/files_supp/Ancestry_outlier_regions.txt", 
+            col.names = T, row.names = F, quote = F, sep = "\t")
