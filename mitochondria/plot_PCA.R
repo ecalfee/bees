@@ -55,7 +55,7 @@ p12 = d %>%
   xlab(paste0("PC1 (", round(PC_var_explained[1], 2), "%)")) +
   ylab(paste0("PC2 (", round(PC_var_explained[2], 2), "%)")) +
   theme_classic()
-plot(p12 + geom_point(aes(color = strain, size = est_coverage), alpha = .5) +
+plot(p12 + geom_point(aes(color = strain), alpha = .5) +
        ggtitle(paste0("PCA ", prefix)))
 ggsave(paste0("plots/PCA_12_", prefix, ".png"),
        plot = p12 + geom_point(aes(color = strain), alpha = .5),
@@ -75,18 +75,18 @@ ggsave(paste0("plots/PCA_12_", prefix, "_byGroup.png"),
        width = 5.2, height = 4,
        units = "in",
        dpi = 600)
-ggsave(paste0("../../bee_manuscript/figures/PCA_12_", prefix, "_byGroup.png"),
-       plot = pca_for_manuscript,
-       device = "png",
-       width = 5.2, height = 4,
-       units = "in",
-       dpi = 600)
-ggsave(paste0("../../bee_manuscript/figures_supp/PCA_12_", prefix, "_byGroup.tiff"),
-       plot = pca_for_manuscript,
-       device = "tiff",
-       width = 5.2, height = 4,
-       units = "in",
-       dpi = 600)
+#ggsave(paste0("../../bee_manuscript/figures/PCA_12_", prefix, "_byGroup.png"),
+#       plot = pca_for_manuscript,
+#       device = "png",
+#       width = 5.2, height = 4,
+#       units = "in",
+#       dpi = 600)
+#ggsave(paste0("../../bee_manuscript/figures_supp/PCA_12_", prefix, "_byGroup.tiff"),
+#       plot = pca_for_manuscript,
+#       device = "tiff",
+#       width = 5.2, height = 4,
+#       units = "in",
+#       dpi = 600)
 
 
 
