@@ -1,16 +1,46 @@
 
 # analysis of mitochondria diversity in the Africanized honey bee hybrid zone
 # mtDNA is scaffold NC_001566.1 in HAv3.1; reads were mapped to it during the genomewide read mapping
-# find SNPs (83) within mtDNA. Same as SNP calling in genome, but I raised the depth allowed to effectively no max depth
-geno_lik_and_SNPs$ ./calc_GL_all_SNPs.sh ../bee_samples_listed/combined_sept19.bams mtDNA_highDepthOK NC_001566.1 174 5500000 results/combined_sept19/GL_by_scaffold
+# ID SNPs:
+# first pass (failed):
+geno_lik_and_SNPs$ ./calc_GL_all_mtDNA.sh ../bee_samples_listed/combined_sept19.bams 174 results/combined_sept19/GL_by_scaffold ../bee_samples_listed/combined_sept19.inbreeding
+
+BAMS_LIST=$1 # list of paths to bee bams
+SCAFFOLD_NAME="mtDNA"
+SCAFFOLD_REGION="NC_001566.1" # region to run GL on = a scaffold
+MIN_IND=$2 # minimum number of individuals with data for total sample to keep a site
+DIR_OUT=$3 # output file goes in this directory, labelled by  scaffold.
+INBRED_FILE=$4
+# HMMM... didn't work. just calling snps the old way (based on counts and MAF)
+geno_lik_and_SNPs$ ./calc_GL_all_SNPs.sh ../bee_samples_listed/combined_sept19.bams mtDNA NC_001566.1 174 5500 results/combined_sept19/GL_by_scaffold
+# same but allowing for extra depth ok
+geno_lik_and_SNPs$ ./calc_GL_all_SNPs.sh ../bee_samples_listed/combined_sept19.bams mtDNA_highDepthOK NC_001566.1 174 100000000 results/combined_sept19/GL_by_scaffold
+# make sites file for these snps:
+geno_lik_and_SNPs$ zcat results/combined_sept19/GL_by_scaffold/mtDNA_highDepthOK.mafs.gz | \
+tail -n +2 | awk '{print $1 "\t" $2 "\t" $3 "\t" $4}' \
+> results/combined_sept19/variant_sites/mtDNA_highDepthOK.var.sites; sleep 2s; \
+angsd sites index results/combined_sept19/variant_sites/mtDNA_highDepthOK.var.sites
+
+# found 82 SNPs within mtDNA. Same as SNP calling in genome, but I raised the depth allowed to effectively no max depth
 # limitation: genotype likelihoods are for outbred diploids. I can't figure out other options in angsd.
 # run PCA on all SNPs within mtDNA (not ideal, but can start here)
 bees/mitochondria$ mkdir -p results/PCA
-bees/mitochondria$ python2 ~/Software/pcangsd/pcangsd.py -beagle ../geno_lik_and_SNPs/results/combined_sept19/GL_by_scaffold/mtDNA_extrahighDepthOK.beagle.gz -threads 2 -iter 100 -minMaf 0 -admix -o results/PCA/mtDNA_extrahighDepthOK
+bees/mitochondria$ python2 ~/Software/pcangsd/pcangsd.py -beagle ../geno_lik_and_SNPs/results/combined_sept19/GL_by_scaffold/mtDNA_highDepthOK.beagle.gz -threads 2 -iter 100 -minMaf 0 -admix -o results/PCA/mtDNA_highDepthOK
+# (very fast)
+# plot PCA for mtDNA:
+bees/mitochondria$ Rscript plot_PCA.R
+# get individual coverage estimates across entire mtDNA:
+bees/mitochondria$ angsd -bam ../bee_samples_listed/combined_sept19.bams -doDepth 1 -out results/mtDNA_coverage -doCounts 1 -r NC_001566.1: -remove_bads 1 -minMapQ 30 -minQ 20 -maxDepth 10000000
+-- too big a task (Failed)
+# instead, calculate coverage for 1000 random positions on mitochondria:
+bees/mitochondria$ bedtools random -g ../data/honeybee_genome/mtDNA.lengths -n 1200 -l 1 | \
+bedtools shuffle -i stdin -g ../data/honeybee_genome/scaffolds_with_mtDNA.lengths -noOverlapping -excl ../data/honeybee_genome/gaps.bed | \
+head -n 1000 | bedtools sort -faidx ../data/honeybee_genome/scaffolds_with_mtDNA.lengths -i stdin > results/random_pos_1000_mtDNA.bed
+bees/mitochrondria$ bedtools multicov -q 30 -bams $(paste -s -d" " ../bee_samples_listed/combined_sept19.bams) -bed results/random_pos_1000_mtDNA.bed > results/coverage_random_pos_1000_mtDNA.txt
+# call haploid genotypes for all SNPs on mtDNA:
 
 
-# get individual coverage estimates.
-# call genotypes.
+
 
 
 ################ ------------ Old Amel4.5 genome analysis below --------------- ####################
