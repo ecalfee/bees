@@ -20,8 +20,7 @@ bees <- do.call(rbind,
                                                                         stringsAsFactors = F)$V1, population = p, stringsAsFactors = F)))
 
 # metadata
-meta.ind <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
-  left_join(bees, ., by = c("Bee_ID", "population")) 
+load("../local_ancestry/results/meta.RData")
 # get admixture data
 load("../global_ancestry/results/NGSAdmix/ACM_K3_combined_sept19_chr_prunedBy250.rData") #d_admix_ACM_labelled
 
@@ -103,7 +102,7 @@ wings %>%
 
 # combine data
 wings.meta <- wings %>%
-  left_join(., meta.ind, by = "Bee_ID") %>%
+  left_join(., dplyr::select(meta.ind, -c(date, time)), by = "Bee_ID") %>%
   left_join(., d_admix_ACM_labelled[ , c("Bee_ID", ACM)], by = "Bee_ID")
 
 # write data
@@ -453,7 +452,8 @@ enjambre <- data.frame(Bee_ID =
                        stringsAsFactors = F)
 
 bees_all <- d_admix_ACM_labelled %>%
-  dplyr::select(Bee_ID, geographic_location_short, population, Date, Time, enjambre, lat, long, est_coverage, A, C, M, source) %>%
+  left_join(., meta.ind[ , c("Bee_ID", "date", "time")], by = "Bee_ID") %>%
+  dplyr::select(Bee_ID, geographic_location_short, population, date, time, enjambre, lat, long, est_coverage, A, C, M, source) %>%
   left_join(., full_join(wings, 
                          filter(measurements, type == "ruler") %>%
                            filter(!duplicated(Label)) %>%
@@ -474,14 +474,14 @@ bees_all <- d_admix_ACM_labelled %>%
   mutate(publication = "Published in Ruttner 1988, Oberursel Collection, Germany")) %>%
   rename(wing_image_file = Label) %>%
   rename(wing_length_cm = wing_cm) %>%
-  rename(collection_date = Date,
-         collection_time = Time,
+  rename(collection_date = date,
+         collection_time = time,
          feral_nest = enjambre) %>%
-  mutate(collection_date = sapply(1:nrow(.), function(i)
-                                  ifelse(location[i] == "Argentina", paste(strsplit(collection_date[i], 
-                                                                          split = "[.]")[[1]][c(2,1,3)], 
-                                                                          collapse = "/"),
-                                  collection_date[i]))) %>% # fix dates reversed for Argentina samples
+  #mutate(collection_date = sapply(1:nrow(.), function(i)
+  #                                ifelse(location[i] == "Argentina", paste(strsplit(collection_date[i], 
+  #                                                                        split = "[.]")[[1]][c(2,1,3)], 
+  #                                                                        collapse = "/"),
+  #                                collection_date[i]))) %>% # fix dates reversed for Argentina samples
   left_join(., enjambre, by = "Bee_ID") %>%
   mutate(collection_note = ifelse(is.na(collection_note) & publication == "This study", 
                                    "foraging on vegetation", 
@@ -493,5 +493,6 @@ bees_all <- d_admix_ACM_labelled %>%
   arrange(publication == "Published in Ruttner 1988, Oberursel Collection, Germany",
           publication != "This study")
 #View(bees_all)
+
 write.table(bees_all, "../../bee_manuscript/files_supp/S1_Table_Sample_information.txt",
             col.names = T, row.names = F, sep = "\t", quote = F) # write out supplementary table with sample information

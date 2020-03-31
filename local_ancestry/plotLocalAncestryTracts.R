@@ -392,8 +392,17 @@ bees <- do.call(rbind,
                                                     stringsAsFactors = F)$V1, population = p, stringsAsFactors = F)))
 
 # get metadata
-meta.ind <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
-  left_join(bees, ., by = c("Bee_ID", "population")) 
+meta.ind0 <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
+  left_join(bees, ., by = c("Bee_ID", "population"))
+dates <- rbind(filter(meta.ind0, geographic_location == "Argentina") %>%
+  mutate(date = as.Date(Date, "%d.%m.%y")) %>%
+  dplyr::select(c("Bee_ID", "Date", "date")),
+  filter(meta.ind0, geographic_location == "California") %>%
+    mutate(date = as.Date(Date, "%m/%d/%y")) %>%
+    dplyr::select(c("Bee_ID", "Date", "date")))
+meta.ind <- left_join(meta.ind0, dates, by = c("Bee_ID", "Date")) %>%
+  dplyr::select(-Date) %>%
+  rename(time = Time)
 meta.pop <- meta.ind %>%
   dplyr::select(c("population", "source", "year", "group", "lat", "long")) %>%
   dplyr::group_by(population, source, year, group) %>%

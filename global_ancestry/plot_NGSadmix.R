@@ -32,7 +32,8 @@ meta <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F,
                             ifelse( group %in% c("CA_2018", "MX_2018",
                                                  "N_CA", "S_CA"),
                                     "N. America",
-                            NA)))
+                            NA))) %>%
+  dplyr::select(-c(Date, Time, toSequence, toWing))
 meta$label <- meta$Bee_ID
 load("../local_ancestry/results/meta.RData")
 pop2014_incl <- c("Stebbins_2014", "Stanislaus_2014", "Avalon_2014",
