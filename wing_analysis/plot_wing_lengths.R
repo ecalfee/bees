@@ -95,7 +95,7 @@ wings <- measurements %>%
 wings %>% # one bee was imaged twice
   filter(Bee_ID == "AR0605") # same bee diff images, .003cm diff. in measurement error
 wings <- filter(wings, Label != "RW-D-AR0605-01-25-20.JPG") # just use the original higher res. image
-  
+rulers <- filter(rulers, Label != "RW-D-AR0605-01-25-20.JPG") # duplicated pictures, just use other higher res one
 wings %>%
   ggplot(., aes(x = Bee_ID, y = wing_cm)) +
   geom_point()
@@ -111,7 +111,6 @@ write.table(wings[ , c("Bee_ID", "Label", "type", "wing_cm", "length_pixels", "p
             file = "results/bee_wing_lengths_cm_1.28.20.txt",
             col.names = T, row.names = F, sep = "\t")
 rulers %>%
-  filter(., Label != "RW-D-AR0605-01-25-20.JPG") %>% # duplicated pictures, just use other higher res one
   dplyr::select(Bee_ID, Label, pixels_per_cm) %>%
   write.table(., file = "results/bee_scale_1cm_rulers_1.28.20.txt", col.names = T, row.names = F, sep = "\t")
 # note: there are more rulers than wing lengths because some wings were broken for full length but are otherwise ok for vein measurements etc.
@@ -432,11 +431,33 @@ sources <- data.frame(source = c("Ramirez", "Sheppard", "Harpur", "Calfee"),
                                  "This study"))
 
 
+
+enjambre <- data.frame(Bee_ID = 
+                         c("AR1002", 
+                           "AR1403", 
+                           "AR1511", 
+                           "AR2002", 
+                           "AR2201",
+                           "AR2512",
+                           "AR2603",
+                           "AR2913"),
+                       collection_note =
+                         c("at entrance of a feral colony in an old gas tank",
+                           "foraging on water within 5m of a feral colony",
+                           "on ground within 5m of a feral colony in a utility pole",
+                           "at entrance of a feral colony in a utility pole",
+                           "at entrance of a feral colony in a utility pole",
+                           "at entrance of a feral colony in a utility pole",
+                           "at entrance of a feral colony in a utility pole",
+                           "at entrance of a feral colony in a tree cavity"),
+                       stringsAsFactors = F)
+
 bees_all <- d_admix_ACM_labelled %>%
   dplyr::select(Bee_ID, geographic_location_short, population, Date, Time, enjambre, lat, long, est_coverage, A, C, M, source) %>%
   left_join(., full_join(wings, 
                          filter(measurements, type == "ruler") %>%
                            filter(!duplicated(Label)) %>%
+                           filter(., Label != "RW-D-AR0605-01-25-20.JPG") %>%
                            dplyr::select("Bee_ID", "Label"), 
                          by = "Bee_ID") %>%
               mutate(Label = ifelse(is.na(Label.x), as.character(Label.y), as.character(Label.x))) %>%
@@ -461,11 +482,16 @@ bees_all <- d_admix_ACM_labelled %>%
                                                                           split = "[.]")[[1]][c(2,1,3)], 
                                                                           collapse = "/"),
                                   collection_date[i]))) %>% # fix dates reversed for Argentina samples
-  dplyr::select(Bee_ID, location, population, lat, long, collection_date, collection_time, 
+  left_join(., enjambre, by = "Bee_ID") %>%
+  mutate(collection_note = ifelse(is.na(collection_note) & publication == "This study", 
+                                   "foraging on vegetation", 
+                                   collection_note)) %>%
+  rename(., latitude = lat, longitude = long) %>%
+  dplyr::select(Bee_ID, location, population, latitude, longitude, collection_date, collection_time, collection_note,
                 feral_nest, publication, wing_image_file, wing_length_cm, est_coverage, A, C, M) %>%
-  arrange(lat, population, location) %>%
+  arrange(latitude, population, location) %>%
   arrange(publication == "Published in Ruttner 1988, Oberursel Collection, Germany",
           publication != "This study")
 #View(bees_all)
-write.table(bees_all, "../../bee_manuscript/files_supp/sample_information.txt",
+write.table(bees_all, "../../bee_manuscript/files_supp/S1_Table_Sample_information.txt",
             col.names = T, row.names = F, sep = "\t", quote = F) # write out supplementary table with sample information

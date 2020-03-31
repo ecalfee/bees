@@ -28,6 +28,49 @@ apply(haplos, 1, table)
 cov_mtdna <- read.table("results/coverage_random_pos_1000_mtdna.txt") %>%
   data.table::setnames(c("chr", "start", "end", "V4", "V5", "strand", ids))
 meta$cov_mtdna <- apply(cov_mtdna[ , ids], 2, mean)
+cov_mtdna$mean <- apply(cov_mtdna[ , ids], 1, mean)
+cov_mtdna %>%
+  ggplot(., aes(x = start, y = mean)) +
+  geom_point()
+summary(cov_mtdna$mean)
+group_names = data.frame(group = c("A", "C", "M", "AR_2018", "CA_2018", "N_CA", "S_CA"),
+                         group_name = c("A", "C", "M", "Argentina 2018", "California 2018", "N. California 2014", "S. California 2014"),
+                         stringsAsFactors = F) %>%
+  mutate(group_name = factor(group_name, ordered = T, levels = .$group_name))
+p_cov_line <- cov_mtdna %>%
+  pivot_longer(cols = ids, names_to = "Bee_ID", values_to = "coverage") %>%
+  left_join(., meta, by = "Bee_ID") %>%
+  left_join(., group_names, by = "group") %>%
+  mutate(source = ifelse(source == "Ramirez", "Cridland", source)) %>%
+  ggplot(., aes(x = end, y = coverage, 
+                group = group_name, 
+                color = group_name)) +
+  geom_point(size = 0.1) +
+  facet_grid(source~., scales = "free_y") +
+  theme_light() +
+  labs(color = "", x = "Position (mtDNA)", y = "Total coverage")
+p_cov_smooth <- cov_mtdna %>%
+  pivot_longer(cols = ids, names_to = "Bee_ID", values_to = "coverage") %>%
+  left_join(., meta, by = "Bee_ID") %>%
+  left_join(., group_names, by = "group") %>%
+  mutate(source = ifelse(source == "Ramirez", "Cridland", source)) %>%
+  ggplot(., aes(x = end, y = coverage, 
+                group = group_name, 
+                color = group_name)) +
+  geom_smooth(se = FALSE) +
+  facet_grid(source~., scales = "fixed") +
+  #facet_grid(source~., scales = "free_y") +
+  theme_light() +
+  labs(color = "", x = "Position (mtDNA)", y = "Total coverage")
+p_cov_smooth
+ggsave("plots/mtdna_coverage_est_lines.png", 
+       plot = p_cov_line,
+       device = "png", 
+       width = 7.5, height = 4, units = "in", dpi = 600)
+ggsave("plots/mtdna_coverage_est_smooth.png", 
+       plot = p_cov_smooth,
+       device = "png", 
+       width = 7.5, height = 4, units = "in", dpi = 600)
 
 # look at data and filter for quality of SNPs - how many are tri-allelic sites?
 #sum(apply(haplos, 1, function(x) sum(!is.na(unique(x)))) >4)/nrow(haplos) # about 6%, filter out:

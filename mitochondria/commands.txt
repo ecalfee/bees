@@ -42,6 +42,14 @@ bees/mitochrondria$ bedtools multicov -q 30 -bams $(paste -s -d" " ../bee_sample
 bees/mitochondria$ ./call_haplotypes_mtdna.sh
 # now plotting neighbor-joining trees in R: plot_mtdna_tree.R # doesn't really work, too low coverage or not making tree right
 # instead plot a few snp clines for the best diagnostic snps: plot_mtdna_tree.R # added to supplement
+# also plot_mtdna_tree.R plots the uneven coverage I get across the mitochondria -- possibly transposase bias (result being I can't get high coverage haplotypes)
+# I also get a coverage estimate for each individual across the SNPs I identify on the mtDNA:
+# first create bed file for variant sites:
+mitochondria$ cat ../geno_lik_and_SNPs/results/combined_sept19/variant_sites/mtDNA_highDepthOK.var.sites | awk '{print $1"\t"$2-1"\t"$2}' > results/mtDNA_highDepthOK_var_sites.bed
+# then use bedtools to calculate coverage across those sites:
+mitochrondria$ bedtools multicov -q 30 -bams $(paste -s -d" " ../bee_samples_listed/combined_sept19.bams) -bed results/mtDNA_highDepthOK_var_sites.bed > results/coverage_mtDNA_highDepthOK_var_sites.txt
+
+
 
 
 ################ ------------ Old Amel4.5 genome analysis below --------------- ####################
