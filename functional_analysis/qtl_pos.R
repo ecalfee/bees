@@ -191,10 +191,11 @@ hunt0 <- read.table("results/blast_results_hunt.txt",
                                                seq_source,
                                                paste(primer_seq_source, "and", seq_source))),
                                  " mapped to HAv3.1 with BLASTn")),
-         positions_from = str_replace(positions_from, "Harpur", "Harpur (DataDryad)"),
+         positions_from = str_replace(positions_from, "Harpur", "Harpur 2020 (Dryad)"),
          positions_from = str_replace(positions_from, "Emore 2003", "Emore 2003 (main text)"),
          positions_from = str_replace(positions_from, "1998", "1998 (main text)")) %>%
   rename(QTL_name = qtl) %>%
+  mutate(alternative_notation = ifelse(alternative_notation == "GRP7.17-3'", "GRP7.17-3", alternative_notation)) %>% # prime messes up reading in values to table
   dplyr::select(phenotype, QTL_name, marker, comments, chr_group, scaffold, start, end, citation, positions_from, alternative_notation, sequence)
 common_chr = hunt0 %>% 
   group_by(QTL_name) %>% 
@@ -202,24 +203,21 @@ common_chr = hunt0 %>%
   rename(common_chr = chr_group)
 hunt <- hunt0 %>%
   left_join(., common_chr, by = "QTL_name") %>%
-  mutate(comments_extra = ifelse(is.na(chr_group) || chr_group == common_chr,
-                           "",
-                           "; (! different chromosome)"),
+  mutate(comments_extra = ifelse(!is.na(chr_group) & chr_group != common_chr,
+                          "; (! different chromosome)",
+                           ""),
          comments = paste0(comments, comments_extra)) %>%
   dplyr::select(-c(common_chr, comments_extra))
 
 qtl_all <- bind_rows(hunt, tsuruda, qtl_spoetter, oxley, av) %>%
   dplyr::select(colnames(hunt)) %>%
+  dplyr::select(., -sequence) %>%
   rename(LG = "chr_group")
+
 qtl_all[qtl_all == ""] <- NA
 #View(qtl_all)
 # write out results
-write.table(dplyr::select(qtl_all, -sequence), "results/Approximate_QTL_positions_HAv3.1.txt",
+write.table(qtl_all, "results/Approximate_QTL_positions_HAv3.1.txt",
             quote = F, col.names = T, row.names = F, sep = "\t")
-write.table(dplyr::select(qtl_all, -sequence), "../../bee_manuscript/files_supp/S5_Table_Approximate_QTL_positions_HAv3.1.txt",
-            quote = F, col.names = T, row.names = F, sep = "\t")
-# with sequences from Hunt included:
-write.table(qtl_all, "results/Approximate_QTL_positions_HAv3.1_withSeq.txt",
-            quote = F, col.names = T, row.names = F, sep = "\t")
-write.table(qtl_all, "../../bee_manuscript/files_supp/Approximate_QTL_positions_HAv3.1_withSeq.txt",
+write.table(qtl_all, "../../bee_manuscript/files_supp/S5_Table_Approximate_QTL_positions_HAv3.1.txt",
             quote = F, col.names = T, row.names = F, sep = "\t")

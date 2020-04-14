@@ -496,3 +496,14 @@ bees_all <- d_admix_ACM_labelled %>%
 
 write.table(bees_all, "../../bee_manuscript/files_supp/S1_Table_Sample_information.txt",
             col.names = T, row.names = F, sep = "\t", quote = F) # write out supplementary table with sample information
+
+
+S1 <- read.table("../../bee_manuscript/files_supp/S1_Table_Sample_information.txt",
+                 stringsAsFactors = F, header = T, sep = "\t")
+image_files <- read.table("files_best_wing_pics_1.26.20_EC.txt",
+                          header = F, stringsAsFactors = F) %>%
+  rename(wing_image_file = V1) 
+
+full_join(S1, image_files, by = "wing_image_file") %>% dim()
+filter(image_files, is.na(Bee_ID))
+View(image_files)

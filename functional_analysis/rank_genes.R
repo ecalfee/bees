@@ -15,7 +15,8 @@ ACM = c("A", "C", "M")
 
 # load qtls
 #qtl = read.csv("../data/QTL_markers_Hunt_lab/AMEL_QTLS.csv", sep = ",", stringsAsFactors = F)
-qtl = read.table("results/Approximate_QTL_positions_HAv3.1.txt", header = T, sep = "\t")
+qtl = read.table("results/Approximate_QTL_positions_HAv3.1.txt", header = T, sep = "\t") %>%
+  filter(!is.na(scaffold)) # position found
 
 # load pop/ind metadata for bees
 load("../local_ancestry/results/meta.RData")
@@ -28,6 +29,7 @@ head(chr_lengths)
 colnames(chr_lengths) <- c("scaffold", "length", "chr_group", "chr_lg")
 chr_lengths <- chr_lengths %>%
   mutate(chr = as.numeric(substr(chr_lg, 3, 100))) %>%
+  mutate(chr_n = chr) %>%
   arrange(chr) %>%
   mutate(chr_start = cumsum(length) - length,
          chr_end = cumsum(length)) %>%
@@ -892,7 +894,7 @@ pretty_label_zone = data.frame(zone = c("CA", "AR"),
                                #zone_pretty = c("California", "Argentina"),
                                stringsAsFactors = F)
 # buffer for visibility only:
-buffer_4_visibility = 25000*4 # add 50kb for visibility only
+buffer_4_visibility = 25000 # add buffer for visibility only
 A_AR_CA_cumulative <- A_AR_CA %>%
   mutate(chr_n = as.numeric(substr(chr, 6, 100))) %>% # turn Group11 into 11
   arrange(chr_n) %>% # sort by chromosome order
@@ -953,6 +955,7 @@ ggsave("plots/A_frequency_plot_AR_CA_FDR_chr1_5mb_outlier_cluster.png",
 ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_chr1_5mb_outlier_cluster.pdf",
        height = 5, width = 10, units = "in", device = "pdf")
 
+
 # zoom in more on chr 1
 # zoom in on chr1:
 A_AR_CA_cumulative %>%
@@ -962,8 +965,6 @@ A_AR_CA_cumulative %>%
   mutate(FDR = ifelse(zone == "CA", FDR_CA_high, FDR_AR_high)) %>% # just ind. zone FDR's
   mutate(color_by = ifelse(is.na(FDR), ifelse((chr_n %% 2 == 0), # even chromosomes different color
                                               "n.s. - even chr", "n.s. - odd chr"), FDR)) %>%
-  #apply(., 2, function(col) sum(is.na(col)))
-  #table(.$color_by)
   ggplot(.) +
   geom_point(data = . %>%
                filter(is.na(FDR)), # plot grey points first, rasterized
@@ -983,18 +984,13 @@ A_AR_CA_cumulative %>%
                       labels = c("0.01 FDR", "0.05 FDR", "0.10 FDR")
   ) + 
   geom_segment(data = left_join(rename(outliers_all, scaffold = chr), 
-                                #geom_segment(data = left_join(rename(high.shared.outliers, scaffold = chr) %>%
-                                #mutate(outlier_type = "high_shared"),
                                 chr_lengths, by = "scaffold") %>%
                  filter(chr_n == 1) %>%
                  filter(outlier_type == "high_shared") %>%
                  filter(start > 1*10^7 & end < 1.25*10^7),
                aes(x = start, xend = end, y = 0.7, yend = 0.7, color = min_FDR),
                lwd = 4) +
-  #scale_x_discrete(limits=c("2", "0.5", "1")) +
-  #scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
   theme_classic() +
-  #theme(legend.position = "none") +
   facet_wrap(~zone_pretty, nrow = 2, ncol = 1) + 
   ggtitle("2.5Mb around peak of shared outlier cluster on chr1")
 ggsave("plots/A_frequency_plot_AR_CA_FDR_chr1_5mb_outlier_cluster_ZOOM_IN.png",
@@ -1179,9 +1175,6 @@ aims %>%
 buff <- .001 # add small buffer so no small outliers disappear in plot 10^6*.001 is a 1kb buffer
 
 # zoom in on chr11:
-col_ACM_chr11_outliers = c(col_ACM, overlap_aims_low_M_outliers_11$color)
-names(col_ACM_chr11_outliers) = c(names(col_ACM), overlap_aims_low_M_outliers_11$AIM)
-
 p11_outliers <- AIMS_ACM_AR_CA %>%
   filter(chr == "Group11") %>%
   filter(., pos > 1.3*10^7 & pos < 1.6*10^7) %>%
@@ -1199,7 +1192,8 @@ p11_outliers <- AIMS_ACM_AR_CA %>%
               filter(outlier_type == "low_AR") %>%
               filter(chr == 11) %>% 
               mutate(zone = "SA", zone_pretty = "S. America"),
-            aes(xmin = start/10^6 - buff, xmax = end/10^6 + buff,
+            #aes(xmin = start/10^6 - buff, xmax = end/10^6 + buff,
+            aes(xmin = start/10^6, xmax = end/10^6,
                 ymin = -Inf, ymax = Inf),
             alpha = .2) +
   scale_color_manual(values = col_ACM, name = "Ancestry") +
@@ -1215,7 +1209,7 @@ p11_outliers
 ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM.png",
        height = 5, width = 7.5, units = "in", device = "png")
 ggsave("../../bee_manuscript/figures_main/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM.tiff",
-       height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff")
+       height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff", compression = "lzw", type = "cairo")
 ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM.png",
        height = 5, width = 7.5, units = "in", dpi = 600, device = "png")
 
@@ -1240,7 +1234,7 @@ AIMS_ACM_AR_CA %>%
                  filter(outlier_type == "low_AR") %>%
                  filter(chr == 11) %>% 
               mutate(zone = "SA", zone_pretty = "S. America"),
-            aes(xmin = start/10^6 - buff, xmax = end/10^6 + buff,
+            aes(xmin = start/10^6, xmax = end/10^6,
                 ymin = -Inf, ymax = Inf),
             alpha = .2) +
 
@@ -1259,7 +1253,7 @@ AIMS_ACM_AR_CA %>%
 ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM2.png",
        height = 5, width = 7.5, units = "in", device = "png")
 ggsave("../../bee_manuscript/figures_supp/ACM_frequency_plot_AR_CA_FDR_chr11_outlier2.tiff",
-       height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff")
+       height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff", compression = "lzw", type = "cairo")
 ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr11_outlier2.png",
        height = 5, width = 7.5, units = "in", dpi = 600, device = "png")
 
@@ -1383,7 +1377,7 @@ p1_outliers
 ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM.png",
        height = 5, width = 7.5, units = "in", device = "png")
 ggsave("../../bee_manuscript/figures_main/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM.tiff",
-       height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff")
+       height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff", compression = "lzw", type = "cairo")
 ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM.png",
        height = 5, width = 7.5, units = "in", dpi = 600, device = "png")
 
@@ -1408,7 +1402,7 @@ AIMS_ACM_AR_CA %>%
               filter(chr == 1) %>% 
               filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
               mutate(zone = "AR", zone_pretty = "S. America"),
-            aes(xmin = start/10^6 - buff, xmax = end/10^6 + buff,
+            aes(xmin = start/10^6, xmax = end/10^6,
                 ymin = -Inf, ymax = Inf),
             alpha = .2) +
   geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
@@ -1417,7 +1411,7 @@ AIMS_ACM_AR_CA %>%
               filter(chr == 1) %>% 
               filter(., end > 1.025*10^7 & start < 1.225*10^7) %>%
               mutate(zone = "CA", zone_pretty = "N. America"),
-            aes(xmin = start/10^6 - buff, xmax = end/10^6 + buff,
+            aes(xmin = start/10^6, xmax = end/10^6,
                 ymin = -Inf, ymax = Inf),
             alpha = .2) +
   geom_rect(data = left_join(rename(outliers_all, scaffold = chr), 
@@ -1445,7 +1439,6 @@ AIMS_ACM_AR_CA %>%
                      name = "Marker overlap") +
   scale_size_manual(values = c(ancestry_freq = 0.05, freq_polarized = 0.2), guide = F) +
   guides(fill = "none", 
-         #color = guide_legend(override.aes = list(shape = 15, linetype = "blank"))) +
          color = guide_legend(override.aes = list(linetype = "blank"))) +
   theme_classic() +
   facet_grid(type_pretty ~ zone_pretty)
@@ -1453,7 +1446,7 @@ AIMS_ACM_AR_CA %>%
 ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM2.png",
        height = 5, width = 7.5, units = "in", device = "png")
 ggsave("../../bee_manuscript/figures_supp/ACM_frequency_plot_AR_CA_FDR_chr1_outlier2.tiff",
-       height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff")
+       height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff", compression = "lzw", type = "cairo")
 ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr1_outlier2.png",
        height = 5, width = 7.5, units = "in", dpi = 600, device = "png")
 #table(is.na(AIMS_ACM_AR_CA$rpos[AIMS_ACM_AR_CA$type == "ancestry_freq"]))  
@@ -1708,6 +1701,13 @@ QTL = qtl %>%
   # start is the lower one, end is the higher endpoint
   mutate(start = apply(., 1, function(x) min(as.integer(x[["Start"]]), as.integer(x[["End"]]))),
          end = apply(., 1, function(x) max(as.integer(x[["Start"]]), as.integer(x[["End"]]))))
+QTL = qtl %>%
+  left_join(., chr_lengths, by = "scaffold") %>%
+  # start is the lower one, end is the higher endpoint
+  mutate(start = apply(., 1, function(x) min(as.integer(x[["start"]]), as.integer(x[["end"]]))),
+         end = apply(., 1, function(x) max(as.integer(x[["start"]]), as.integer(x[["end"]]))))
+
+
 
 mean_genomewide <- data.frame(A_ancestry = c(mean(meanA_CA), mean(meanA_AR)), zone_pretty = c("N. America", "S. America"))
 
@@ -1735,14 +1735,6 @@ p_outliers_genomewide <- ggplot() + # raster looks pretty terrible -- I could pl
   ) + 
   # add in means for reference
   geom_hline(data = mean_genomewide, aes(yintercept = A_ancestry), col = "black", linetype = "dashed") +
-  # add in QTLs:
-  geom_segment(data = QTL,
-               aes(x = start + chr_start - buffer_4_visibility, # add 50kb for visibility only
-                   xend = end + chr_start + buffer_4_visibility, 
-                   y = 0.7, yend = 0.7),
-               lwd = 4,
-               color = "black",
-               alpha = 0) +
   scale_x_continuous(label = chr_lengths$chr, breaks = chr_lengths$chr_mid) +
   #theme(legend.position = "none") +
   theme_classic() +
@@ -1763,17 +1755,18 @@ ggsave("../../bee_manuscript/figures_main/A_frequency_plot_AR_CA_FDR_whole_genom
 col_qtl <- c("deeppink", "orange", "blue", "purple")
 names(col_qtl) <- c("Defense response", "Grooming", "Hygienic behavior", "Varroa Sensitive Hygiene")
 p_small <- ggplot() + # need to fix
-  geom_point(data = A_AR_CA_cumulative%>%
-               filter(!is.na(FDR)), # just plot sig points
-             aes(x = cum_pos, y = A_ancestry, 
-                 color = color_by), size = .01) +
   geom_rect(data = qtl %>%
                  left_join(., chr_lengths, by = "scaffold"),
                aes(xmin = start + chr_start - buffer_4_visibility, # add 50kb for visibility only
                    xmax = end + chr_start + buffer_4_visibility, 
-                   ymin = 0.3, ymax = 0.7, fill = phenotype),
+                   ymin = 0.2, ymax = 0.7, fill = phenotype),
                #color = "black",
-               alpha = 0.1) +
+               alpha = 0.75) +
+  geom_point(data = A_AR_CA_cumulative%>%
+               filter(!is.na(FDR)), # just plot sig points
+             aes(x = cum_pos, y = A_ancestry, 
+                 color = color_by), size = .01) +
+  
   xlab("Chromosome") +
   ylab("Mean African ancestry") +
   scale_color_manual(name = NULL,
@@ -1789,19 +1782,28 @@ p_small <- ggplot() + # need to fix
   scale_x_continuous(label = chr_lengths$chr, breaks = chr_lengths$chr_mid) +
   theme_classic() +
   facet_grid(zone_pretty ~ .) +
-  theme(legend.position = "top", legend.margin = margin(t = 0, unit='cm')) +
-  guides(colour = guide_legend(override.aes = list(size = 2, shape = 15)))
-p_small
+  theme(legend.position = "bottom", #legend.margin = margin(t = 0, unit='cm'),
+        legend.box = "vertical") +
+  guides(colour = guide_legend(override.aes = list(size = 2, shape = 15))) +
+  labs(fill = element_blank())
+p_small #+ xlim(chr_lengths$chr_start[c(2,3)])
+p_small + ggtitle("Ancestry outliers and QTLs (+/- 25kb)")
+ggsave("plots/A_outliers_plus_QTLs_whole_genome.png",
+       plot = p_small + ggtitle("Ancestry outliers and QTLs (+/- 25kb)"),
+       height = 4.5, width = 7.5, units = "in", dpi = 600, device = "png")
+
+
 # put genomewide plot together with 2 outlier regions: p_outliers_genomewide
 p_outliers_combined <- arrangeGrob(p_outliers_genomewide + ggtitle("A"),
-                                     p1_outliers + ggtitle("B"),
+                                     p1_outliers + ggtitle("B") +
+                                     guides(color = guide_legend(override.aes = list(size=2, shape = 15, linetype = 0))),
                                      p11_outliers + ggtitle("C") + theme(legend.position = "none"),
                                    layout_matrix = rbind(c(1,1),
                                                          c(2,3)),
                                    widths = c(5,3))
-                                   #widths = c(3.5,3))
 
 plot(p_outliers_combined)
+
 ggsave("plots/A_outliers_grob.png",
        plot = p_outliers_combined,
        height = 6, width = 7.5, units = "in", dpi = 600, device = "png")
@@ -1810,7 +1812,7 @@ ggsave("../../bee_manuscript/figures/A_outliers_grob.png",
        height = 6, width = 7.5, units = "in", dpi = 600, device = "png")
 ggsave("../../bee_manuscript/figures_main/A_outliers_grob.tiff",
        plot = p_outliers_combined,
-       height = 6, width = 7.5, units = "in", dpi = 600, device = "tiff")
+       height = 6, width = 7.5, units = "in", dpi = 600, device = "tiff", compression = "lzw", type = "cairo")
 
 ###-------------------------------------------------------###
 # read in genes list with beebase IDs:
