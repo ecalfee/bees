@@ -1,3 +1,7 @@
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
 
 # Get QTL positions re-mapped to new genome HAv3.1
 # Spoetter 2012
@@ -5,23 +9,21 @@
 chr_lengths <- read.table("../data/honeybee_genome/chr.list", sep = "\t", stringsAsFactors = F)
 colnames(chr_lengths) <- c("scaffold", "length", "chr_group", "chr_lg")
 
+# maximum mapping evalue to keep a blastn hit:
+max_eval = .01
 # spoetter qtls on Amel3 coordinates
 spoetter <- read.table("../data/Spoetter_2012_QTLs/spoetter_2012_Amel3_start_end.csv",
                        sep = ",", header = T, stringsAsFactors = F) %>%
   left_join(., rename(chr_lengths, chr = chr_group), by = "chr") %>%
   mutate(QTL = 1:nrow(.)) %>%
   dplyr::select(scaffold, start, end, QTL, chr_lg) %>%
+  #dplyr::select(chr, scaffold, start, end, QTL, chr_lg) %>%
   rename(chr = scaffold, LG = chr_lg)
+  #rename(LG = chr_lg)
 # 44k snp chip on amel3 coordinates
 snps_44k <- read.table("../data/Spoetter_2012_QTLs/SNP_Info_HoneyBeeSNPAssay.csv",
                        sep = ",", header = T, stringsAsFactors = F)
 head(snps_44k)
-spoetter_snps <- left_join(spoetter, snps_44k[ , c("linkage.group", "Cooridnate", "left.flanking.sequence", "right.flanking.sequence")],
-                           by = c("chr"="linkage.group", "nearest_SNP"="Cooridnate"))
-spoetter_snps %>%
-  dplyr::select(QTL_study, QTL_name, marker_type, chr, pos, source, nearest_SNP, left.flanking.sequence, right.flanking.sequence, chr_HAv3.1, pos_HAv3.1_start, pos_HAv3.1_end) %>%
-  write.table(., "results/Spoetter_2012_QTL_coordinates.txt",
-              sep = "\t", col.names = T, row.names = F, quote = F)
 snps_44k %>%
   arrange(linkage.group, Cooridnate) %>%
   write.table("../data/Spoetter_2012_QTLs/SNPs_44k.txt",
@@ -43,7 +45,7 @@ snps_44k_coord <- snps_44k %>%
   rename(Amel3_scaffold = scaffold) %>%
   dplyr::select(lsid, Amel3_scaffold, linkage.group, pos) %>%
   left_join(., Hav3.1_coord_44k, by = "lsid") %>%
-  filter(!is.na(start)) %>% # filter out snps with no match
+  filter(!is.na(start) & evalue <= max_eval) %>% # filter out snps with no match or low match
   rename(chr = Amel3_scaffold,
          start_HAv3.1 = start,
          end_HAv3.1 = end,
@@ -96,6 +98,7 @@ qtl_spoetter <- qtl_spoetter_snps %>%
                                        ":", start, "-", end)) %>%
               dplyr::select(chr, QTL, comments), by = c("chr", "qtl"="QTL")) %>%
   rename(scaffold = chr) %>%
+  left_join(., chr_lengths[ , c("scaffold", "chr_group")], by = "scaffold") %>%
   mutate(QTL_name = paste0("unnamed_hygeine", qtl))
   
   
@@ -111,8 +114,10 @@ oxley <- read.table("results/blast_results_oxley_2010_markers.txt",
   tidyr::separate(., col = "marker_id", into = c("QTL_name", "marker_id"), sep = "_") %>%
   tidyr::separate(., col = "marker_id", into = c("marker", "orig_chr", "orig_pos", "primer"), sep = "-") %>%
   tidyr::pivot_longer(., col = c("start", "end"), names_to = "pos_type", values_to = "pos") %>%
+  filter(evalue <= max_eval) %>% # meets mapping threshold
   group_by(QTL_name, marker, scaffold) %>%
   summarise(start = min(pos), end = max(pos)) %>%
+  left_join(., chr_lengths[ , c("scaffold", "chr_group")], by = "scaffold") %>%
   mutate(phenotype = "Hygienic behaviour",
          comments = "Nearest marker",
          citation = "Oxley et al. 2010",
@@ -125,6 +130,7 @@ av <- read.table("results/blast_results_arechavaleta-velasco_2012_markers.txt",
                          "perc_identical", "evalue", "bitscore", "score")) %>%
   dplyr::arrange(., marker, evalue) %>%
   filter(!duplicated(marker)) %>% # get rid of all blast matches but highest score (lowest evalue)
+  filter(evalue <= max_eval) %>% # meets mapping threshold
   left_join(., chr_lengths[ , c("scaffold", "chr_group")], by = "scaffold") %>%
   mutate(phenotype = "Grooming",
          QTL_name = "unnamed_grooming1",
@@ -134,16 +140,84 @@ av <- read.table("results/blast_results_arechavaleta-velasco_2012_markers.txt",
                            "LOD-1.5 support interval; marker closest to peak", 
                            "LOD-1.5 support interval"))
 
-# Hunt and Tsuruda QTLs (from Harpur)
-hunt_tsuruda <- read.table("results/hunt_tsuruda_QTL_positions_from_Harpur.txt",
-                           header = T, stringsAsFactors = F, sep = "\t") %>%
-  arrange(citation)
+tsuruda <- read.table("results/blast_results_tsuruda_2012.txt",
+                   header = F, stringsAsFactors = F) %>%
+  data.table::setnames(c("marker", "scaffold", "start", "end",
+                         "perc_identical", "evalue", "bitscore", "score")) %>%
+  dplyr::arrange(., marker, evalue) %>%
+  filter(!duplicated(marker)) %>% # get rid of all blast matches but highest score (lowest evalue)
+  filter(evalue <= max_eval) %>% # meets mapping threshold
+  left_join(., chr_lengths[ , c("scaffold", "chr_group")], by = "scaffold") %>%
+  mutate(phenotype = "Varroa sensitive hygiene",
+         QTL_name = ifelse(chr_group == "Group1", "unnamed_VSH1",
+                           ifelse(chr_group == "Group9", "unnamed_VSH2", NA)),
+         citation = "Tsuruda et al. 2012",
+         positions_from = "Probe sequences from Tsuruda et al. 2012 (Table S3) mapped to HAv3.1 with BLASTn",
+         comments = ifelse(marker == "9_9224292", 
+                           "LOD-1.5 support interval; marker closest to peak", 
+                           "LOD-1.5 support interval"))
+sting <- read.table("../data/QTL_markers_Hunt_lab/sting1-3_markers.tsv",
+                    sep = "\t", header = T, stringsAsFactors = F) %>%
+  rename(comments = note)
+hunt0 <- read.table("results/blast_results_hunt.txt",
+                      header = F, stringsAsFactors = F) %>%
+  data.table::setnames(c("marker", "scaffold", "start", "end",
+                         "perc_identical", "evalue", "bitscore", "score")) %>%
+  dplyr::arrange(., marker, evalue) %>%
+  filter(!duplicated(marker)) %>% # get rid of all blast matches but highest score (lowest evalue)
+  filter(evalue <= .1) %>% # meets mapping threshold
+  rename(marker_id = marker) %>%
+  tidyr::separate(., col = "marker_id", into = c("marker_type", "marker"), remove = F, sep = "_") %>%
+  tidyr::pivot_longer(., cols = c("start", "end"), names_to = "start_or_end", values_to = "pos") %>%
+  group_by(marker, scaffold) %>%
+  summarise(start = min(pos),
+            end = max(pos)) %>%
+  left_join(., chr_lengths[ , c("scaffold", "chr_group")], by = "scaffold") %>%
+  left_join(sting, ., by = "marker") %>%
+  mutate(phenotype = "Defense response",
+         seq = ifelse(seq == "", "-", seq),
+         primer1 = ifelse(primer1 == "", "-", primer1),
+         primer2 = ifelse(primer2 == "", "-", primer2),
+         sequence = ifelse(seq_source != "Not found", 
+                           paste0("seq:", seq, "; p1:", primer1, "; p2:", primer2),
+                           ""),
+         citation = "Hunt et al. 1998; Hunt et al. 2007",
+         positions_from = ifelse(seq_source == "Not found",
+                                 "No sequences found.",
+                                 paste0("Sequences from ",
+                                 ifelse(seq_source=="", 
+                                        primer_seq_source,
+                                        ifelse(primer_seq_source=="", 
+                                               seq_source,
+                                               paste(primer_seq_source, "and", seq_source))),
+                                 " mapped to HAv3.1 with BLASTn")),
+         positions_from = str_replace(positions_from, "Harpur", "Harpur 2020 (Dryad)"),
+         positions_from = str_replace(positions_from, "Emore 2003", "Emore 2003 (main text)"),
+         positions_from = str_replace(positions_from, "1998", "1998 (main text)")) %>%
+  rename(QTL_name = qtl) %>%
+  mutate(alternative_notation = ifelse(alternative_notation == "GRP7.17-3'", "GRP7.17-3", alternative_notation)) %>% # prime messes up reading in values to table
+  dplyr::select(phenotype, QTL_name, marker, comments, chr_group, scaffold, start, end, citation, positions_from, alternative_notation, sequence)
+common_chr = hunt0 %>% 
+  group_by(QTL_name) %>% 
+  slice(which.max(table(chr_group))) %>% dplyr::select(QTL_name, chr_group) %>%
+  rename(common_chr = chr_group)
+hunt <- hunt0 %>%
+  left_join(., common_chr, by = "QTL_name") %>%
+  mutate(comments_extra = ifelse(!is.na(chr_group) & chr_group != common_chr,
+                          "; (! different chromosome)",
+                           ""),
+         comments = paste0(comments, comments_extra)) %>%
+  dplyr::select(-c(common_chr, comments_extra))
 
-qtl_all <- bind_rows(hunt_tsuruda, qtl_spoetter, oxley, av) %>%
-  dplyr::select(colnames(hunt_tsuruda))
+qtl_all <- bind_rows(hunt, tsuruda, qtl_spoetter, oxley, av) %>%
+  dplyr::select(colnames(hunt)) %>%
+  dplyr::select(., -sequence) %>%
+  rename(LG = "chr_group")
+
+qtl_all[qtl_all == ""] <- NA
 #View(qtl_all)
 # write out results
 write.table(qtl_all, "results/Approximate_QTL_positions_HAv3.1.txt",
             quote = F, col.names = T, row.names = F, sep = "\t")
-write.table(qtl_all, "../../bee_manuscript/files_supp/Approximate_QTL_positions_HAv3.1.txt",
+write.table(qtl_all, "../../bee_manuscript/files_supp/S5_Table_Approximate_QTL_positions_HAv3.1.txt",
             quote = F, col.names = T, row.names = F, sep = "\t")

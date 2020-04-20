@@ -185,4 +185,17 @@ Solignac  M,  Mougel  F,  Vautrin  D,  Monnerot  M,  Cornuet  J-M(2007)  A  thir
 # I downloaded from supplementary table S1 the sequences for the markers in the QTL and saved them as a fasta:
 functional_analysis$ blastn -query ../data/Arechavaleta-Velasco_2012_QTLs/Arechavaleta-Velasco_grooming_qtl.fasta -subject ../data/honeybee_genome/Amel_HAv3.1.fasta -outfmt "6 delim= qseqid sseqid sstart send pident evalue bitscore score" -task "blastn-short" > results/blast_results_arechavaleta-velasco_2012_markers.txt
 # NOTE: >5_1644271 is the closest marker under the main peak
+# got full list of Hunt markers from Harpur (on his github and will put on cyverse):
+functional_analysis$ blastn -query ../data/QTL_markers_Hunt_lab/Hunt_markers.txt -subject ../data/honeybee_genome/Amel_HAv3.1.fasta -outfmt "6 delim= qseqid sseqid sstart send pident evalue bitscore score" -task "blastn-short" > results/blast_results_Hunt_markers.txt
+CFastaReader: Hyphens are invalid and will be ignored around line 2479
+FASTA-Reader: Ignoring invalid residues at position(s): On line 2761: 47
+FASTA-Reader: Ignoring invalid residues at position(s): On line 2785: 12-13
+Warning: [blastn] Query_446 a11.120: Sequence contains no data
+FASTA-Reader: Ignoring invalid residues at position(s): On line 3355: 23
+# remade fasta for just important Hunt markers:
+functional_analysis$ blastn -query ../data/QTL_markers_Hunt_lab/qtl_markers_Hunt.fasta -subject ../data/honeybee_genome/Amel_HAv3.1.fasta -outfmt "6 delim= qseqid sseqid sstart send pident evalue bitscore score" -task "blastn-short" > results/blast_results_Hunt.txt
+# Tsuruda 2012 QTLs (varroa sensitive hygiene):
+functional_analysis$ blastn -query ../data/Tsuruda_2012_QTLs/qtl_markers_tsuruda_2012.fasta -subject ../data/honeybee_genome/Amel_HAv3.1.fasta -outfmt "6 delim= qseqid sseqid sstart send pident evalue bitscore score" -task "blastn-short" > results/blast_results_Tsuruda_2012.txt
+
+
 # used R script qtl_pos.R to summarise qtl start and end points from these blast results:

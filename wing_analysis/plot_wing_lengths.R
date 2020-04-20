@@ -20,8 +20,7 @@ bees <- do.call(rbind,
                                                                         stringsAsFactors = F)$V1, population = p, stringsAsFactors = F)))
 
 # metadata
-meta.ind <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
-  left_join(bees, ., by = c("Bee_ID", "population")) 
+load("../local_ancestry/results/meta.RData")
 # get admixture data
 load("../global_ancestry/results/NGSAdmix/ACM_K3_combined_sept19_chr_prunedBy250.rData") #d_admix_ACM_labelled
 
@@ -95,7 +94,7 @@ wings <- measurements %>%
 wings %>% # one bee was imaged twice
   filter(Bee_ID == "AR0605") # same bee diff images, .003cm diff. in measurement error
 wings <- filter(wings, Label != "RW-D-AR0605-01-25-20.JPG") # just use the original higher res. image
-  
+rulers <- filter(rulers, Label != "RW-D-AR0605-01-25-20.JPG") # duplicated pictures, just use other higher res one
 wings %>%
   ggplot(., aes(x = Bee_ID, y = wing_cm)) +
   geom_point()
@@ -103,7 +102,7 @@ wings %>%
 
 # combine data
 wings.meta <- wings %>%
-  left_join(., meta.ind, by = "Bee_ID") %>%
+  left_join(., dplyr::select(meta.ind, -c(date, time)), by = "Bee_ID") %>%
   left_join(., d_admix_ACM_labelled[ , c("Bee_ID", ACM)], by = "Bee_ID")
 
 # write data
@@ -111,7 +110,6 @@ write.table(wings[ , c("Bee_ID", "Label", "type", "wing_cm", "length_pixels", "p
             file = "results/bee_wing_lengths_cm_1.28.20.txt",
             col.names = T, row.names = F, sep = "\t")
 rulers %>%
-  filter(., Label != "RW-D-AR0605-01-25-20.JPG") %>% # duplicated pictures, just use other higher res one
   dplyr::select(Bee_ID, Label, pixels_per_cm) %>%
   write.table(., file = "results/bee_scale_1cm_rulers_1.28.20.txt", col.names = T, row.names = F, sep = "\t")
 # note: there are more rulers than wing lengths because some wings were broken for full length but are otherwise ok for vein measurements etc.
@@ -432,11 +430,34 @@ sources <- data.frame(source = c("Ramirez", "Sheppard", "Harpur", "Calfee"),
                                  "This study"))
 
 
+
+enjambre <- data.frame(Bee_ID = 
+                         c("AR1002", 
+                           "AR1403", 
+                           "AR1511", 
+                           "AR2002", 
+                           "AR2201",
+                           "AR2512",
+                           "AR2603",
+                           "AR2913"),
+                       collection_note =
+                         c("at entrance of a feral colony in an old gas tank",
+                           "foraging on water within 5m of a feral colony",
+                           "on ground within 5m of a feral colony in a utility pole",
+                           "at entrance of a feral colony in a utility pole",
+                           "at entrance of a feral colony in a utility pole",
+                           "at entrance of a feral colony in a utility pole",
+                           "at entrance of a feral colony in a utility pole",
+                           "at entrance of a feral colony in a tree cavity"),
+                       stringsAsFactors = F)
+
 bees_all <- d_admix_ACM_labelled %>%
-  dplyr::select(Bee_ID, geographic_location_short, population, Date, Time, enjambre, lat, long, est_coverage, A, C, M, source) %>%
+  left_join(., meta.ind[ , c("Bee_ID", "date", "time")], by = "Bee_ID") %>%
+  dplyr::select(Bee_ID, geographic_location_short, population, date, time, enjambre, lat, long, est_coverage, A, C, M, source) %>%
   left_join(., full_join(wings, 
                          filter(measurements, type == "ruler") %>%
                            filter(!duplicated(Label)) %>%
+                           filter(., Label != "RW-D-AR0605-01-25-20.JPG") %>%
                            dplyr::select("Bee_ID", "Label"), 
                          by = "Bee_ID") %>%
               mutate(Label = ifelse(is.na(Label.x), as.character(Label.y), as.character(Label.x))) %>%
@@ -453,19 +474,36 @@ bees_all <- d_admix_ACM_labelled %>%
   mutate(publication = "Published in Ruttner 1988, Oberursel Collection, Germany")) %>%
   rename(wing_image_file = Label) %>%
   rename(wing_length_cm = wing_cm) %>%
-  rename(collection_date = Date,
-         collection_time = Time,
+  rename(collection_date = date,
+         collection_time = time,
          feral_nest = enjambre) %>%
-  mutate(collection_date = sapply(1:nrow(.), function(i)
-                                  ifelse(location[i] == "Argentina", paste(strsplit(collection_date[i], 
-                                                                          split = "[.]")[[1]][c(2,1,3)], 
-                                                                          collapse = "/"),
-                                  collection_date[i]))) %>% # fix dates reversed for Argentina samples
-  dplyr::select(Bee_ID, location, population, lat, long, collection_date, collection_time, 
+  #mutate(collection_date = sapply(1:nrow(.), function(i)
+  #                                ifelse(location[i] == "Argentina", paste(strsplit(collection_date[i], 
+  #                                                                        split = "[.]")[[1]][c(2,1,3)], 
+  #                                                                        collapse = "/"),
+  #                                collection_date[i]))) %>% # fix dates reversed for Argentina samples
+  left_join(., enjambre, by = "Bee_ID") %>%
+  mutate(collection_note = ifelse(is.na(collection_note) & publication == "This study", 
+                                   "foraging on vegetation", 
+                                   collection_note)) %>%
+  rename(., latitude = lat, longitude = long) %>%
+  dplyr::select(Bee_ID, location, population, latitude, longitude, collection_date, collection_time, collection_note,
                 feral_nest, publication, wing_image_file, wing_length_cm, est_coverage, A, C, M) %>%
-  arrange(lat, population, location) %>%
+  arrange(latitude, population, location) %>%
   arrange(publication == "Published in Ruttner 1988, Oberursel Collection, Germany",
           publication != "This study")
 #View(bees_all)
-write.table(bees_all, "../../bee_manuscript/files_supp/sample_information.txt",
+
+write.table(bees_all, "../../bee_manuscript/files_supp/S1_Table_Sample_information.txt",
             col.names = T, row.names = F, sep = "\t", quote = F) # write out supplementary table with sample information
+
+
+S1 <- read.table("../../bee_manuscript/files_supp/S1_Table_Sample_information.txt",
+                 stringsAsFactors = F, header = T, sep = "\t")
+image_files <- read.table("files_best_wing_pics_1.26.20_EC.txt",
+                          header = F, stringsAsFactors = F) %>%
+  rename(wing_image_file = V1) 
+
+full_join(S1, image_files, by = "wing_image_file") %>% dim()
+filter(image_files, is.na(Bee_ID))
+View(image_files)

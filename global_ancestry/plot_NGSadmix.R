@@ -17,6 +17,7 @@ library(RColorBrewer)
 library(patchwork) # for combining plots in one output # https://github.com/thomasp85/patchwork
 library(ggrepel)
 library(ggpubr)
+library(gridExtra)
 source("../colors.R") # for color palette
 #Rio Claro, Sao Paulo Brazil: 22.4149° S, 47.5651° W (Google maps)
 sao_paulo <- data.frame(long = -47.5651, lat = -22.4149)
@@ -32,7 +33,9 @@ meta <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F,
                             ifelse( group %in% c("CA_2018", "MX_2018",
                                                  "N_CA", "S_CA"),
                                     "N. America",
-                            NA)))
+                            NA))) %>%
+  #dplyr::select(-c(Date, Time, toSequence, toWing))
+  dplyr::select(-c(Date, Time))
 meta$label <- meta$Bee_ID
 load("../local_ancestry/results/meta.RData")
 pop2014_incl <- c("Stebbins_2014", "Stanislaus_2014", "Avalon_2014",
@@ -423,6 +426,22 @@ dates_AHB <- read.table("../maps/spread_africanized_bees.csv",
 omit_dates <- c("Brazil", "Venezuela", "Uruguay", "Costa Rica")
 left_dates <- c("Mexico", "Peru", "Bolivia", "Paraguay", "Panama")
 right_dates <- c("California", "Texas", "Guyana", "Colombia", "Argentina")
+
+bind_rows(data.frame(name = "Brazil", 
+                     date = 1957,
+                     location = "Rio Claro, Sao Paulo",
+                     lat = -22.4149, lon = -47.5651,
+                     source = "Kent 1988 The introduction and diffusion of the African honeybee in South America",
+                     stringsAsFactors = F),
+                     filter(dates_AHB, name %in% c(left_dates, right_dates))) %>%
+  dplyr::select(., date, name, location, lat, lon, source) %>%
+  arrange(date) %>%
+  mutate(source = ifelse(source == "Kent 1988 The introduction and diffusion of the African honeybee in South America",
+                         "Kent 1988, The introduction and diffusion of the African honeybee in South America",
+                         source)) %>%
+  write.table("../../bee_manuscript/files_supp/S6_Table_Africanized_honey_bee_invasion_historical_dates_and_locations.txt",
+              col.names = T, row.names = F, quote = F, sep = "\t")
+
 p_world_labels <- p_world_arrows +
   geom_text(data = mutate(sao_paulo, label = "Brazil\n1957"), aes(x = long, y = lat, label = label), size = 4, 
             hjust = 0.2, vjust = -0.3, 
@@ -949,14 +968,16 @@ ggsave("../../bee_manuscript/figures/world_map_ngsadmix_tall.png",
        plot = p_world_admix_tall, 
        device = "png", 
        width = 7.5, height = 6.75, units = "in", dpi = 600)
-ggsave("../../bee_manuscript/figures_main/world_map_ngsadmix_tall.tiff",
+ggsave("../../bee_manuscript/figures_main/Fig1.tiff",
        plot = p_world_admix_tall, 
        device = "tiff", 
-       width = 7.5, height = 6.75, units = "in", dpi = 600)
+       width = 7.5, height = 6.75, units = "in", dpi = 600,
+       compression = "lzw", type = "cairo")
 ggsave("../../bee_manuscript/figures_main/world_map_ngsadmix_tall_300dpi.tiff",
        plot = p_world_admix_tall, 
        device = "tiff", 
-       width = 7.5, height = 6.75, units = "in", dpi = 300)
+       width = 7.5, height = 6.75, units = "in", dpi = 300,
+       compression = "lzw", type = "cairo")
 
 ### simpler version:
 # putting plots together
@@ -1352,7 +1373,7 @@ ggsave("../../bee_manuscript/figures/mean_ancestry_prior_posterior_ancestry_hmm.
        plot = p_pop_ind,
        device = "png",
        width = 7.5, height = 4, units = "in", dpi = 600)
-ggsave("../../bee_manuscript/figures_main/mean_ancestry_prior_posterior_ancestry_hmm.tiff",
+ggsave("../../bee_manuscript/figures_supp/mean_ancestry_prior_posterior_ancestry_hmm.tiff",
        plot = p_pop_ind,
        device = "tiff",
        width = 7.5, height = 4, units = "in", dpi = 600)

@@ -341,7 +341,7 @@ ggsave(paste0("../../bee_manuscript/figures/mean_k_corr_by_groups_and_chr.png"),
        height = 4, width = 5.2, dpi = 600,
        plot = p_corrs_chr,
        units = "in", device = "png")
-ggsave(paste0("../../bee_manuscript/figures_main/mean_k_corr_by_groups_and_chr.tiff"), 
+ggsave(paste0("../../bee_manuscript/figures_supp/mean_k_corr_by_groups_and_chr.tiff"), 
        height = 4, width = 5.2, dpi = 600,
        plot = p_corrs_chr,
        units = "in", device = "tiff")
