@@ -8,7 +8,7 @@ library(bedr)
 library(rethinking)
 library(betareg)
 source("../colors.R") # for color palette
-source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
+source("../local_ancestry/k_matrix.R") # import useful functions
 source("../local_ancestry/calc_FDRs.R") # scripts to calculate false discovery rates
 # script attempts to identify outlier loci with steep clines across latitude
 

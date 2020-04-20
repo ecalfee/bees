@@ -6,7 +6,7 @@ library(bedr)
 library(rethinking)
 library(Hmisc)
 source("../colors.R") # for color palette
-source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
+source("k_matrix.R") # import useful functions
 
 # this script looks at the effect of recombination rate on the K matrix
 # in an effort to disentangle demography and selection

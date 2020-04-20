@@ -21,8 +21,9 @@ library(coda) # for hpdi calc
 #library(hex) # for hex plot
 #library(ggridges) # to get density plot without bottom line on x axis
 source("../colors.R") # for color palette
-source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
+#source("/media/erin/3TB/Documents/gitErin/covAncestry/forqs_sim/k_matrix.R") # import useful functions
 #source("../../covAncestry/forqs_sim/k_matrix.R") # import useful functions
+source("k_matrix.R") # made its own local copy for this git repository
 source("calc_FDRs.R") # scripts to calculate false discovery rates
 par.default <- par()
 bees1 <- read.table("results/SNPs/thin1kb_common3/pass1_2018.ploidy", stringsAsFactors = F, 

@@ -19,8 +19,10 @@ echo "calling variants and GL using ANGSD on BAMS for mtDNA"
 
 angsd -out "$FILE_OUT" \
 -sites "$SITES" \
+-r NC_001566.1: \
 -ref "../data/honeybee_genome/Amel_HAv3.1.fasta" \
 -bam "$BAMS_LIST" \
+-doMajorMinor 3 \
 -dohaplocall 2 \
 -remove_bads 1 \
 -minMapQ 30 -minQ 20 \
