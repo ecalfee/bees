@@ -212,6 +212,8 @@ plot_PCA.R
 plot_NGSadmix.R
 plot_admixture_by_PCA.R # shows congruence between these two global ancestry analyses
 
+# Getting matching variant sites files for the thinned set of SNPs (so I can run within ancestry PCAs):
+nohup ./makeVarSites_nth.sh 250 combined_sept19 chr >& logs/combined_sept19_chr_prune_by250_variant_sites.out &
 
 
 # TO DO: Make NGSAdmix plots more interpretable by making anc1 always A etc. (using A group)

@@ -440,7 +440,6 @@ chr_lengths <- cbind(read.table("../data/honeybee_genome/chr.names", stringsAsFa
 sites <- left_join(sites0, chr_lengths[ , c("chr", "scaffold", "chr_n", "chr_start")], by = "scaffold") %>%
   mutate(cum_pos = pos + chr_start)
 
-
 # get ancestry frequencies for each population across the genome
 dir_results <- "results/ancestry_hmm/combined_sept19/posterior"
 

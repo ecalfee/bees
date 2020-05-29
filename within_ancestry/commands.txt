@@ -267,10 +267,10 @@ within_ancestry$ grep 'Killed' -A 20 logs/*.out # many results
 NC_037648.1:12500000-17500000
 # Instead, I'm going to just focus on outlier regions:
 functional_analysis/results/outlier_regions/all.bed
-# sites file, regions file, A C M combined, all ind's genotype likelihoods for PCA, 
+# sites file, regions file, A C M combined, all ind's genotype likelihoods for PCA,
 # SA NA and A C M for allele frequencies
 # if you can't get genomewide to run,
-# alternatively identify 1Mb randomly throughout genome (excluding outlier loci), 
+# alternatively identify 1Mb randomly throughout genome (excluding outlier loci),
 # spread across 100 10 kb chunks.
 # redo PCA with original PCA snps, but within ancestry comparisons in the pca.
 
@@ -358,7 +358,7 @@ within_ancestry$ nohup parallel --noswap --jobs 4 --joblog logs/block_bootstrap_
 
 
 ## (!) NOTE: By breaking the task up into pieces, I may indeed be able to get whole genome SFS estimates for each population,
-# within ancestry and across all ancestries. I can create diff saf.idx sites separately for diff regions. I can 
+# within ancestry and across all ancestries. I can create diff saf.idx sites separately for diff regions. I can
 # also estimate SFS separately for large # sites, e.g. 1-10Mb using -nSites. Here I'd still want to use called SNPs.
 # http://www.popgen.dk/angsd/index.php/RealSFS
 
@@ -383,13 +383,9 @@ plotted with within_ancestry/test_sfs.R : within_ancestry/plots/bias_angsd_sfs_e
 # The only thing non-standard about my use of ANGSD is lack of an outgroup (I use the european honey bee reference genome instead)
 # which should produce more of an uptick at the lower tail of the SFS
 
-
-
-
-
-
-
-
-
-
-
+## RUNNING PCA WITHIN ANCESTRY:
+# first I make 3 lists of all bams for A/C/M reference pops and (filtered for homozygous ancestry) all CA/AR individuals:
+bees/within_ancestry$ parallel '(for i in $(cat ../bee_samples_listed/combined_sept19.list); do echo results/combined_sept19/{1}/bams/$i.sort.dedup.baq.bam; done) > results/combined_sept19/{1}/allele_freq/combined_sep19.bams' ::: A C M
+# now I get the list of snps used in original PCA/NGSAdmix as a var.sites file (see global_ancestry/commands.txt):
+global_ancestry/results/input/combined_sept19_chr_prunedBy250.var.sites
+# now I calculate GL's for all ref individuals and within ancestry AR/CA bams:
