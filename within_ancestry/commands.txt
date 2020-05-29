@@ -389,3 +389,6 @@ bees/within_ancestry$ parallel '(for i in $(cat ../bee_samples_listed/combined_s
 # now I get the list of snps used in original PCA/NGSAdmix as a var.sites file (see global_ancestry/commands.txt):
 global_ancestry/results/input/combined_sept19_chr_prunedBy250.var.sites
 # now I calculate GL's for all ref individuals and within ancestry AR/CA bams:
+e.g. ./calc_GL_within_ancestry_4PCA.sh C combined_sept19 Group16
+# concatenate these together into 1 GL file per A/C/M ancestry
+# make a second GL file per A/C/M ancestry that only includes the reference that matches that ancestry
