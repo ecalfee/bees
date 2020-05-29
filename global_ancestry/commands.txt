@@ -214,8 +214,11 @@ plot_admixture_by_PCA.R # shows congruence between these two global ancestry ana
 
 # Getting matching variant sites files for the thinned set of SNPs (so I can run within ancestry PCAs):
 nohup ./makeVarSites_nth.sh 250 combined_sept19 chr >& logs/combined_sept19_chr_prune_by250_variant_sites.out &
+[1] 24884
 
 
-# TO DO: Make NGSAdmix plots more interpretable by making anc1 always A etc. (using A group)
+
+
+# TO DO:
 # because Avalon bees are driving PC3 and are likely highly drifted from their island status, maybe exclude them and rerun PCA to see if 'O' group pops out along PC3 instead
 # haha make shorter file names
