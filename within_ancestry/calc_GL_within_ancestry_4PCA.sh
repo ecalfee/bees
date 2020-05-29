@@ -32,7 +32,6 @@ angsd -out "${DIR_OUT}/${SCAFFOLD}" \
 -bam "$BAM_LIST" \
 -ref "$REF" \
 -rf "$REGIONS_FILE" \
--underFlowProtect 1 \
 -remove_bads 1 \
 -minMapQ 30 \
 -doMajorMinor 3 \
@@ -56,5 +55,4 @@ echo "done getting allele frequencies!"
 # -minQ 20 filters for minimum base quality of 20
 # (I pre-computed BAQ scores and replaced quality with minimum of BAQ/base quality,
 # so this is equivalend to -baq 2 option here)
-# -underFlowProtect is necessary for large #s of bams
 # -remove_bads removes reads that don't pass quality filters (here these are actually already removed by deduplicating)

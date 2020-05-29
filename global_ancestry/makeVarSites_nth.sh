@@ -21,4 +21,8 @@ mkdir -p $DIR_OUT
 
 for i in $(cat $SCAFFOLDS_FILE); do cat "$DIR_IN/$i".var.sites; done | awk -v N=$N 'NR % N == 0' > "$FILE_OUT"
 
+sleep 5s
+
+angsd sites index "$FILE_OUT"
+
 echo "done"
