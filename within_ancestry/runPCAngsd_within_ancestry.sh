@@ -5,7 +5,7 @@
 # input the prefix for the beagle genotype likelihood input file and the focal ancestry (to find input/output directories)
 BEAGLE_PREFIX="$1"
 ANCESTRY="$2"
-GL_FILE="results/combined_sept19/$ANCESTRY/$GL/${BEAGLE_PREFIX}.beagle.gz"
+GL_FILE="results/combined_sept19/$ANCESTRY/GL/${BEAGLE_PREFIX}.beagle.gz"
 DIR_OUT="results/combined_sept19/$ANCESTRY/PCA"
 FILE_OUT="${DIR_OUT}/${BEAGLE_PREFIX}"
 
@@ -22,7 +22,7 @@ mkdir -p ${DIR_OUT}
 python2 ~/Software/pcangsd/pcangsd.py \
 -beagle "${GL_FILE}" \
 -threads 2 -iter 100 \
--minMaf 0.5 -admix \
+-minMaf 0.05 -admix \
 -o "${FILE_OUT}"
 
 # -admix option calculates admixture proportions in addition to genotype covariance matrix for PCA
