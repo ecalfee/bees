@@ -393,4 +393,8 @@ bees/within_ancestry$ nohup parallel --noswap --joblog logs/calc_GL_by_ACM_and_s
 [1] 25367 -- running May 29, 2:30pm
 # concatenate these together into 1 GL file per A/C/M ancestry
 # make a second GL file per A/C/M ancestry that only includes the reference that matches that ancestry
+# concatenate into GL files for all individuals:
+bees/within_ancestry$ parallel '(zcat results/combined_sept19/{1}/GL/Group1.beagle.gz | head -n 1; for i in {1..16}; do zcat results/combined_sept19/{1}/GL/Group$i.beagle.gz | tail -n +2; done) | gzip > results/combined_sept19/{1}/GL/all_CA_AR_ACM.beagle.gz' ::: A C M
+# make GL files with only the relevant reference + CA + AR individuals
+
 # run PCAngsd on each of these GL files. plot results.
