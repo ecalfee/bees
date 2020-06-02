@@ -396,5 +396,20 @@ bees/within_ancestry$ nohup parallel --noswap --joblog logs/calc_GL_by_ACM_and_s
 # concatenate into GL files for all individuals:
 bees/within_ancestry$ parallel '(zcat results/combined_sept19/{1}/GL/Group1.beagle.gz | head -n 1; for i in {1..16}; do zcat results/combined_sept19/{1}/GL/Group$i.beagle.gz | tail -n +2; done) | gzip > results/combined_sept19/{1}/GL/all_CA_AR_ACM.beagle.gz' ::: A C M
 # make GL files with only the relevant reference + CA + AR individuals
+GL file has snp, allele1, allele2, ind0, ind0, ind0 ... ind347, ind347, ind347
+ind0-ind8 are C, ind9-ind17 are M, ind18-ind35 are A, ind36-ind347 are from the hybrid zones
+# A:
+bees/within_ancestry$ zcat results/combined_sept19/A/GL/all_CA_AR_ACM.beagle.gz | cut -f1-3,58-108,109-1047 -d$'\t' | gzip > results/combined_sept19/A/GL/A_CA_AR.beagle.gz
+# C:
+bees/within_ancestry$ zcat results/combined_sept19/C/GL/all_CA_AR_ACM.beagle.gz | cut -f1-3,4-30,109-1047 -d$'\t' | gzip > results/combined_sept19/C/GL/C_CA_AR.beagle.gz
+# M:
+bees/within_ancestry$ zcat results/combined_sept19/M/GL/all_CA_AR_ACM.beagle.gz | cut -f1-3,31-57,109-1047 -d$'\t' | gzip > results/combined_sept19/M/GL/M_CA_AR.beagle.gz
 
-# run PCAngsd on each of these GL files. plot results.
+# run PCAngsd on each of these GL files.
+bees/within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/run_PCA_within_AA_CC_MM.log './runPCAngsd_within_ancestry.sh {1} {2}' ::: all_CA_AR_ACM A_CA_AR all_CA_AR_ACM C_CA_AR all_CA_AR_ACM M_CA_AR :::+ A A C C M M &> logs/run_PCA_within_AA_CC_MM.out &
+[1] 26026 COMPLETED (VERY FAST) 6.2.2020
+
+# plot results.
+plotPCA_within_ancestry.R
+
+# possibly repeat 'within European ancestry', e.g. >0.8 posterior probability of being CC, MM, or CM

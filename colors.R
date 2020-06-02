@@ -13,6 +13,7 @@ col_ibm <- c("#648FFF", "#785EF0", "#DC267F",
 col_blind <- cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 #display.brewer.all(colorblindFriendly = TRUE)
 dark2 <- brewer.pal(n = 8, "Dark2")
+paired <- brewer.pal(n = 12, "Paired")
 #col_ACM <- col_ibm[c(3,5,4)]
 #col_NA_SA_both <- col_ibm[c(1, 2, 7)]
 ACM = c("A", "C", "M")
@@ -60,3 +61,7 @@ names(col_pi_predictions3) <- c("observed", "predicted_admix", "predicted_ref")
 
 shapes_sig <- c(17,16,15,4)
 names(shapes_sig) <- c("0.01", "0.05", "0.1", "n.s.")
+shapes_ACM_NA_SA <- c(0,1,2,17,19)
+names(shapes_ACM_NA_SA) <- c("A", "C", "M", "N. America", "S. America") #c(col_ACM, col_NA_SA_both)
+col_geo_label <- c(dark2[c(6, 5)], dark2[4], dark2[2], dark2[3], paired[2], dark2[8], dark2[1], dark2[7])
+names(col_geo_label) <- c("N. America", "S. America", "Kenya", "S. Africa", "Croatia", "Germany", "Slovenia", "Poland", "Spain") 
