@@ -65,3 +65,6 @@ shapes_ACM_NA_SA <- c(0,1,2,17,19)
 names(shapes_ACM_NA_SA) <- c("A", "C", "M", "N. America", "S. America") #c(col_ACM, col_NA_SA_both)
 col_geo_label <- c(dark2[c(6, 5)], dark2[4], dark2[2], dark2[3], paired[2], dark2[8], dark2[1], dark2[7])
 names(col_geo_label) <- c("N. America", "S. America", "Kenya", "S. Africa", "Croatia", "Germany", "Slovenia", "Poland", "Spain") 
+
+col_low_high_A <- c("purple", "red")
+names(col_low_high_A) <- c("Low A", "High A")
