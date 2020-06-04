@@ -5,14 +5,15 @@
 # to see how similar populations are within A/C/M ancestry
 
 
-# to run: ./calc_GL_within_ancestry_4PCA.sh C combined_sept19 Group1
+# to run: ./calc_GL_within_ancestry_4PCA.sh C combined_sept19 Group1 prunedBy250 ../global_ancestry/results/input/combined_sept19_chr_prunedBy250.var.sites
 ANCESTRY="${1}"
 PREFIX="${2}"
 SCAFFOLD="${3}"
+OUT="${4}"
+SNP_FILE="${5}" # snps
 BAM_LIST="results/combined_sept19/${ANCESTRY}/allele_freq/${PREFIX}.bams"
-SNP_FILE="../global_ancestry/results/input/${PREFIX}_chr_prunedBy250.var.sites" ## THINNED SNPs from overall PCA
 REGIONS_FILE="../geno_lik_and_SNPs/results/${PREFIX}/variant_sites/${SCAFFOLD}.regions"
-DIR_OUT="results/${PREFIX}/${ANCESTRY}/GL"
+DIR_OUT="results/${PREFIX}/${ANCESTRY}/GL/${OUT}"
 
 # general bash script settings to make sure if any errors in the pipeline fail
 # then it’s a ‘fail’ and it passes all errors to exit and allows no unset variables

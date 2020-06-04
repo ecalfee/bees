@@ -167,3 +167,68 @@ ggsave("../../bee_manuscript/figures_supp/pc1_anc_by_lat.tif",
        units = "in", dpi = 600, 
        device = "tiff",
        compression = "lzw", type = "cairo")
+
+
+
+# just get covariance matrix to plot it:
+get_cov <- function(ancestry, beagle_prefix, names){
+  # get covariance matrix from PCAngsd output
+  cov_data = read.table(paste0("results/combined_sept19/", ancestry, 
+                               "/PCA/", beagle_prefix, ".cov"),
+                        header = F, stringsAsFactors = F) %>%
+    as.matrix(.)
+  # need to name rows and columns of matrix using bee IDs
+  colnames(cov_data) = names
+  rownames(cov_data) = names
+  return(cov_data)
+  }
+
+bees = dplyr::left_join(IDs, meta, by = "Bee_ID") %>%
+  filter(group %in% c("S_CA", "N_CA", "CA_2018", "AR_2018"))
+covs <- lapply(ACM, function(a) get_cov(ancestry = a, 
+                                        beagle_prefix = "CA_AR", 
+                                        names = bees$Bee_ID))
+
+melt(covs[[1]]) %>%
+  mutate(Var1 = factor(Var1,
+                       levels = arrange(bees, lat)$Bee_ID, 
+                       ordered = T),
+         Var2 = factor(Var2,
+                       levels = arrange(bees, lat)$Bee_ID, 
+                       ordered = T)) %>%
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  coord_equal() + # ensures aspect ratio makes a square
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1,
+                     limits = c(-.12, .32),
+                     name = "Ancestry\ncovariance") +
+  ggtitle("covariances within A") +
+  xlab("") +
+  ylab("")
+
+cov_plots <- lapply(1:3, function(i) {
+  melt(cov2cor(covs[[i]])) %>%
+    mutate(Var1 = factor(Var1,
+                         levels = arrange(bees, lat)$Bee_ID, 
+                         ordered = T),
+           Var2 = factor(Var2,
+                         levels = arrange(bees, lat)$Bee_ID, 
+                         ordered = T)) %>%
+  filter(Var1 != Var2) %>% # omit diagonal
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  coord_equal() + # ensures aspect ratio makes a square
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1,
+                     limits = c(-.12, .32),
+                     name = "Ancestry\ncorrelation") +
+  ggtitle(ACM[i]) +
+  xlab("") +
+  ylab("")
+})
+plot(cov_plots[[1]])
+plot(cov_plots[[2]])
+plot(cov_plots[[3]])

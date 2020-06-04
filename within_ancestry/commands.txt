@@ -391,6 +391,7 @@ global_ancestry/results/input/combined_sept19_chr_prunedBy250.var.sites
 # now I calculate GL's for all ref individuals and within ancestry AR/CA bams:
 bees/within_ancestry$ nohup parallel --noswap --joblog logs/calc_GL_by_ACM_and_scaffold.log --jobs 4 './calc_GL_within_ancestry_4PCA.sh {2} combined_sept19 Group{1}' ::: {1..16}  ::: A C M &> logs/calc_GL_by_ACM_and_scaffold.out &
 [1] 25367 -- running May 29, 2:30pm
+# NOTE: would now add arguments prunedBy250 ../global_ancestry/results/input/combined_sept19_chr_prunedBy250.var.sites
 # concatenate these together into 1 GL file per A/C/M ancestry
 # make a second GL file per A/C/M ancestry that only includes the reference that matches that ancestry
 # concatenate into GL files for all individuals:
@@ -407,9 +408,16 @@ bees/within_ancestry$ zcat results/combined_sept19/M/GL/all_CA_AR_ACM.beagle.gz 
 
 # run PCAngsd on each of these GL files.
 bees/within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/run_PCA_within_AA_CC_MM.log './runPCAngsd_within_ancestry.sh {1} {2}' ::: all_CA_AR_ACM A_CA_AR all_CA_AR_ACM C_CA_AR all_CA_AR_ACM M_CA_AR :::+ A A C C M M &> logs/run_PCA_within_AA_CC_MM.out &
-[1] 26026 COMPLETED (VERY FAST) 6.2.2020
+[1] 26026 COMPLETED (VERY FAST) 6.2.2020 # NOTE: moved results to subdirectory prunedBy250
+
+# redo input files with just CA and AR hybrid zone bees & rerun PCA:
+bees/within_ancestry$ nohup parallel --noswap --jobs 3 --joblog logs/run_PCA_CA_AR_only_within_AA_CC_MM.log "zcat results/combined_sept19/{1}/GL/all_CA_AR_ACM.beagle.gz | cut -f1-3,109-1047 -d$'\t' | gzip > results/combined_sept19/{1}/GL/CA_AR.beagle.gz; ./runPCAngsd_within_ancestry.sh CA_AR {1}" ::: A C M &> logs/run_PCA_CA_AR_only_within_AA_CC_MM.out &
+[1] 11508 - COMPLETED 6.4.2020 # NOTE: moved results to subdirectory prunedBy250
 
 # plot results.
 plotPCA_within_ancestry.R
 
 # possibly repeat 'within European ancestry', e.g. >0.8 posterior probability of being CC, MM, or CM
+
+# there is low pairwise complete entries going into my covariance matrices.
+# I think it would be better not to filter for LD in this case and to get more SNPs.
