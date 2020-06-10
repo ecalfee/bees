@@ -68,3 +68,12 @@ names(col_geo_label) <- c("N. America", "S. America", "Kenya", "S. Africa", "Cro
 
 col_low_high_A <- c("purple", "red")
 names(col_low_high_A) <- c("Low A", "High A")
+
+
+col_qtl <- c("deeppink", "orange", "blue", "purple")
+names(col_qtl) <- c("Defense response", "Grooming", "Hygienic behavior", "Varroa Sensitive Hygiene")
+
+col_top2_outliers <- c("orange", "blue", "black")
+shapes_top2_outliers <- c(15, 17, 1)
+names(col_top2_outliers) <- c("Chr1:10921910", "Chr11:14490150", "Genomewide mean")
+names(shapes_top2_outliers) <- c("Chr1:10921910", "Chr11:14490150", "Genomewide mean")
