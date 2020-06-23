@@ -3,7 +3,7 @@ library(tidyr)
 library(ggplot2)
 library(viridis)
 library(bedr)
-library(rethinking)
+#library(rethinking)
 library(Hmisc)
 source("../colors.R") # for color palette
 source("k_matrix.R") # import useful functions
@@ -14,8 +14,8 @@ source("k_matrix.R") # import useful functions
 
 # I need to load the local ancestry data from plotLocalAncestryTracts.R:
 # objects: A, meta.ind, meta.pop, sites
-load("results/A.RData") # c("A", "sites", "meanA)
-load("results/meta.RData") # c("meta.ind", "meta.pop", "pops_by_lat", "meta.AR.order.by.lat")
+load("results/A.RData") # c("A", "sites", "meanA")
+load("results/meta.RData") # c("meta.ind", "meta.pop", "pops_by_lat", "meta.AR.order.by.lat", "NS_segments")
 
 # load recombination rates:
 rmap <- read.table("../data/recomb_map/Wallberg_HAv3.1/map_rates_extended_10kb.bed",
@@ -34,6 +34,20 @@ levels(rmap$r_bin5)
 # map recombination rates (and bins/quintiles) onto sites
 rerun_sites_r = F
 if (rerun_sites_r){
+  # get SNP sites where ancestry was called
+  sites0 <- read.table("results/SNPs/combined_sept19/chr.var.sites", stringsAsFactors = F,
+                       sep = "\t", header = F)[ , 1:2]
+  colnames(sites0) <- c("scaffold", "pos")
+  chr_lengths <- cbind(read.table("../data/honeybee_genome/chr.names", stringsAsFactors = F),
+                       read.table("../data/honeybee_genome/chr.lengths", stringsAsFactors = F)) %>%
+    data.table::setnames(c("chr", "scaffold", "chr_length")) %>%
+    mutate(chr_n = 1:16) %>%
+    mutate(chr_end = cumsum(chr_length)) %>%
+    mutate(chr_start = chr_end - chr_length) %>%
+    mutate(chr_mid = (chr_start + chr_end)/2)
+  
+  sites <- left_join(sites0, chr_lengths[ , c("chr", "scaffold", "chr_n", "chr_start")], by = "scaffold") %>%
+    mutate(cum_pos = pos + chr_start)
   sites_r <- bedr(
     engine = "bedtools", 
     input = list(a = dplyr::mutate(sites, start = pos - 1, end = pos) %>%  # make 0 index for bedtools
@@ -56,16 +70,16 @@ if (rerun_sites_r){
   sites_r$r_bin5 <- as.numeric(sites_r$r_bin5_factor) # translate to 1-5 numbers
   
   #head(sites_r)
-  str(sites_r)
-  table(sites_r$r_bin5_factor)
-  table(is.na(sites_r$r_bin5_factor))
-  levels(sites_r$r_bin5_factor)
+  #str(sites_r)
+  #table(sites_r$r_bin5_factor)
+  #table(is.na(sites_r$r_bin5_factor))
+  #levels(sites_r$r_bin5_factor)
   save(sites_r, file = "results/sites_r.RData")
   # also add cM position for each site & save:
   sites_rpos <- sites_r %>%
     left_join(., do.call(rbind, # add recombination position
                          lapply(paste0("Group", 1:16), function(chr) 
-                           read.table(paste0("../geno_lik_and_SNPs/results/", PREFIX, 
+                           read.table(paste0("../geno_lik_and_SNPs/results/combined_sept19", 
                                              "/variant_sites/", chr, ".rpos"),
                                       header = F, stringsAsFactors = F, sep = "\t") %>%
                              data.table::setnames(c("scaffold", "pos", "major", "minor", "rpos")) %>%
@@ -95,10 +109,11 @@ A_r <- cbind(sites_r, A) %>%
   mutate(abs_lat_c = abs(lat) - mean(abs(lat)))
 A_r$r_bin5_number = as.numeric(A_r$r_bin5_factor)
 A_r$r_bin5_number_c = A_r$r_bin5_number - mean(A_r$r_bin5_number)
-unique(A_r[ , c("r_bin5", "r_bin5_number")]) # in order low to high, good
-str(A_r)
+#unique(A_r[ , c("r_bin5", "r_bin5_number")]) # in order low to high, good
+#str(A_r)
+levels(A_r$r_bin5_factor)
 A_r %>%
-  filter(r_bin5_factor %in% c("[0,2.92]", "(38.6,100]")) %>%
+  #filter(r_bin5_factor %in% c("[0,2.92]", "(38.6,66.9]")) %>%
   ggplot(., aes(x = abs(lat), y = A, color = r_bin5_factor)) +
   geom_point() +
   facet_wrap(~zone)
@@ -128,131 +143,92 @@ pairs(m_lat_r_mean_cline)
 plot(m_lat_r_mean_cline) # there are warnings from STAN about 1 divergent transition, but chains look ok
 # HOWEVER, probably not how I want to analyze these with a beta dist...perhaps better just using nls()
 
-
-
-# do we see a significant effect of recombination rate on the shape of the cline?
-# short answer: no
-d_A_r <- cbind(sites_r, A) %>%
-  tidyr::gather(., "population", "A", colnames(A)) %>%
-  left_join(., meta.pop, by = "population") %>%
-  mutate(abs_lat_c = abs(lat) - mean(abs(lat))) %>%
-  mutate(cM_Mb_c = cM_Mb - mean(cM_Mb))
-dim(d_A_r) # very large dataset, I'll do the fit with a smaller portion
-d_A_r_test <- d_A_r[c(T, rep(F, 100)),]
-dim(d_A_r_test)
-table(d_A_r_test$population)
-
-m_lat_r_bypop <- map( # quadratic approximation of the posterior MAP
-  alist(
-    A ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
-    # beta distribution provided by the 'rethinking' package
-    # where mean probability 'prob' = a/(a+b) and parameter 'theta' = a+b
-    # are used instead of shape1 = a and shape2 = b
-    logit(p) <- mu + b_lat*abs_lat_c + b_r*cM_Mb_c + b_r_lat*cM_Mb_c*abs_lat_c,
-    mu ~ dnorm(0, 5),
-    theta ~ dunif(0, 10),
-    b_lat ~ dnorm(0, 5),
-    b_r ~ dnorm(0,5),
-    b_r_lat ~ dnorm(0, 5)
-  ),
-  data = d_A_r_test,
-  start = list(mu = -1, theta = 2, b_lat = 0, b_r = 0, b_r_lat = 0))
-precis(m_lat_r_bypop)
-pairs(m_lat_r_bypop)
-
+# 
+# 
+# # do we see a significant effect of recombination rate on the shape of the cline?
+# # short answer: no
+# d_A_r <- cbind(sites_r, A) %>%
+#   tidyr::gather(., "population", "A", colnames(A)) %>%
+#   left_join(., meta.pop, by = "population") %>%
+#   mutate(abs_lat_c = abs(lat) - mean(abs(lat))) %>%
+#   mutate(cM_Mb_c = cM_Mb - mean(cM_Mb))
+# dim(d_A_r) # very large dataset, I'll do the fit with a smaller portion
+# d_A_r_test <- d_A_r[c(T, rep(F, 100)),]
+# dim(d_A_r_test)
+# table(d_A_r_test$population)
+# 
+# m_lat_r_bypop <- map( # quadratic approximation of the posterior MAP
+#   alist(
+#     A ~ dbeta2(prob = p, theta = theta), # dbeta2 is a reformulation of the 
+#     # beta distribution provided by the 'rethinking' package
+#     # where mean probability 'prob' = a/(a+b) and parameter 'theta' = a+b
+#     # are used instead of shape1 = a and shape2 = b
+#     logit(p) <- mu + b_lat*abs_lat_c + b_r*cM_Mb_c + b_r_lat*cM_Mb_c*abs_lat_c,
+#     mu ~ dnorm(0, 5),
+#     theta ~ dunif(0, 10),
+#     b_lat ~ dnorm(0, 5),
+#     b_r ~ dnorm(0,5),
+#     b_r_lat ~ dnorm(0, 5)
+#   ),
+#   data = d_A_r_test,
+#   start = list(mu = -1, theta = 2, b_lat = 0, b_r = 0, b_r_lat = 0))
+# precis(m_lat_r_bypop)
+# pairs(m_lat_r_bypop)
+# 
+# 
 
 # make K matrix for each recombination rate bin
-K_byr <- lapply(1:5, function(r)
-  make_K_calcs(t(A[sites_r$r_bin5 == r, pops_by_lat])))
-
-# plot K for each recombination rate bin
-for (a in 1:5){
-  melt(K_byr[[a]]$K) %>%
-    filter(Var1 != Var2) %>% # don't plot diagonal
-    ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-    geom_tile() +
-    xlab("") +
-    ylab("") +
-    theme_classic() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-    scale_fill_viridis(begin = 0, end = 1, direction = 1,
-                       limits = c(-.005, .01)) +
-    ggtitle(paste0("K matrix covariances rbin ", a, ": ", levels(rmap$r_bin5)[a]))
-  ggsave(paste0("plots/k_matrix_covariance_r", a, ".png"), 
-         height = 6, width = 8, 
-         units = "in", device = "png")
-  melt(cov2cor(K_byr[[a]]$K)) %>%
-    filter(Var1 != Var2) %>% # don't plot diagonal
-    ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-    geom_tile() +
-    xlab("") +
-    ylab("") +
-    theme_classic() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-    scale_fill_viridis(begin = 0, end = 1, direction = 1,
-                       limits = c(-.35, .55)) +
-    ggtitle(paste0("K matrix correlations rbin ", a, ": ", levels(rmap$r_bin5)[a]))
-  ggsave(paste0("plots/k_matrix_correlation_r", a, ".png"), 
-         height = 6, width = 8, 
-         units = "in", device = "png")
-}
-# try plotting these again but using the genomewide alpha rather than alpha
+# using the genomewide alpha rather than alpha
 # for that recombination rate bin
 pop_alpha_genomewide <- apply(A[ , pops_by_lat], 2, mean)
 K_byr2 <- lapply(1:5, function(r)
   calcK(ancFreqMatrix = t(A[sites_r$r_bin5 == r, pops_by_lat]),
         alpha = pop_alpha_genomewide[pops_by_lat]))
-# make new plots:
-for (a in 1:5){
-  melt(K_byr2[[a]]) %>%
-    filter(Var1 != Var2) %>% # don't plot diagonal
-    ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-    geom_tile() +
-    xlab("") +
-    ylab("") +
-    theme_classic() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-    scale_fill_viridis(begin = 0, end = 1, direction = 1,
-                       limits = c(-.005, .01)) +
-    ggtitle(paste0("K matrix covariances rbin ", a, ": ", levels(rmap$r_bin5)[a], " genomewide alpha"))
-  ggsave(paste0("plots/k_matrix_covariance_r", a, "_genomewide_alpha.png"), 
-         height = 6, width = 8, 
-         units = "in", device = "png")
-  melt(cov2cor(K_byr2[[a]])) %>%
-    filter(Var1 != Var2) %>% # don't plot diagonal
-    ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-    geom_tile() +
-    xlab("") +
-    ylab("") +
-    theme_classic() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-    scale_fill_viridis(begin = 0, end = 1, direction = 1,
-                       limits = c(-.35, .55)) +
-    ggtitle(paste0("K matrix correlations rbin ", a, ": ", levels(rmap$r_bin5)[a], " genomewide alpha"))
-  ggsave(paste0("plots/k_matrix_correlation_r", a, "_genomewide_alpha.png"), 
-         height = 6, width = 8, 
-         units = "in", device = "png")
-}
-# hmm.. make a side-by-side plot for the genomewide ones. Ask Graham how to compare. 
-# Take a stab at interpretation and add it to your manuscript first. Also add whatever you have
-# on how the slopes don't appear to get steeper from low to high recombination.
-# also try excluding + outliers again. And if you have it, your steepest sloped loci, to see if that's driving
-# the effect -- mean slope doesn't get steeper, but top 1% are in low r regions
-# NOTE: this isn't how I shoudl run this analysis .. I try again in the clines script. there's a modest effect of r on steepness, and enrichment of steep clines in low r regions
+# # make new plots:
+# for (a in 1:5){
+#   melt(K_byr2[[a]]) %>%
+#     filter(Var1 != Var2) %>% # don't plot diagonal
+#     ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+#     geom_tile() +
+#     xlab("") +
+#     ylab("") +
+#     theme_classic() +
+#     theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+#     scale_fill_viridis(begin = 0, end = 1, direction = 1,
+#                        limits = c(-.005, .01)) +
+#     ggtitle(paste0("K matrix covariances rbin ", a, ": ", levels(rmap$r_bin5)[a], " genomewide alpha"))
+#   ggsave(paste0("plots/k_matrix_covariance_r", a, "_genomewide_alpha.png"), 
+#          height = 6, width = 8, 
+#          units = "in", device = "png")
+#   melt(cov2cor(K_byr2[[a]])) %>%
+#     filter(Var1 != Var2) %>% # don't plot diagonal
+#     ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+#     geom_tile() +
+#     xlab("") +
+#     ylab("") +
+#     theme_classic() +
+#     theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+#     scale_fill_viridis(begin = 0, end = 1, direction = 1,
+#                        limits = c(-.35, .55)) +
+#     ggtitle(paste0("K matrix correlations rbin ", a, ": ", levels(rmap$r_bin5)[a], " genomewide alpha"))
+#   ggsave(paste0("plots/k_matrix_correlation_r", a, "_genomewide_alpha.png"), 
+#          height = 6, width = 8, 
+#          units = "in", device = "png")
+# }
 
 # calculate mean correlations for different recombination rate bins:
 # function get_mean_from_K needs to be loaded from plotLocalAncestryTracts.R:
 zAnc_bees <- make_K_calcs(t(A[ , pops_by_lat]))
-mean_corr_k <- get_mean_from_K(cov2cor(zAnc_bees$K))
+mean_corr_k <- get_mean_from_K(cov2cor(zAnc_bees$K), m = meta.pop)
 mean_corrs0 <- do.call(rbind,
-                      lapply(1:5, function(k) get_mean_from_K(cov2cor(K_byr[[k]]$K)) %>%
+                      lapply(1:5, function(k) get_mean_from_K(cov2cor(K_byr2[[k]]), m = meta.pop) %>%
                                mutate(r_bin5 = k))) %>%
   left_join(., distinct(dplyr::select(sites_r, c("r_bin5", "r_bin5_factor"))), by = "r_bin5")
 
-pair_types <- data.frame(label = c("Warm SA", "Cold SA vs. Warm SA", "Cold SA", "Cold NA vs. Warm SA", "Cold NA vs. Cold SA", "Cold NA"),
-                         type = unique(mean_corrs0$type)[order(unique(mean_corrs0$type))],
+pair_types <- data.frame(label = c("High-A SA", "Low-A SA vs. High-A SA", "Low-A SA", "Low-A NA vs. High-A SA", "Low-A NA vs. Low-A SA", "Low-A NA"),
+                         type = c("ARN_ARN", "ARN_ARS", "ARS_ARS", "CA_ARN",  "CA_ARS",  "CA_CA"),
                          stringsAsFactors = F) %>%
-  mutate(label = factor(label, levels = c("Warm SA", "Cold SA", "Cold NA", "Cold NA vs. Cold SA", "Cold SA vs. Warm SA", "Cold NA vs. Warm SA"),
+  mutate(label = factor(label, levels = c("High-A SA", "Low-A SA", "Low-A NA", "Low-A NA vs. Low-A SA", "Low-A SA vs. High-A SA", "Low-A NA vs. High-A SA"),
                         ordered = T))
 mean_corrs = left_join(mean_corrs0, pair_types, by = "type")
 
@@ -281,7 +257,8 @@ ggsave(paste0("../../bee_manuscript/figures/mean_k_corr_by_groups_and_r.png"),
 ggsave(paste0("../../bee_manuscript/figures_supp/mean_k_corr_by_groups_and_r.tiff"), 
        height = 4, width = 5.2, dpi = 600,
        plot = mean_corrs_plot,
-       units = "in", device = "tiff")
+       units = "in", device = "tiff",
+       compression = "lzw", type = "cairo")
 
 # paired t-test for manuscript:
 with(filter(mean_corrs, type %in%  c("CA_ARS", "ARN_ARS")) %>% arrange(r_bin5), 
@@ -305,15 +282,6 @@ mean_covs_chr <- do.call(rbind,
 # plot with bars representing all chromosomes:
 p_corrs_chr <- mean_corrs_chr %>%
   ggplot(., aes(x = label, y = mean_anc_corr)) +
-
-  #stat_summary(data = mean_corrs_chr, #%>%
-               #filter(!(chr_n %in% c(1, 11))),
-  #             mapping = aes(x = label, y = mean_anc_corr),
-  #             fun.y = "mean", 
-  #             geom = "point",
-  #             color = "black",
-  #             fill = "black",
-   #            shape = 23) +
   geom_jitter(aes(color = factor(chr_n), shape = factor(chr_n)), width = .2) +
   ylab("Mean Ancestry Correlation") +
   theme_classic() +
@@ -344,12 +312,12 @@ ggsave(paste0("../../bee_manuscript/figures/mean_k_corr_by_groups_and_chr.png"),
 ggsave(paste0("../../bee_manuscript/figures_supp/mean_k_corr_by_groups_and_chr.tiff"), 
        height = 4, width = 5.2, dpi = 600,
        plot = p_corrs_chr,
-       units = "in", device = "tiff")
+       units = "in", device = "tiff",
+       compression = "lzw", type = "cairo")
 
 # plot with bars representing 95% CI from t-test excluding outlier chromosome 1 and 11:
 mean_corrs_chr %>%
   ggplot(., aes(x = label, y = mean_anc_corr)) +
-
   #stat_summary(data = mean_corrs_chr %>%
   #             filter(!(chr_n %in% c(1, 11))),
   #             mapping = aes(x = label, y = mean_anc_corr),
@@ -401,15 +369,6 @@ with(filter(mean_corrs_chr, type %in%  c("CA_ARS", "ARN_ARS") &
 # plot with bars representing all chromosomes:
 mean_covs_chr %>%
   ggplot(., aes(x = label, y = mean_anc_corr)) +
-  
-  #stat_summary(data = mean_covs_chr, #%>%
-  #filter(!(chr_n %in% c(1, 11))),
-  #             mapping = aes(x = label, y = mean_anc_corr),
-  #             fun.y = "mean", 
-  #             geom = "point",
-  #             color = "black",
-  #             fill = "black",
-  #            shape = 23) +
   geom_jitter(aes(color = factor(chr_n), shape = factor(chr_n)), width = .2) +
   ylab("Mean Ancestry Covariance") +
   theme_classic() +
@@ -459,15 +418,6 @@ mean_sd_cov_chr <- do.call(rbind,
   left_join(., pair_types, by = "type")
 mean_sd_cov_chr %>%
   ggplot(., aes(x = label, y = mean_anc_corr)) +
-  
-  #stat_summary(data = mean_sd_cov_chr, #%>%
-  #filter(!(chr_n %in% c(1, 11))),
-  #             mapping = aes(x = label, y = mean_anc_corr),
-  #             fun.y = "mean", 
-  #             geom = "point",
-  #             color = "black",
-  #             fill = "black",
-  #            shape = 23) +
   geom_jitter(aes(color = factor(chr_n), shape = factor(chr_n)), width = .2) +
   ylab("Mean Ancestry Covariance (Standardized)") +
   theme_classic() +

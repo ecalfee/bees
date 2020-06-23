@@ -18,6 +18,8 @@ library(ggExtra)
 library(gtable)
 library(egg) # for plot layouts
 library(coda) # for hpdi calc
+library(sp) # for polygons
+library(GISTools)
 #library(hex) # for hex plot
 #library(ggridges) # to get density plot without bottom line on x axis
 source("../colors.R") # for color palette
@@ -25,7 +27,6 @@ source("../colors.R") # for color palette
 #source("../../covAncestry/forqs_sim/k_matrix.R") # import useful functions
 source("k_matrix.R") # made its own local copy for this git repository
 source("calc_FDRs.R") # scripts to calculate false discovery rates
-par.default <- par()
 
 #************************************************************************************************************#
 
@@ -61,7 +62,10 @@ meta.pop <- meta.ind %>%
   # not relevant anymore, not using Riverside 1999 historical samples:
   mutate(lat = ifelse(population == "Riverside_1999", .[.$population == "Riverside_2014", "lat"], lat)) %>%
   mutate(zone = ifelse(group == "AR_2018", "S. America", "N. America")) %>%
-  arrange(lat)
+  arrange(lat) %>%
+  mutate(region = ifelse(zone == "S. America",
+                         ifelse(lat < -32.26, "Low A", "High A"),
+                         ifelse(lat > 32.72, "Low A", "High A")))
 
 # included populations by latitude:
 pops_by_lat <- meta.pop$population[order(meta.pop$lat)]
@@ -69,7 +73,21 @@ meta.AR.order.by.lat <- data.frame(population = pops_by_lat, stringsAsFactors = 
   left_join(., meta.pop, by = "population") %>%
   filter(zone == "S. America") %>%
   mutate(abs_lat_SA_c = abs(lat) - mean(abs(lat))) # absolute latitude centered for SA
-save(file = "results/meta.RData", list = c("meta.ind", "meta.pop", "pops_by_lat", "meta.AR.order.by.lat"))
+
+# regions defined based on cline center for 'low' and 'high' sides of the cline
+AR_pops_S <- meta.pop$population[meta.pop$zone == "S. America" & meta.pop$region == "Low A"]
+AR_pops_N <- meta.pop$population[meta.pop$zone == "S. America" & meta.pop$region == "High A"]
+CA_pops <- meta.pop$population[meta.pop$zone == "N. America"]
+# now with legend for 'low A' and 'high A'
+NS_segments = data.frame(Region = c("Low A", "High A", "Low A"),
+                         starts = c(0.5, 
+                                    length(AR_pops_S) + 0.5, 
+                                    length(c(AR_pops_S, AR_pops_N)) + 0.5),
+                         ends = c(length(AR_pops_S) + 0.5, 
+                                  length(c(AR_pops_S, AR_pops_N)) + 0.5, 
+                                  length(c(AR_pops_S, AR_pops_N, CA_pops)) + 0.5))
+
+save(file = "results/meta.RData", list = c("meta.ind", "meta.pop", "pops_by_lat", "meta.AR.order.by.lat", "NS_segments"))
 
 # get SNP sites where ancestry was called
 sites0 <- read.table("results/SNPs/combined_sept19/chr.var.sites", stringsAsFactors = F,
@@ -354,27 +372,8 @@ save(file = "results/zAnc.RData", list = "zAnc_bees")
 # CA -> AR S
 # CA -> AR N
 # AR S -> AR N
-AR_pops_S <- names(zAnc_bees$alpha[zAnc_bees$alpha < .5 & names(zAnc_bees$alpha) %in% AR_pops_included$population])
-AR_pops_N <- names(zAnc_bees$alpha[zAnc_bees$alpha >= .5 & names(zAnc_bees$alpha) %in% AR_pops_included$population])
-CA_pops <- CA_pops_included$population
 
-get_mean_from_K <- function(K){ # for covariance use K, for correlation set K = cov2cor(K)
-  lower_tri <- K
-  lower_tri[lower.tri(lower_tri, diag = T)] <- NA # ignore variances and repeats
-  k_lower_tri <- melt(lower_tri) %>%
-    filter(!is.na(value)) %>%
-    mutate(type = ifelse(Var1 %in% CA_pops & Var2 %in% CA_pops, "CA_CA",
-                         ifelse(Var1 %in% AR_pops_S & Var2 %in% AR_pops_S, "ARS_ARS",
-                                ifelse(Var1 %in% AR_pops_N & Var2 %in% AR_pops_N, "ARN_ARN",
-                                       ifelse((Var1 %in% AR_pops_N & Var2 %in% AR_pops_S) | (Var1 %in% AR_pops_S & Var2 %in% AR_pops_N), "ARN_ARS",
-                                              ifelse((Var1 %in% AR_pops_S & Var2 %in% CA_pops) | (Var1 %in% CA_pops & Var2 %in% AR_pops_S), "CA_ARS",
-                                                     ifelse((Var1 %in% AR_pops_N & Var2 %in% CA_pops) | (Var1 %in% CA_pops & Var2 %in% AR_pops_N), "CA_ARN", 
-                                                            NA)))))))
-  mean_corr <- k_lower_tri %>%
-    group_by(type) %>%
-    summarise(mean_anc_corr = mean(value))
-  return(mean_corr)
-}
+
 mean_corr_k <- get_mean_from_K(cov2cor(zAnc_bees$K))
 mean_corr_k
 mean_corr_k %>%
@@ -392,39 +391,7 @@ melt(lower_tri) %>%
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile()
 
-
-
-
-melt(zAnc_bees$K) %>%
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  scale_fill_viridis() +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  xlab("") +
-  ylab("") +
-  ggtitle("K covariance - bees")
-ggsave("plots/k_matrix_all_pops.png", 
-       height = 6, width = 8, 
-       units = "in", device = "png")
-melt(zAnc_bees$K) %>%
-  filter(Var1 != Var2) %>%
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  scale_fill_viridis() +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  xlab("") +
-  ylab("") +
-  ggtitle("K covariance - bees")
-ggsave("plots/k_matrix_all_pops_no_var.png", 
-       height = 6, width = 8, 
-       units = "in", device = "png")
 k_plot_all <- melt(cov2cor(zAnc_bees$K)) %>%
-  #left_join(., meta.pop[ , c("population", "zone")], by = c("Var1"="population")) %>%
-  #rename(zone1 = zone) %>%
-  #left_join(., meta.pop[ , c("population", "zone")], by = c("Var2"="population")) %>%
-  #rename(zone2 = zone) %>%
   filter(Var1 != Var2) %>% # omit diagonal
   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
@@ -432,8 +399,7 @@ k_plot_all <- melt(cov2cor(zAnc_bees$K)) %>%
   theme_classic() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   scale_fill_viridis(begin = 0, end = 1, direction = 1,
-                     #limits = c(-.35, .55)) +
-                     limits = c(-.12, .32),
+                     #limits = c(-.12, .32),
                      name = "Ancestry\ncorrelation") +
   ggtitle("K correlation matrix - bees") +
   xlab("") +
@@ -441,15 +407,7 @@ k_plot_all <- melt(cov2cor(zAnc_bees$K)) %>%
 
 k_plot_all
 
-# now with legend for 'low A' and 'high A'
-NS_segments = data.frame(Region = c("Low A", "High A", "Low A"),
-                         starts = c(0.5, 
-                                    length(AR_pops_S) + 0.5, 
-                                    length(c(AR_pops_S, AR_pops_N)) + 0.5),
-                         ends = c(length(AR_pops_S) + 0.5, 
-                                  length(c(AR_pops_S, AR_pops_N)) + 0.5, 
-                                  length(c(AR_pops_S, AR_pops_N, CA_pops)) + 0.5))
-
+segment_buffer = 0.15
 k_plot_fancy <- k_plot_all +
   theme(axis.line = element_blank(),
         axis.ticks = element_blank(),
@@ -459,20 +417,23 @@ k_plot_fancy <- k_plot_all +
   ylab("Population 2") +
   ggtitle("") +
   # add lines for low A and high A groups
-  geom_segment(data = NS_segments, 
-               aes(x = starts, xend = ends,
-               y = 0.5, yend = 0.5,
-               color = Region), inherit.aes = F) +
-  geom_segment(data = NS_segments, 
-               aes(x = 0.5, xend = 0.5,
-                   y = starts, yend = ends,
-                   color = Region), inherit.aes = F) +  
-  # add lines marking division between N. and S. American pops
+  geom_segment(data = NS_segments,
+               aes(x = starts + segment_buffer, xend = ends - segment_buffer,
+               y = -0.5, yend = -0.5,
+               color = Region), size = 2, inherit.aes = F) +
+  geom_segment(data = NS_segments,
+               aes(x = -0.25, xend = -0.25,
+                   y = starts + segment_buffer, yend = ends - segment_buffer,
+                   color = Region), size = 2, inherit.aes = F) +
+  #add lines marking division between N. and S. American pops
   geom_segment(aes(x = 21.5, xend = 21.5, y = 0.5, yend = 39.5)) +
   geom_segment(aes(x = 0.5, xend = 39.5, y = 21.5, yend = 21.5)) +
-  #geom_text(colour = "darkgray", aes(y = -3, label = zone1),  position = position_dodge(width=0.9))
-  scale_x_discrete("Population 1", breaks = c("CA09","AR14"), labels = c("N. America", "S. America")) +
-  scale_y_discrete("Population 2", breaks = c("CA09","AR14"), labels = c("N. America", "S. America")) +
+  scale_x_discrete("Population 1", breaks = c("CA09","AR14"), 
+                   #expand = expand_scale(add = 2),
+                   labels = c("N. America", "S. America")) +
+  scale_y_discrete("Population 2", breaks = c("CA09","AR14"),
+                   #expand = expand_scale(add = 2),
+                   labels = c("N. America", "S. America")) +
   scale_color_manual(values = col_low_high_A)
 
 k_plot_fancy
@@ -512,14 +473,14 @@ k_cov_plot_offdiag <- melt(zAnc_bees$K) %>%
   ylab("Population 2") +
   ggtitle("") +
   # add lines for low A and high A groups
-  geom_segment(data = NS_segments, 
-               aes(x = starts, xend = ends,
-                   y = 0.5, yend = 0.5,
-                   color = Region), inherit.aes = F) +
-  geom_segment(data = NS_segments, 
-               aes(x = 0.5, xend = 0.5,
-                   y = starts, yend = ends,
-                   color = Region), inherit.aes = F) +  
+  geom_segment(data = NS_segments,
+               aes(x = starts + segment_buffer, xend = ends - segment_buffer,
+                   y = -0.5, yend = -0.5,
+                   color = Region), size = 2, inherit.aes = F) +
+  geom_segment(data = NS_segments,
+               aes(x = -0.25, xend = -0.25,
+                   y = starts + segment_buffer, yend = ends - segment_buffer,
+                   color = Region), size = 2, inherit.aes = F) +
   # add lines marking division between N. and S. American pops
   geom_segment(aes(x = 21.5, xend = 21.5, y = 0.5, yend = 39.5), color = "white") +
   geom_segment(aes(x = 0.5, xend = 39.5, y = 21.5, yend = 21.5), color = "white") +
@@ -541,6 +502,7 @@ k_cov_plot_diag <- melt(zAnc_bees$K) %>%
                      option = "inferno",
                      discrete = F,
                      name = "Ancestry\ncovariance") +
+  
   ggtitle("K covariance matrix - bees") +
   xlab("") +
   ylab("") +
@@ -552,14 +514,14 @@ k_cov_plot_diag <- melt(zAnc_bees$K) %>%
   ylab("Population 2") +
   ggtitle("") +
   # add lines for low A and high A groups
-  geom_segment(data = NS_segments, 
-               aes(x = starts, xend = ends,
-                   y = 0.5, yend = 0.5,
-                   color = Region), inherit.aes = F) +
-  geom_segment(data = NS_segments, 
-               aes(x = 0.5, xend = 0.5,
-                   y = starts, yend = ends,
-                   color = Region), inherit.aes = F) +  
+  geom_segment(data = NS_segments,
+               aes(x = starts + segment_buffer, xend = ends - segment_buffer,
+                   y = -0.5, yend = -0.5,
+                   color = Region), size = 2, inherit.aes = F) +
+  geom_segment(data = NS_segments,
+               aes(x = -0.25, xend = -0.25,
+                   y = starts + segment_buffer, yend = ends - segment_buffer,
+                   color = Region), size = 2, inherit.aes = F) +
   # add lines marking division between N. and S. American pops
   geom_segment(aes(x = 21.5, xend = 21.5, y = 0.5, yend = 39.5), color = "white") +
   geom_segment(aes(x = 0.5, xend = 39.5, y = 21.5, yend = 21.5), color = "white") +
@@ -592,6 +554,56 @@ ggsave("../../bee_manuscript/figures_supp/k_covariance_matrix_all_pops.tif",
        units = "in", device = "tiff", dpi = 600,
        compression = "lzw", type = "cairo")
 
+# look at covariance within European ancestry
+# proportion M conditional on European ancestry
+M_within_Euro = M/(M + C) # proportion European ancestry that's M
+zAnc_M_Euro = make_K_calcs(t(M_within_Euro[ , pops_by_lat]))
+k_M_plot_all <- #melt(cov2cor(zAnc_M_Euro$K)) %>%
+  melt(zAnc_M_Euro$K) %>%
+  filter(Var1 != Var2) %>% # omit diagonal
+  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  coord_equal() + # ensures aspect ratio makes a square
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis(begin = 0, end = 1, direction = 1,
+                     name = "Ancestry\ncorrelation") +
+  ggtitle("K correlation matrix - w/in European ancestry") +
+  xlab("") +
+  ylab("")
+
+k_M_plot_all
+ggsave("../../bee_manuscript/figures/K_m_plot_all.png",
+       plot = k_M_plot_all,
+       width = 5.2, height = 5, 
+       units = "in", dpi = 600, device = "png")
+
+k_plot_fancy <- k_plot_all +
+  theme(axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_text(angle = 0, hjust = 0.5),
+        axis.text.y = element_text(angle = 90, hjust = 0.5)) +
+  xlab("Population 1") +
+  ylab("Population 2") +
+  ggtitle("") +
+  # add lines for low A and high A groups
+  geom_segment(data = NS_segments, 
+               aes(x = starts, xend = ends,
+                   y = 0.5, yend = 0.5,
+                   color = Region), inherit.aes = F) +
+  geom_segment(data = NS_segments, 
+               aes(x = 0.5, xend = 0.5,
+                   y = starts, yend = ends,
+                   color = Region), inherit.aes = F) +  
+  # add lines marking division between N. and S. American pops
+  geom_segment(aes(x = 21.5, xend = 21.5, y = 0.5, yend = 39.5)) +
+  geom_segment(aes(x = 0.5, xend = 39.5, y = 21.5, yend = 21.5)) +
+  #geom_text(colour = "darkgray", aes(y = -3, label = zone1),  position = position_dodge(width=0.9))
+  scale_x_discrete("Population 1", breaks = c("CA09","AR14"), labels = c("N. America", "S. America")) +
+  scale_y_discrete("Population 2", breaks = c("CA09","AR14"), labels = c("N. America", "S. America")) +
+  scale_color_manual(values = col_low_high_A)
+
+k_plot_fancy
 
 
 
@@ -1480,13 +1492,31 @@ a_data <- emdbook::HPDregionplot(b_data, vars = c("meanA_CA", "meanA_AR"),
                                  lwd = 3, 
                                  h = .05,
                                  add = TRUE)
+b_MVNnoCov <- as.mcmc(cbind(meanA_MVNsim_CA_no_cov_bounded, meanA_MVNsim_AR_no_cov_bounded))
+a_MVNnoCov <- emdbook::HPDregionplot(b_MVNnoCov, vars = c("meanA_MVNsim_CA_no_cov_bounded", "meanA_MVNsim_AR_no_cov_bounded"), 
+                            prob = c(0.99, .9, .75), 
+                            n = 100,
+                            lwd = 3, 
+                            h = .05,
+                            add = FALSE)
+b_poiBin <- as.mcmc(cbind(PoiBinsim_CA, PoiBinsim_AR))
+a_poiBin <- emdbook::HPDregionplot(b_poiBin, vars = c("PoiBinsim_CA", "PoiBinsim_AR"), 
+                                     prob = c(0.99, .9, .75), 
+                                     n = 100,
+                                     lwd = 3, 
+                                     h = .05,
+                                     add = FALSE)
+
+
 p_density2 <- ggplot() +
   geom_hex(data = data.frame(meanA_CA = meanA_CA, meanA_AR = meanA_AR), 
            aes(x = meanA_CA, y = meanA_AR, color = ..count.., fill = ..count..), bins = 200) +
   scale_fill_viridis(option = "magma", end = 1, begin = 0.1, name = "SNP count") +
   scale_color_viridis(option = "magma", end = 1, begin = 0.1, name = "SNP count") +
-  theme_classic() +
+  #theme_classic() +
+  theme_light() +
   coord_fixed() +
+  theme(panel.grid.minor = element_blank()) +
   xlab("African ancestry in North America") +
   ylab("African ancestry in South America") +
   geom_polygon(data = data.frame(a[[1]]), 
@@ -1585,10 +1615,6 @@ p_sim_compare_AR <- sim_compare_AR %>%
         axis.ticks.x = element_blank(),
         axis.ticks.length.x = unit(0, "pt"),
         axis.line.x = element_blank(),
-        axis.title.y = element_blank(),
-        #axis.ticks.y = element_blank(),
-        #axis.text.y = element_blank(),
-        #axis.line.y = element_blank(),
         plot.margin = margin(0, 0, 0, 0, "in"),
         panel.border = element_blank(), 
         panel.spacing = unit(0, "in"),
@@ -1613,9 +1639,10 @@ p_density3 <- p_density2 +
   #guides(color = F, fill = F) +
   theme(legend.position = "bottom",
         legend.margin = margin(t = 0, unit='cm'),
-        legend.title = element_text(size = 10),
-        axis.text = element_blank(),
-        axis.ticks = element_blank()) +
+        legend.title = element_text(size = 10)#,
+        #axis.text = element_blank(),
+        #axis.ticks = element_blank()
+        ) +
   guides(fill = guide_colorbar(title.vjust = 0.75)) +
   #theme(legend.position = c(0.9, 0.25)) +
   #xlim(c(0.05, 0.6)) +
@@ -1634,21 +1661,24 @@ panel_id <- g0$layout[g0$layout$name == "panel", c("t","l")]
 #g <- grid.arrange(nrow = 2, grobs = list(g0, legend_p_sim_compare_bottom$grobs[[1]]))
 g <- g0
 g <- gtable_add_cols(g, unit(1.5, "in"))
-g <- gtable_add_grob(g, ggplotGrob(p_sim_compare_AR),
+g <- gtable_add_grob(g, ggplotGrob(p_sim_compare_AR + 
+                                     theme(axis.text = element_blank(),
+                                           axis.title = element_blank(),
+                                           axis.ticks = element_line(colour = "grey70", size = rel(0.5)),
+                                           axis.line = element_line(colour = "grey87", size = rel(0.5)))),
                      t = panel_id$t, l = ncol(g))
 g <- gtable_add_rows(g, unit(1.5, "in"), 0) # add row on top
-g <- gtable_add_grob(g, ggplotGrob(p_sim_compare_CA),
+g <- gtable_add_grob(g, ggplotGrob(p_sim_compare_CA + 
+                                     theme(axis.text = element_blank(),
+                                           axis.title = element_blank(),
+                                           axis.ticks = element_line(colour = "grey70", size = rel(0.5)),
+                                           axis.line = element_line(colour = "grey87", size = rel(0.5)))),
                      t = 1, l = panel_id$l)
 g <- gtable_add_rows(g, unit(0.4, "in"), -1)
 g <- gtable_add_grob(g, legend_p_sim_compare_bottom$grobs[[1]],
                      t = -1, l = panel_id$l) # add row to bottom?
-#g <- gtable_add_rows(g, unit(0.25, "in"), 0)
-#g <- gtable_add_grob(g, legend_p_sim_compare_bottom$grobs[[1]],
-#                     t = -1, l = panel_id$l) # add row to bottom?
 grid.newpage()
 grid.draw(g)
-#grid.arrange(nrow = 2, grobs = list(g, legend_p_sim_compare_bottom$grobs[[1]]))
-
 ggsave("plots/A_CA_vs_AR_density_marginal_hist.png",
        plot = g,
        height = 5.4, width = 5.2, 
@@ -1660,68 +1690,100 @@ ggsave("../../bee_manuscript/figures/A_CA_vs_AR_density_marginal_hist.png",
        #height = 6.4, width = 6, 
        units = "in", dpi = 600, 
        device = "png")
-ggsave("../../bee_manuscript/figures_main/A_CA_vs_AR_density_marginal_hist.tiff",
+ggsave("../../bee_manuscript/figures_main/A_CA_vs_AR_density_marginal_hist.tif",
        plot = g,
        height = 5.4, width = 5.2, 
        units = "in", dpi = 600, 
-       device = "tiff")
+       device = "tiff",
+       compression = "lzw", type = "cairo"
+       )
+
+# what % of data points fall within approximate 99% HPDI for 
+# each model?
+
+# plot
+p_density2 +
+  geom_polygon(data = data.frame(a_poiBin[[1]]), 
+               aes(x = x, y = y),
+               fill = NA, color = "blue", lwd = 1) +
+  geom_polygon(data = data.frame(a_MVNnoCov[[1]]), 
+               aes(x = x, y = y),
+               fill = NA, color = "green", lwd = 1) +
+  geom_polygon(data = data.frame(a_data[[1]]), 
+               aes(x = x, y = y),
+               fill = NA, color = "red", lwd = 1) 
+
+poly_MVN <- Polygons(srl = list(Polygon(coords = with(a[[1]], cbind(x, y)), hole = F)),
+                     ID = "MVN")
+poly_MVNNoCov <- Polygons(srl = list(Polygon(coords = with(a_MVNnoCov[[1]], cbind(x, y)), hole = F)),
+                          ID = "NoCov")
+poly_PoiBin <- Polygons(srl = list(Polygon(coords = with(a_poiBin[[1]], cbind(x, y)), hole = F)),
+                        ID = "Poibin")
+polygons <- SpatialPolygons(Srl = list(poly_MVN, poly_MVNNoCov, poly_PoiBin))
+plot(polygons)
+some_points <- A_AR_CA %>%
+  dplyr::select(CA, AR) %>%
+  head() %>%
+  SpatialPoints(coords = .)
+# % of points. note: it's approximate in part because polygons are approximately defined with finite # of points
+# and also because I use the sample of 100k points from these distributions to approximate the density rather than the true density.
+GISTools::poly.counts(pts = some_points, polys = polygons)/nrow(A_AR_CA)
+
+
+# # thin points and plot nearest neighbors:
+# p_neighbors <- ggplot(data = data.frame(CA = meanA_CA, AR = meanA_AR)[c(T, rep(F, 100)), ],
+#                     aes(x = CA, y = AR)) +
+#   #geom_point()
+#   #geom_bin2d(bins = 100) +
+#   #stat_density2d() +
+#   ggpointdensity::geom_pointdensity(adjust = .1, size = .5) + 
+#   # change method away from kde2d for original k neighbor plot, but may have to thin
+#   # takes way longer -- also need to rasterize
+#   scale_color_viridis(option = "magma") +
+#   scale_fill_viridis(option = "magma") +
+#   theme_classic() +
+#   xlab("N. America") +
+#   ylab("S. America") #+
+# #labs(color = "No. Nearby Points")
+# plot(p_neighbors)
+# ggsave("plots/A_CA_vs_AR_neighbors.png",
+#        plot = p_density,
+#        height = 5, width = 6, units = "in", device = "png")
+# ggsave("../../bee_manuscript/figures/A_CA_vs_AR_neighbors.png",
+#        height = 5, width = 6, units = "in", device = "png")
 
 
 
-# thin points and plot nearest neighbors:
-p_neighbors <- ggplot(data = data.frame(CA = meanA_CA, AR = meanA_AR)[c(T, rep(F, 100)), ],
-                    aes(x = CA, y = AR)) +
-  #geom_point()
-  #geom_bin2d(bins = 100) +
-  #stat_density2d() +
-  ggpointdensity::geom_pointdensity(adjust = .1, size = .5) + 
-  # change method away from kde2d for original k neighbor plot, but may have to thin
-  # takes way longer -- also need to rasterize
-  scale_color_viridis(option = "magma") +
-  scale_fill_viridis(option = "magma") +
-  theme_classic() +
-  xlab("N. America") +
-  ylab("S. America") #+
-#labs(color = "No. Nearby Points")
-plot(p_neighbors)
-ggsave("plots/A_CA_vs_AR_neighbors.png",
-       plot = p_density,
-       height = 5, width = 6, units = "in", device = "png")
-ggsave("../../bee_manuscript/figures/A_CA_vs_AR_neighbors.png",
-       height = 5, width = 6, units = "in", device = "png")
+# plot(meanA_CA, meanA_AR, col = alpha("grey", alpha = .3), pch = 20,
+#      main = "Ancestry frequencies in both hybrid zones across SNPs",
+#      xlab = "Mean African ancestry in California bees",
+#      ylab = "Mean African ancestry in Argentina bees")
 
 
-
-plot(meanA_CA, meanA_AR, col = alpha("grey", alpha = .3), pch = 20,
-     main = "Ancestry frequencies in both hybrid zones across SNPs",
-     xlab = "Mean African ancestry in California bees",
-     ylab = "Mean African ancestry in Argentina bees")
-
-
-
-png("plots/density_MVN_overlay_on_scatterplot_w_ind_zone_quantiles.png", 
-    height = 8, width = 8, units = "in", res = 300)
-plot(meanA_CA, meanA_AR, col = alpha("grey", alpha = .3), pch = 20,
-     main = "Ancestry frequencies in both hybrid zones across SNPs",
-     xlab = "Mean African ancestry in California bees",
-     ylab = "Mean African ancestry in Argentina bees")
-#plot(meanA_MVNsim_CA_zero_bounded, meanA_MVNsim_AR_zero_bounded, col = "grey", pch = 20)
-emdbook::HPDregionplot(cbind(meanA_MVNsim_CA_zero_bounded, meanA_MVNsim_AR_zero_bounded), 
-                       prob = c(0.99, 0.95, 0.75, 0.5), 
-                       n = 100, # number of grid points
-                       #h = .1, let the function choose smoothing automatically (defaults to bandwidth.nrd())
-                       col=c("lightgreen", "salmon", "lightblue", "yellow"), 
-                       lwd = 3, 
-                       add = TRUE)
-
-abline(v = quantile(meanA_MVNsim_CA_zero_bounded, c(0.01, 0.99)), col = "lightgreen")
-abline(h = quantile(meanA_MVNsim_AR_zero_bounded, c(0.01, 0.99)), col = "lightgreen")
-legend("bottomright", legend = c(0.99, 0.95, 0.75, 0.5), 
-       title = "Neutral simulation (MVN) density",
-       lty = 1,
-       lwd = 4,
-       col=c("lightgreen", "salmon", "lightblue", "yellow"))
-dev.off()
+# 
+# png("plots/density_MVN_overlay_on_scatterplot_w_ind_zone_quantiles.png", 
+#     height = 8, width = 8, units = "in", res = 300)
+# plot(meanA_CA, meanA_AR, col = alpha("grey", alpha = .3), pch = 20,
+#      main = "Ancestry frequencies in both hybrid zones across SNPs",
+#      xlab = "Mean African ancestry in California bees",
+#      ylab = "Mean African ancestry in Argentina bees")
+# #plot(meanA_MVNsim_CA_zero_bounded, meanA_MVNsim_AR_zero_bounded, col = "grey", pch = 20)
+# emdbook::HPDregionplot(cbind(meanA_MVNsim_CA_zero_bounded, meanA_MVNsim_AR_zero_bounded), 
+#                        prob = c(0.99, 0.95, 0.75, 0.5), 
+#                        n = 100, # number of grid points
+#                        #h = .1, let the function choose smoothing automatically (defaults to bandwidth.nrd())
+#                        col=c("lightgreen", "salmon", "lightblue", "yellow"), 
+#                        lwd = 3, 
+#                        add = TRUE)
+# 
+# abline(v = quantile(meanA_MVNsim_CA_zero_bounded, c(0.01, 0.99)), col = "lightgreen")
+# abline(h = quantile(meanA_MVNsim_AR_zero_bounded, c(0.01, 0.99)), col = "lightgreen")
+# legend("bottomright", legend = c(0.99, 0.95, 0.75, 0.5), 
+#        title = "Neutral simulation (MVN) density",
+#        lty = 1,
+#        lwd = 4,
+#        col=c("lightgreen", "salmon", "lightblue", "yellow"))
+# dev.off()
 
 
 # any genes in outlier regions?
@@ -1767,321 +1829,171 @@ A_AR_CA %>%
               "results/mean_ancestry_AR_CA.bed", 
               sep = "\t", quote = F, col.names = F, row.names = F)
 save(A_AR_CA, file = "results/mean_ancestry_AR_CA.RData")
-
-# I think I'm making some independence assumption here with the FDR rates
-# It might be better to bin ancestry into broader windows, before calculating covariances.
-
-# Also Harpur's study blasted the markers against the genome + 5kb to get coordinates for prior varroa-hygeine QTLs 
-
-# plotting K covariance in ancestry matrix
-melt(zAnc_bees$K) %>%
-  #filter(!(Var1 == "Avalon_2014" | Var2 == "Avalon_2014")) %>%
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
-  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
-  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
-  ggtitle("K matrix - bees AR & CA")
-ggsave("plots/k_matrix_CA_AR_pops.png", 
-       height = 6, width = 8, 
-       units = "in", device = "png")
-# plot as correlation:
-melt(cov2cor(zAnc_bees$K)) %>%
-  #filter(!(Var1 == "Avalon_2014" | Var2 == "Avalon_2014")) %>%
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
-  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
-  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
-  ggtitle("K matrix correlation - bees AR & CA")
-ggsave("plots/k_matrix_correlation_CA_AR_pops.png", 
-       height = 6, width = 8, 
-       units = "in", device = "png")
-
-melt(zAnc_bees$K) %>% # filter out Avalon to get better color distinction between the others
-  filter(!(Var1 == "Avalon_2014" | Var2 == "Avalon_2014")) %>%
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
-  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
-  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
-  ggtitle("K matrix - bees AR & CA no Avalon")
-ggsave("plots/k_matrix_CA_AR_pops_no_Avalon.png", 
-       height = 6, width = 8, 
-       units = "in", device = "png")
-# get rid of diagonal to better see negative covariances:
-melt(zAnc_bees$K) %>%
-  mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
-  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
-  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
-  ggtitle("K matrix - bees AR & CA no within-pop var")
-ggsave("plots/k_matrix_CA_AR_pops_no_within_pop.png", 
-       height = 6, width = 8, 
-       units = "in", device = "png")
-# no diagonal look at correlations:
-melt(cov2cor(zAnc_bees$K)) %>%
-  mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
-  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
-  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
-  ggtitle("K matrix correlations - bees AR & CA no within-pop var")
-ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_correlations.png", 
-       height = 6, width = 8, 
-       units = "in", device = "png")
+#load("results/mean_ancestry_AR_CA.RData")
 
 
-
-# take away diagonal contribution of binomial sampling variance
-# the diagonal elements have variance due to drift + binomial sampling variance
-# = drift var + (n/n-1)*n*p*q/(n^2) where n/n-1 is the effect of small sample size n and npq is the standard binomial variance
-# p is the African ancestry allele frequency, q = 1-p and n = number of haplotypes = 2*n_bees in a population
-# but then because I'm using variance in frequencies, not counts, I divide by n^2
-# except this isn't quite right because it should be observed allele freq at a locus, not genomewide mean
-n_bees_per_pop <- sapply(names(zAnc_bees$alpha), function(p) meta.pop[meta.pop$population == p, "n_bees"])
-sampling_var_diag <- ((2*n_bees_per_pop/(2*n_bees_per_pop - 1))*n_bees_per_pop*2*zAnc_bees$alpha*(1 - zAnc_bees$alpha))/(2*n_bees_per_pop)^2 
-K_bees_minus_sampling <- zAnc_bees$K
-for (i in 1:length(sampling_var_diag)){
-  K_bees_minus_sampling[i,i] <- K_bees_minus_sampling[i,i] - sampling_var_diag[i]
-}
-K_bees_minus_sampling %>% # not quite
-  melt() %>%
-  dplyr::filter(!(Var1 == "Avalon_2014" | Var2 == "Avalon_2014")) %>%
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
-  #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
-  #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
-  ggtitle("K matrix - bees AR & CA")
-# simulate the variance:
-a = .5
-n_binom = 10
-
-# simulate 100 loci, just binomial variance
-sim_pop1 <- rbinom(size = n_binom, n = n_sim, p = a)/n_binom  
-var(sim_pop1)
-mean(sim_pop1)
-cov(sim_pop1, sim_pop1)
-mean((sim_pop1 - mean(sim_pop1))^2) # observed variance
-mean(sim_pop1)*(1-mean(sim_pop1))/n_binom # theoretical no small sample size correction - looks correct
-mean(sim_pop1)*(1-mean(sim_pop1))/(n_binom-1) # theoretical w/ small sample size correction - incorrect
-# now add normal noise around allele freq due to drift before binomial sampling:
-sim_drift2 <- rnorm(n = n_sim, mean = a, sd = .1)
-sim_pop2 <- rbinom(size = n_binom, n = sim_drift2, p = a)/n_binom
-var(sim_drift2)
-mean(sim_pop2)
-var(sim_pop2) # observed variance
-mean((sim_pop2 - mean(sim_pop2))^2)
-mean(sim_pop2)*(1-mean(sim_pop2))/n_binom # mean theoretical
-
-
-log(1/(1 - diag(zAnc_bees$K)/(zAnc_bees$alpha*(1 - zAnc_bees$alpha))))
-log(diag(zAnc_bees$K)/(zAnc_bees$alpha*(1 - zAnc_bees$alpha)))
-
-# goal: set cutoffs for when distribution doesn't match MVN anymore
-# remove outliers SNPs beyond these cutoffs
-# recalculate K matrix
-# plot new K matrix without outliers
-# group individuals into pops & calculate cov/(a0*(1-a0)*(aCA)*(aAR)) where
-# a0 is the initial pulse into the shared population before the split (vary it 0.99-0.82)
-# and (1 - aCA) is the additional European ancestry added to CA after the split
-# (so observed African ancestry in CA today is alphaCA = a0*aCA)
-# Likewise aAR is the additional European ancestry added to AR after the split
-# with this covariance, calculate N for a 1 generation bottleneck. cov = t/(2N) 
-# .. then I'll have to translate 2N into a bee population size because of haplo-diploidy
-
-# It would be good to test robustness of any results with bootstraps for covariances
-# as in, bootstrap over regions of the genome.
-
-# simulate W-F evolution (drift):
-# 10 generations, population size N = 100, starting freq = .5
-start_freq = .5
-n_gen = 10
-N = 100
-sim_WF <- function(n_gen, N, start_freq){
-  freqs <- numeric(n_gen + 1)
-  freqs[1] <- start_freq
-  for (i in 2:(n_gen + 1)){ # each generation of drift
-    freqs[i] <- rbinom(1, 2*N, p = freqs[i - 1])/(2*N)
-  }
-  return(freqs[n_gen+1])
-}
-wf1 <- sapply(1:10000, function(x) sim_WF(n_gen = 10, N = 100, start_freq = .5))
-mean((wf1 - .5)^2)/(.5^2)
-10/(2*100)
-wf2 <- sapply(1:10000, function(x) sim_WF(n_gen = 20, N = 100, start_freq = .5))
-mean((wf2 - .5)^2)/(.5^2)
-20/(2*100)
-wf3 <- sapply(1:10000, function(x) sim_WF(n_gen = 20, N = 1000, start_freq = .5))
-mean((wf3 - .5)^2)/(.5^2)
-20/(2*1000)
-wf4 <- sapply(1:100000, function(x) sim_WF(n_gen = 5, N = 10000, start_freq = .2))
-mean((wf4 - .2)^2)/(.2*.8)
-5/(2*10000)
-# add in sample variance for sample size 16 haplotypes
-wf2_16hap <- sapply(wf2, function(x) sim_WF(n_gen = 1, N = 8, start_freq = x))
-# and 10 haplotypes
-wf2_10hap <- sapply(wf2, function(x) sim_WF(n_gen = 1, N = 5, start_freq = x))
-cov(wf2_16hap, wf2_10hap)
-var(wf2_10hap)
-var(wf2)
-zAnc_bees$K
-cov(meanA_CA, meanA_AR)/(.85*.15)*200
-cov(meanA_CA, meanA_AR)/(.5*.5)*200
-cov_CA_AR <- mean((meanA_CA-mean(meanA_CA))*(meanA_AR - mean(meanA_AR)))
-mean(meanA)
-# t/2n = cov
-# n = t/(cov * 2)
-# so if I assume 1 generation of bottleneck, n is about 200:
-# note: later I can correct for haploid/diploid
-cov_CA_AR
-1/(cov_CA_AR/(.85*.15)*2)
-1/(cov_CA_AR/(mean(meanA)*(1-mean(meanA)))*2)
-zAnc_bees$K
-1/(.001/(mean(meanA)*(1-mean(meanA)))*2)
-# how do I do the w/in pop small pop correction??
-(mean((wf2_16hap - .5)^2))/(.5*.5)
-(mean((wf2_16hap - .5)^2)*(15/16))/(.5*.5)
-(mean((wf2_16hap - .5)^2)*(1/16))/(.5*.5)
-(mean((wf2_16hap - .5)^2))/(.5*.5) - 1/16
-(mean((wf2_16hap - .5)^2))/(.5*.5) - 1/16
-(mean((wf2_16hap - .5)^2) - 1/16)/(.5*.5)
-20/(2*100) + (.5^2)/16
-hap16 <- sapply(rep(.5, 10000), function(x) sim_WF(n_gen = 1, N = 8, start_freq = x))
-mean((hap16-.5)^2)
-(mean((wf2_16hap - .2)^2))/(.5*.5) - mean((hap16-.5)^2)/(.5*.5)
-((.5^2)/16)*1/16
-var(hap16)
-(.5^2)/16
-
-# simulate quick pop split to confirm.
+# # take away diagonal contribution of binomial sampling variance
+# # the diagonal elements have variance due to drift + binomial sampling variance
+# # = drift var + (n/n-1)*n*p*q/(n^2) where n/n-1 is the effect of small sample size n and npq is the standard binomial variance
+# # p is the African ancestry allele frequency, q = 1-p and n = number of haplotypes = 2*n_bees in a population
+# # but then because I'm using variance in frequencies, not counts, I divide by n^2
+# # except this isn't quite right because it should be observed allele freq at a locus, not genomewide mean
+# n_bees_per_pop <- sapply(names(zAnc_bees$alpha), function(p) meta.pop[meta.pop$population == p, "n_bees"])
+# sampling_var_diag <- ((2*n_bees_per_pop/(2*n_bees_per_pop - 1))*n_bees_per_pop*2*zAnc_bees$alpha*(1 - zAnc_bees$alpha))/(2*n_bees_per_pop)^2 
+# K_bees_minus_sampling <- zAnc_bees$K
+# for (i in 1:length(sampling_var_diag)){
+#   K_bees_minus_sampling[i,i] <- K_bees_minus_sampling[i,i] - sampling_var_diag[i]
+# }
+# K_bees_minus_sampling %>% # not quite
+#   melt() %>%
+#   dplyr::filter(!(Var1 == "Avalon_2014" | Var2 == "Avalon_2014")) %>%
+#   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+#   geom_tile() +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+#   scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+#   #scale_fill_gradient2(low = "red", mid = "white", high = "blue") +
+#   #scale_fill_gradient2(low = "white", mid = "grey", high = "darkblue") +
+#   ggtitle("K matrix - bees AR & CA")
+# # simulate the variance:
+# a = .5
+# n_binom = 10
+# 
+# # simulate 100 loci, just binomial variance
+# sim_pop1 <- rbinom(size = n_binom, n = n_sim, p = a)/n_binom  
+# var(sim_pop1)
+# mean(sim_pop1)
+# cov(sim_pop1, sim_pop1)
+# mean((sim_pop1 - mean(sim_pop1))^2) # observed variance
+# mean(sim_pop1)*(1-mean(sim_pop1))/n_binom # theoretical no small sample size correction - looks correct
+# mean(sim_pop1)*(1-mean(sim_pop1))/(n_binom-1) # theoretical w/ small sample size correction - incorrect
+# # now add normal noise around allele freq due to drift before binomial sampling:
+# sim_drift2 <- rnorm(n = n_sim, mean = a, sd = .1)
+# sim_pop2 <- rbinom(size = n_binom, n = sim_drift2, p = a)/n_binom
+# var(sim_drift2)
+# mean(sim_pop2)
+# var(sim_pop2) # observed variance
+# mean((sim_pop2 - mean(sim_pop2))^2)
+# mean(sim_pop2)*(1-mean(sim_pop2))/n_binom # mean theoretical
+# 
+# 
+# log(1/(1 - diag(zAnc_bees$K)/(zAnc_bees$alpha*(1 - zAnc_bees$alpha))))
+# log(diag(zAnc_bees$K)/(zAnc_bees$alpha*(1 - zAnc_bees$alpha)))
 
 
-r <- read.table("results/SNPs/thin1kb_common3/included_pos_on_Wallberg_Amel4.5_chr.r.bed",
-                sep = "\t", stringsAsFactors = F) %>%
-  mutate(snp_id = read.table("results/SNPs/thin1kb_common3/included_pos_on_Wallberg_Amel4.5_chr.map",
-                             stringsAsFactors = F, header = F, sep = "\t")$V2) %>%
-  rename(chr = V1) %>%
-  rename(cM_Mb = V4) %>%
-  mutate(pos_chr = V2 + 1) %>% # because .bed files are 0 indexed
-  dplyr::select(c("snp_id", "chr", "pos_chr", "cM_Mb"))
+# r <- read.table("results/SNPs/thin1kb_common3/included_pos_on_Wallberg_Amel4.5_chr.r.bed",
+#                 sep = "\t", stringsAsFactors = F) %>%
+#   mutate(snp_id = read.table("results/SNPs/thin1kb_common3/included_pos_on_Wallberg_Amel4.5_chr.map",
+#                              stringsAsFactors = F, header = F, sep = "\t")$V2) %>%
+#   rename(chr = V1) %>%
+#   rename(cM_Mb = V4) %>%
+#   mutate(pos_chr = V2 + 1) %>% # because .bed files are 0 indexed
+#   dplyr::select(c("snp_id", "chr", "pos_chr", "cM_Mb"))
+# 
+# # **** check on the recombination rate files!
+# 
+# d <- bind_cols(sites, A) %>%
+#   left_join(., r, by = c("chr", "snp_id"))
+# d$r_bin10 = with(d, cut(cM_Mb,  # note need to load map from scaffolds_to_chr.R
+#                              breaks = unique(quantile(c(0, r$cM_Mb, 100), # I extend bounds so that every value gets in a bin
+#                                                       p = seq(0, 1, by = .1))),
+#                              right = T,
+#                              include.lowest = T))
+# table(d$r_bin10) # fewer SNPs represented in lowest recomb. bins
+# head(d[is.na(d$r_bin10),]) # good, should be none
+# 
+# d$r_bin5 = with(d, cut(cM_Mb,  # note need to load map from scaffolds_to_chr.R
+#                         breaks = unique(quantile(c(0, r$cM_Mb, 100), # I extend bounds so that every value gets in a bin
+#                                                  p = seq(0, 1, by = .2))),
+#                         right = T,
+#                         include.lowest = T))
+# table(d$r_bin5) # fewer SNPs represented in lowest recomb. bins
+# table(d$r_bin5, is_outlier)
+# head(d[is.na(d$r_bin5),]) # good, should be none
+# 
+# # make K matrix again with only high recombination rate region of genome
+# 
+# #a <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "(38.8,100]", ]))
+# #a2 <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 %in% c("[0,8.49]","(8.39,15.6]"),]))
+# a <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "(39.8,100]", ]))
+# a2 <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "[0,14]", ]))
+# 
+# #a <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "(39.8,100]" & !is_outlier, ]))
+# #a2 <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "[0,14]" & !is_outlier, ]))
+# 
+# # note: I need some way of summarising these K matrices statistically 
+# # to test hypotheses about low vs. high r regions.
+# 
+# melt(a$K) %>%
+#   mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
+#   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+#   geom_tile() +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+#   scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+#   ggtitle("K matrix covariances r > 38cM/Mb - bees AR & CA no within-pop var")
+# ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_highr.png", 
+#        height = 6, width = 8, 
+#        units = "in", device = "png")
+# melt(cov2cor(a$K)) %>%
+#   mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
+#   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+#   geom_tile() +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+#   scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+#   ggtitle("K matrix correlations r > 38cM/Mb - bees AR & CA no within-pop var")
+# ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_highr_correlations.png", 
+#        height = 6, width = 8, 
+#        units = "in", device = "png")
+# melt(a2$K) %>%
+#   mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
+#   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+#   geom_tile() +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+#   scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+#   ggtitle("K matrix covariances r < 14cM/Mb - bees AR & CA no within-pop var")
+# ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_lowr.png", 
+#        height = 6, width = 8, 
+#        units = "in", device = "png")
+# melt(cov2cor(a2$K)) %>%
+#   mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
+#   ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+#   geom_tile() +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+#   scale_fill_viridis(begin = 0, end = 1, direction = 1) +
+#   ggtitle("K matrix correlations r < 14cM/Mb - bees AR & CA no within-pop var")
+# ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_lowr_correlations.png", 
+#        height = 6, width = 8, 
+#        units = "in", device = "png")
+# 
+# 
+# # a better null: maybe I should take the full covariance matrix for ind. ancestries, 
+# # subtract off the diagonal for what I know the binomial sampling variance to be,
+# # run a MVN, and then do binomial sampling at the end. 
+# # Graham *might* say this is excessive since we don't know if some variance comes from the ancestry caller
+# # but I think with the posteriors it's actually more conservative than a binomial
+# # which is more likely to get to the bounds 0/1 than a posterior. 
+# # (and I could use the ancestry call from ancestry_hmm if I wanted)
+# # also if I have enough bees, this might just give me the same answer as the MVN
+# 
+# AbyPopr10 <- d %>%
+#   gather("pop", "A", pops) %>%
+#   group_by(., pop, r_bin10) %>%
+#   summarise(meanA = mean(A))
+# AbyPopr10 %>%
+#   ggplot(aes(x = pop, y = meanA)) +
+#   geom_point() +
+#   facet_wrap(~r_bin10) +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+# 
+# AbyPopr5 <- d %>%
+#   gather("pop", "A", pops) %>%
+#   group_by(., pop, r_bin5) %>%
+#   summarise(meanA = mean(A))
+# AbyPopr5 %>%
+#   ggplot(aes(x = pop, y = meanA, color = r_bin5)) +
+#   geom_point() +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-# **** check on the recombination rate files!
 
-d <- bind_cols(sites, A) %>%
-  left_join(., r, by = c("chr", "snp_id"))
-d$r_bin10 = with(d, cut(cM_Mb,  # note need to load map from scaffolds_to_chr.R
-                             breaks = unique(quantile(c(0, r$cM_Mb, 100), # I extend bounds so that every value gets in a bin
-                                                      p = seq(0, 1, by = .1))),
-                             right = T,
-                             include.lowest = T))
-table(d$r_bin10) # fewer SNPs represented in lowest recomb. bins
-head(d[is.na(d$r_bin10),]) # good, should be none
-
-d$r_bin5 = with(d, cut(cM_Mb,  # note need to load map from scaffolds_to_chr.R
-                        breaks = unique(quantile(c(0, r$cM_Mb, 100), # I extend bounds so that every value gets in a bin
-                                                 p = seq(0, 1, by = .2))),
-                        right = T,
-                        include.lowest = T))
-table(d$r_bin5) # fewer SNPs represented in lowest recomb. bins
-table(d$r_bin5, is_outlier)
-head(d[is.na(d$r_bin5),]) # good, should be none
-
-# make K matrix again with only high recombination rate region of genome
-
-#a <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "(38.8,100]", ]))
-#a2 <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 %in% c("[0,8.49]","(8.39,15.6]"),]))
-a <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "(39.8,100]", ]))
-a2 <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "[0,14]", ]))
-
-#a <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "(39.8,100]" & !is_outlier, ]))
-#a2 <- make_K_calcs(t(cbind(AR_A, CA_A)[d$r_bin10 == "[0,14]" & !is_outlier, ]))
-
-# note: I need some way of summarising these K matrices statistically 
-# to test hypotheses about low vs. high r regions.
-
-melt(a$K) %>%
-  mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
-  ggtitle("K matrix covariances r > 38cM/Mb - bees AR & CA no within-pop var")
-ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_highr.png", 
-       height = 6, width = 8, 
-       units = "in", device = "png")
-melt(cov2cor(a$K)) %>%
-  mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
-  ggtitle("K matrix correlations r > 38cM/Mb - bees AR & CA no within-pop var")
-ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_highr_correlations.png", 
-       height = 6, width = 8, 
-       units = "in", device = "png")
-melt(a2$K) %>%
-  mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
-  ggtitle("K matrix covariances r < 14cM/Mb - bees AR & CA no within-pop var")
-ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_lowr.png", 
-       height = 6, width = 8, 
-       units = "in", device = "png")
-melt(cov2cor(a2$K)) %>%
-  mutate(value = ifelse(Var1 == Var2, 0, value)) %>% # arbitarily set diagonal to zero
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1) +
-  ggtitle("K matrix correlations r < 14cM/Mb - bees AR & CA no within-pop var")
-ggsave("plots/k_matrix_CA_AR_pops_no_within_pop_lowr_correlations.png", 
-       height = 6, width = 8, 
-       units = "in", device = "png")
-
-
-# a better null: maybe I should take the full covariance matrix for ind. ancestries, 
-# subtract off the diagonal for what I know the binomial sampling variance to be,
-# run a MVN, and then do binomial sampling at the end. 
-# Graham *might* say this is excessive since we don't know if some variance comes from the ancestry caller
-# but I think with the posteriors it's actually more conservative than a binomial
-# which is more likely to get to the bounds 0/1 than a posterior. 
-# (and I could use the ancestry call from ancestry_hmm if I wanted)
-# also if I have enough bees, this might just give me the same answer as the MVN
-
-AbyPopr10 <- d %>%
-  gather("pop", "A", pops) %>%
-  group_by(., pop, r_bin10) %>%
-  summarise(meanA = mean(A))
-AbyPopr10 %>%
-  ggplot(aes(x = pop, y = meanA)) +
-  geom_point() +
-  facet_wrap(~r_bin10) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-AbyPopr5 <- d %>%
-  gather("pop", "A", pops) %>%
-  group_by(., pop, r_bin5) %>%
-  summarise(meanA = mean(A))
-AbyPopr5 %>%
-  ggplot(aes(x = pop, y = meanA, color = r_bin5)) +
-  geom_point() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-# it would be much better to use NGSAdmix for different SNP sets
-# to get global ancestry estimates
 
 # plot ancestry across all populations by mean latitude in that pop, separate by hybrid zone
 # I used Riverside 2014 coordinates for Riverside 1999. 
@@ -2275,134 +2187,3 @@ a %>%
          width = 16, height = 5, units = "in",
          device = "png")
   }
-
-
-# Is this consistent with no spatial pattern to selection? Either selected only in Brazil.
-# or selected at low selection coefficient across the whole S. American hybrid zone
-# ok so in Brazil bees are 84% A ancestry and at this locus they are 54% A ancestry.
-# so if all the selection happened in Brazil, then spread South neutrally,
-# we'd expect 64% (54/84) x (mean A ancestry genomewide) at this locus for S. American bees
-# This is a conservative test of early selection in Brazil (assuming it all happened early), 
-# then neutral spread, and it doesn't fit well in Argentina (too high A) or CA (too low A). 
-a_mean_64percent <- a_mean %>%
-  #filter(zone == "S. America") %>%
-  mutate(A_ancestry = .64*A_ancestry)
-a %>%
-  filter(snp_id == AR_low_only_top_snp) %>%
-  #filter(zone == "S. America") %>%
-  ggplot(aes(x = abs(lat), y = A_ancestry, color = population)) +
-  geom_point() +
-  geom_point(data = a_mean_64percent, shape = 2) +
-  ggtitle(paste0("cline across latitude for ", "low region in AR compared to 64% mean A ancestry", ": ", AR_low_only_top_snp)) +
-  xlab("absolute latitude") +
-  ylab("population mean African ancestry") +
-  facet_grid(zone ~ .)
-ggsave(paste0("plots/outlier_clines_low_AR_against_64perc_dilution_hypothesis.png"),
-       height = 5, 
-       width = 10, 
-       units = "in", 
-       device = "png")
-
-# fit mean ancestry beta regression model
-m_lat.hmm <- map( # quadratic approximation of the posterior MAP
-  alist(
-    A_ancestry ~ dbeta2(prob = p, theta = theta),
-    logit(p) <- mu + b_lat*abs_lat_c,
-    mu ~ dnorm(0, 5),
-    theta ~ dunif(0, 30),
-    b_lat ~ dnorm(0, 5)
-  ),
-  data = data.frame(a_mean, stringsAsFactors = F),
-  start = list(mu = -1, theta = 5, b_lat = 0.5))
-precis(m_lat.hmm)
-pairs(m_lat.hmm)
-m_lat.hmm.betareg <- betareg(A_ancestry ~ abs_lat_c,
-                         link = "logit",
-                         data = a_mean)
-
-# m_lat best single-predictor model:
-full_range_data_hmm = list(abs_lat_c = seq(from = range(a_mean$abs_lat_c)[1], 
-                                       to = range(a_mean$abs_lat_c)[2], 
-                                       length.out = 20),
-                       abs_lat = seq(from = range(a_mean$abs_lat_c)[1], 
-                                     to = range(a_mean$abs_lat_c)[2], 
-                                     length.out = 20) + mean(a_mean$abs_lat))
-m_lat.hmm.post <- sim(m_lat.hmm, full_range_data_hmm, n = 10000)
-m_lat.hmm.post.mu <- apply(m_lat.hmm.post, 2, mean)
-m_lat.hmm.post.HDPI <- apply(m_lat.hmm.post, 2, HPDI, prob=0.95)
-
-
-
-# plot model prediction for m_lat:
-png("plots/m_lat_model_prediction_hmm_with_top_shared_outlier.png", height = 6, width = 8, units = "in", res = 300)
-plot(A_ancestry ~ abs_lat, data = a_mean, col = ifelse(a_mean$zone == "S. America", rangi2, "skyblue"),
-     ylim = c(0, 1), main = "African ancestry predicted by latitude", xlab = "Degrees latitude from equator",
-     ylab = "A ancestry proportion (ancestry_hmm)")
-
-# plot MAP line from model coefficients:
-curve(logistic(coef(m_lat.hmm)["mu"] + (x - mean(a_mean$abs_lat))*coef(m_lat.hmm)["b_lat"]), 
-               from = range(a_mean$abs_lat)[1], to = range(a_mean$abs_lat)[2], n = 1000, add = T,
-      col = "darkgrey")
-# plot a shaded region for 95% HPDI
-shade(m_lat.hmm.post.HDPI, full_range_data_hmm$abs_lat)
-# plot snp of interest:
-a %>%
-  filter(snp_id == shared_high_top_snp) %>%
-  with(., points(x = abs(lat), y = A_ancestry, pch = 17,
-                 col = ifelse(a_mean$zone == "S. America", rangi2, "skyblue")))
-legend("topright", c("S. America", "N. America", "model prediction (MAP)", "95% confidence (HPDI)"),
-       pch = c(1, 1, NA, 15), lty = c(NA, NA, 1, NA), col = c(rangi2, "skyblue", "black", "grey"))
-dev.off()
-
-# get logistic curve for outlier SNP:
-m_lat.shared.high.outlier.betareg <- a %>%
-  filter(snp_id == shared_high_top_snp) %>%
-  mutate(abs_lat_c = abs(lat) - mean(abs(lat))) %>%
-  betareg(A_ancestry ~ abs_lat_c,
-          link = "logit",
-          data = .)
-# plot curve
-# curve:
-curve(logistic(coef(m_lat.shared.high.outlier.betareg)["(Intercept)"] + 
-                 (x - mean(a_mean$abs_lat))*coef(m_lat.shared.high.outlier.betareg)["abs_lat_c"]), 
-      from = range(a_mean$abs_lat)[1], to = range(a_mean$abs_lat)[2], n = 1000, add = F,
-      main = "estimated logistic cline at top shared high A outlier SNP",
-      xlab = "degrees latitude from the equator",
-      ylab = "mean population A ancestry")
-a %>%
-  filter(snp_id == shared_high_top_snp) %>%
-  with(., points(x = abs(lat), y = A_ancestry, pch = 17,
-                 col = ifelse(a_mean$zone == "S. America", rangi2, "skyblue")))
-
-# it's hard to fit a logistic because I'm only observing a small portion of the cline for this SNP
-# basically it's not bounded high or low, just consistently high A across the zone
-
-
-
-
-# TO DO: I want to make a plot for top SNP within each peak region (only a few regions really, I could include them all):
-# also add the logit fit for mean african ancestry (from ancestry_hmm calls) to the plot. 
-# For the supplement, I need to compare the ancestry_hmm mean with the NGSadmix mean
-
-# For each peak, ID the top SNP. Then plot it's frequency across latitude with logit in background.
-
-# For low ancestry peaks, check if they are M vs. C
-
-# what are my tract lengths like? Start by looking at high confidence tracts > 0.8
-some_inds <- c("AR0101", "AR0506", "AR1112", "AR1910", "AR2701", "CA0529", "CA1109", "CA1419", "SRCD6C")
-some_tracts <- lapply(some_inds, function(ind) 
-  read.table(paste0("results/tracts/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot/AA/", ind, ".bed"),
-                          stringsAsFactors = F, header = F, sep = "\t") %>%
-  data.table::setnames(c("chr", "start", "end")) %>%
-    mutate(length = end - start))
-par(mfrow=c(3,3))
-lapply(1:9, function(x) hist(some_tracts[[x]]$length, freq = F, xlim = c(0, 500000), main = some_inds[x]))
-par(mfrow=c(1,1))
-# I'm not seeing a bunch (a higher %) of super short tracts for low A individuals
-# (the high confidence filter probably takes care of this)
-lapply(1:9, function(x) table(some_tracts[[x]]$length <= 10000))
-lapply(1:9, function(x) table(some_tracts[[x]]$length <= 5000))
-lapply(1:9, function(x) table(some_tracts[[x]]$length <= 1000))
-lapply(1:9, function(x) table(some_tracts[[x]]$length <= 2000))
-
-

@@ -125,6 +125,14 @@ wings.meta %>%
   geom_hline(data = acm.summary, aes(yintercept = mean_cm))
 
 cor(wings.meta$wing_cm, wings.meta$A)
+with(filter(wings.meta, geographic_location == "California"),
+     cor(wing_cm, lat))
+with(filter(wings.meta, geographic_location == "Argentina"),
+     cor(wing_cm, lat))
+with(filter(wings.meta, geographic_location == "California"),
+     cor(wing_cm, A))
+with(filter(wings.meta, geographic_location == "Argentina"),
+     cor(wing_cm, A))
 
 m_wing <- with(wings.meta, lm(wing_cm ~ A))
 summary(m_wing)

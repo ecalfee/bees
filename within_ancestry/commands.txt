@@ -421,3 +421,5 @@ plotPCA_within_ancestry.R
 
 # there is low pairwise complete entries going into my covariance matrices.
 # I think it would be better not to filter for LD in this case and to get more SNPs.
+bees/within_ancestry$ nohup parallel --noswap --joblog logs/calc_GL_by_ACM_and_scaffold_allSNPs.log --jobs 4 './calc_GL_within_ancestry_4PCA.sh {2} combined_sept19 Group{1} allSNPs ../geno_lik_and_SNPs/results/combined_sept19/variant_sites/Group{1}.var.sites' ::: {1..16}  ::: A C M &> logs/calc_GL_by_ACM_and_scaffold_allSNPs.out &
+[1] 19177 - RUNNING 6.4.2020

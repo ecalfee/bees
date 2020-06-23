@@ -3,22 +3,18 @@ library(dplyr)
 library(tidyr)
 library(gridExtra)
 library(ggpubr)
+library(reshape2)
+library(viridis)
 source("../colors.R")
-#ancestry = "A"
-#beagle_prefix = "all_CA_AR_ACM"
-#beagle_prefix = "A_CA_AR"
+
 # get bee list (must match order in beagle.gz file that went to PCAngsd!)
 IDs <- read.table(paste0("../bee_samples_listed/combined_sept19.list"), stringsAsFactors = F,
                   header = F)
 colnames(IDs) <- c("Bee_ID")
 # get bee metadata
+load("../local_ancestry/results/meta.RData")
 meta <- read.table("../bee_samples_listed/all.meta", stringsAsFactors = F, 
                    header = T, sep = "\t")
-#b <- left_join(IDs, meta, by = "Bee_ID")
-#which(b$group == "C")-1
-#which(b$group == "M")-1
-#which(b$group == "A")-1
-#which(!(b$group %in% c("A", "C", "M")))-1
 # function to get pca in dataframe for bees included and focal ancestry
 get_pca <- function(ancestry, beagle_prefix, ref_incl){ # included reference bee pops can be a vector, e.g ("A", "M", "C")
   # get covariance matrix from PCAngsd output
@@ -185,50 +181,108 @@ get_cov <- function(ancestry, beagle_prefix, names){
 
 bees = dplyr::left_join(IDs, meta, by = "Bee_ID") %>%
   filter(group %in% c("S_CA", "N_CA", "CA_2018", "AR_2018"))
+
+
 covs <- lapply(ACM, function(a) get_cov(ancestry = a, 
                                         beagle_prefix = "CA_AR", 
                                         names = bees$Bee_ID))
 
-melt(covs[[1]]) %>%
-  mutate(Var1 = factor(Var1,
-                       levels = arrange(bees, lat)$Bee_ID, 
-                       ordered = T),
-         Var2 = factor(Var2,
-                       levels = arrange(bees, lat)$Bee_ID, 
-                       ordered = T)) %>%
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  coord_equal() + # ensures aspect ratio makes a square
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1,
-                     limits = c(-.12, .32),
-                     name = "Ancestry\ncovariance") +
-  ggtitle("covariances within A") +
-  xlab("") +
-  ylab("")
-
-cov_plots <- lapply(1:3, function(i) {
-  melt(cov2cor(covs[[i]])) %>%
+cov_plots_ind_by_ind <- lapply(1:3, function(i) {
+  melt(covs[[i]]) %>%
     mutate(Var1 = factor(Var1,
                          levels = arrange(bees, lat)$Bee_ID, 
                          ordered = T),
            Var2 = factor(Var2,
                          levels = arrange(bees, lat)$Bee_ID, 
                          ordered = T)) %>%
-  filter(Var1 != Var2) %>% # omit diagonal
-  ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() +
-  coord_equal() + # ensures aspect ratio makes a square
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis(begin = 0, end = 1, direction = 1,
-                     limits = c(-.12, .32),
-                     name = "Ancestry\ncorrelation") +
-  ggtitle(ACM[i]) +
-  xlab("") +
-  ylab("")
+    ggplot(data = ., aes(x=Var1, y=Var2, fill=value)) + 
+    geom_tile() +
+    coord_equal() + # ensures aspect ratio makes a square
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    scale_fill_viridis(begin = 0, end = 1, direction = 1,
+                       name = "Genetic\ncovariance") +
+    ggtitle(paste(ACM[i], "Ancestry")) +
+    xlab("") +
+    ylab("")
 })
-plot(cov_plots[[1]])
-plot(cov_plots[[2]])
-plot(cov_plots[[3]])
+#lapply(cov_plots_ind_by_ind, plot)
+
+cov_plots <- lapply(1:3, function(i) {
+  melt(covs[[i]]) %>%
+    mutate(Var1 = factor(Var1,
+                         levels = arrange(bees, lat)$Bee_ID, 
+                         ordered = T),
+           Var2 = factor(Var2,
+                         levels = arrange(bees, lat)$Bee_ID, 
+                         ordered = T)) %>%
+    left_join(., dplyr::select(bees, Bee_ID, population), by = c("Var1"="Bee_ID")) %>%
+    rename(pop1 = population) %>%
+    mutate(pop1 = factor(pop1,
+                         ordered = T,
+                         levels = pops_by_lat)) %>%
+    left_join(., dplyr::select(bees, Bee_ID, population), by = c("Var2"="Bee_ID")) %>%
+    rename(pop2 = population) %>%
+    mutate(pop2 = factor(pop2,
+                         ordered = T,
+                         levels = pops_by_lat)) %>%
+    group_by(pop1, pop2) %>%
+    dplyr::summarise(value = mean(value)) %>%
+    ggplot(data = ., aes(x=pop1, y=pop2, fill=value)) + 
+    geom_tile() +
+    coord_equal() + # ensures aspect ratio makes a square
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    scale_fill_viridis(begin = 0, end = 1, direction = 1,
+                       name = "Genetic\ncovariance") +
+    xlab("") +
+    ylab("") +
+    ggtitle(ACM[i])
+})
+#plot(cov_plots[[1]])
+
+segment_buffer = 0.15
+cov_plots_fancy <- lapply(cov_plots, function(p) {
+  p +
+  theme(axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        #legend.position = "bottom",
+        #legend.box="vertical",
+        legend.box="horizontal",
+        axis.text.x = element_text(angle = 0, hjust = 0.5),
+        axis.text.y = element_text(angle = 90, hjust = 0.5)) +
+  xlab("Population 1") +
+  ylab("Population 2") +
+  # add lines for low A and high A groups
+  geom_segment(data = NS_segments,
+               aes(x = starts + segment_buffer, xend = ends - segment_buffer,
+                   y = -0.5, yend = -0.5,
+                   color = Region), size = 2, inherit.aes = F) +
+  geom_segment(data = NS_segments,
+               aes(x = -0.25, xend = -0.25,
+                   y = starts + segment_buffer, yend = ends - segment_buffer,
+                   color = Region), size = 2, inherit.aes = F) +
+  #add lines marking division between N. and S. American pops
+  geom_segment(aes(x = 21.5, xend = 21.5, y = 0.5, yend = 39.5)) +
+  geom_segment(aes(x = 0.5, xend = 39.5, y = 21.5, yend = 21.5)) +
+  scale_x_discrete("Population 1", breaks = c("CA09","AR14"), 
+                   labels = c("N. America", "S. America")) +
+  scale_y_discrete("Population 2", breaks = c("CA09","AR14"),
+                   labels = c("N. America", "S. America")) +
+  guides(guide_legend(order = 2), 
+         fill = guide_colorbar(order = 1, title.position="top")) + # removes legend for High A and Low A
+  scale_color_manual(values = col_low_high_A)})
+
+
+genetic_cov_within_anc <- arrangeGrob(grobs = cov_plots_fancy, 
+                                      nrow = 3)
+plot(genetic_cov_within_anc)
+ggsave("../../bee_manuscript/figures/genetic_cov_within_ancestry.png",
+       plot = genetic_cov_within_anc,
+       width = 5.2, height = 7,
+       units = "in", dpi = 600, device = "png")
+ggsave("../../bee_manuscript/figures_supp/genetic_cov_within_ancestry.tif",
+       plot = genetic_cov_within_anc,
+       width = 5.2, height = 7,
+       units = "in", dpi = 600, device = "tiff",
+       compression = "lzw", type = "cairo")
