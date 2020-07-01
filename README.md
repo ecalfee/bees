@@ -1,18 +1,32 @@
-# bees
-Genomic project analyzing admixture in Africanized honey bees
+# Bees
+This github repository accompanies the 2020 manuscript "Selection and hybridization shaped the Africanized honey bee invasion of the Americas" by Erin Calfee, Marcelo Nicolas Agra, Maria Alejandra Palacio, Santiago R. Ramirez and Graham Coop.
 
-# data
-data/bees_new_positions
-For initial ancestry calling, I use a set of SNPs produced for me by Julie using her quality controls. 
-These SNPs should include all high-quality sites polymorphic in the combined data for CA bees and European/African panels from Harpur.
-Physical positions (bp) are from alignment to v4.5 of the honey bee genome, 
-while "the map file is calculated based on the mean recombination rate per chromosome from the Beye 2006 paper.  So clearly it is an approximation."
+## Citation
+https://www.biorxiv.org/content/10.1101/2020.03.17.994632v2
 
-# scripts
-bee_filter.txt and make_bee_filter.R go with the CA/Harpur data and use the very approximate recombination distance noted above.
-bee_elai has some command line scripts initially run on the data for threeway admixture between C M and A in CA bees.
-plink_commands.txt are for general commands in plink
-commands_run_snps.md have set of commands run for initial analysis with SNP data. Transitioned to full read data.
-
-# information to reproduce downloading and aligning data for CA bees and reference samples
-bioinfo_pipe.txt
+## Where to find scripts for main analyses
+#### List of samples, by population
+- bee_samples_listed # see also supplemental files from the manuscript
+#### Bioinformatics pipeline fastq -> bams
+- filtered_bams
+#### Identifying SNPs and calculating genotype likelihoods
+- geno_lik_and_SNPs
+#### Global ancestry inference (NGSAdmix and PCA)
+- global_ancestry # includes Fig 1 map
+#### Local ancestry inference (ancestry\_hmm) and ancestry variance-covariances
+- local_ancestry # includes Fig 3 and K matrix calculation
+#### Genome-wide and individual clines
+- clines # includes Fig 2 comparing ancestry to wing length clines
+#### Wing lengths and admixture mapping
+- wing_analysis
+#### Ancestry outlier regions and genes
+- functional_analysis
+#### Mitochondria SNPs and clines
+- mitochondria
+#### Ancestry informative markers (AIMs)
+- clines
+#### Other
+- maps # additional scripts for mapping samples
+- labwork # notes taken during labwork
+- sims_downsample # preliminary analysis for depth of sequencing needed for local ancestry inference
+- colors.R # color palettes used in plots
