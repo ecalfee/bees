@@ -3,22 +3,16 @@ library(raster)
 library(geosphere)
 library(tidyr)
 # simple script retrieves climate data and global ancestry data. Creates d_A data object.
-#retrieve_data_new <- T
-retrieve_data_new <- F
-#res_bioclim <- 2.5
-res_bioclim <- 0.5 # res 2.5 is about 4.5 km^2 at the equator; 0.5 is < 1 km^2
+retrieve_data_new = T
+res_bioclim <- 0.5 # res 0.5 is < 1 km^2
 
-# get admixture data
-#prefix <- "CA_AR_MX_harpur_sheppard_kohn_wallberg"
-
-# get ID's for PCA data (CAUTION - bam list order and admix results MUST MATCH!)
+# get ID's for bees (CAUTION - bam list order and admix results MUST MATCH!)
 IDs <- read.table(paste0("../bee_samples_listed/combined_sept19.list"), stringsAsFactors = F,
                   header = F)
 colnames(IDs) <- c("Bee_ID")
+# get admixture data
 K = 3 # 3 admixing populations
 n = 250 # snps thinned to 1 every nth
-#prefix1 = paste0("ordered_scaffolds_", prefix, "_prunedBy", n)
-#name = paste0("K", K, "_", prefix1)
 name = "K3_combined_sept19_chr_prunedBy250"
 file = paste0("../global_ancestry/results/NGSAdmix/", name, ".qopt")
 admix <- read.table(file)
@@ -80,9 +74,6 @@ if (retrieve_data_new){
   ca3 = getData('worldclim', var = "bio", res = res_bioclim, 
                 lon = -150, 
                 lat = 50)
-  #sapply(list(ca1, ca2, ca3), function(x) names(x)[1])
-  #plot(merge(ca1[[1]], ca2[[1]], ca3[[1]]))
-  #plot(merge(ar1[[1]], ar2[[1]], ar3[[1]], ar4[[1]]))
   keep_bioclim <- c(1,6,11,12) # variables of interest
   raster_SA = merge(ar1[[keep_bioclim]], ar2[[keep_bioclim]], ar3[[keep_bioclim]], ar4[[keep_bioclim]])
   raster_NA = merge(ca1[[keep_bioclim]], ca2[[keep_bioclim]], ca3[[keep_bioclim]])
@@ -109,8 +100,6 @@ if (retrieve_data_new){
               paste0("results/BioclimVar_bees_", res_bioclim, "min.txt"), sep = "\t",
               quote = F, col.names = T, row.names = F)
 } else{ # read in data already processed
-  # read in admixture data
-  #load("../global_ancestry/results/NGSAdmix/ACM_K3_combined_sept19_chr_prunedBy250.rData")
   # read in climate data
   bees.clim <- read.table(paste0("results/BioclimVar_bees_", res_bioclim, "min.txt"), 
                           sep = "\t",
@@ -124,9 +113,8 @@ d <- bees.clim %>%
   left_join(., anc_labels, by = "ancestry") %>%
   mutate(continent = ifelse(geographic_location == "Argentina", "S. America", "N. America"))
 
-# make some new variables, standardized for better model fitting
+# make some new variables, standardized/centered for better model fitting
 d_A <- d %>%
-  filter(geographic_location != "Mexico") %>% # filter out mexico
   # limit to A ancestry
   filter(ancestry_label == "A") %>%
   # absolute latitude
@@ -140,18 +128,10 @@ d_A <- d %>%
   mutate(temp_c = AnnualMeanTemp - mean(AnnualMeanTemp)) %>%
   mutate(cold_c = MeanTempColdestQuarter - mean(MeanTempColdestQuarter)) %>%
   mutate(precip_c = AnnualPrecip - mean(AnnualPrecip)) %>%
-  mutate(from2014 = year - 2014) %>% # any evidence the hybrid zone has moved 2014 to 2018?
+  mutate(from2014 = year - 2014) %>% # years since 2014
   mutate(from2014_c = from2014 - mean(from2014)) %>%
   mutate(year = factor(year)) %>%
   left_join(., wings[ , c("Bee_ID", "wing_cm")], by = "Bee_ID") # add wing length data
 
 # save d_A
 save(file = "results/d_A.RData", list = c("d_A"))
-
-
-# distance between 2 riverside points:
-skyvalley <- data.frame(long = -116.27, lat = 33.84)
-idyllwild <- data.frame(long = -116.72, lat = 33.74)
-distm(skyvalley, idyllwild)/1000 # km, geodesic distance, equivalent to distGeo()
-distm(c(max(d_A$long[d_A$population == "Riverside_2014"]), max(d_A$lat[d_A$population == "Riverside_2014"])),
-      c(min(d_A$long[d_A$population == "Riverside_2014"]), min(d_A$lat[d_A$population == "Riverside_2014"])))/1000

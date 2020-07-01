@@ -1,8 +1,8 @@
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-# identify ancestry informative sites (AIMs), 
-# e.g. A-ancestry aim has > 0.95 freq diff with both other ancestries (C & M), 
+# identify ancestry informative sites (AIMs),
+# e.g. A-ancestry aim has > 0.95 freq diff with both other ancestries (C & M),
 # where all ancestry panels have at least 5 individuals with data.
 # just printed output files for two chromosomes with outliers - chr 1 and 11
 # output: .sites file with AIM positions (for ANGSD input) and .ACM.freqs file that stores sites & freqs
@@ -16,7 +16,7 @@ find_AIMs_by_chr <- function(chr){
                              chr, ".rpos"),
                       header = F, stringsAsFactors = F, sep = "\t") %>%
     data.table::setnames(c("scaffold", "pos", "major", "minor", "rpos"))
-  ACM_GL <- lapply(ACM, function(a) 
+  ACM_GL <- lapply(ACM, function(a)
     read.table(paste0("../geno_lik_and_SNPs/results/combined_sept19/genotypes/", a, "/Group", chr, ".mafs.gz"),
                header = T, stringsAsFactors = F, sep = "\t") %>%
       dplyr::select(chromo, position, knownEM, nInd) %>%
@@ -24,21 +24,13 @@ find_AIMs_by_chr <- function(chr){
       left_join(sites, ., by = c("scaffold", "pos")))
   GL <- cbind(ACM_GL[[1]], ACM_GL[[2]][ , 6:7], ACM_GL[[3]][ , 6:7]) %>%
     filter(nInd_A >= 5 & nInd_C >= 5 & nInd_M >= 5) # remove SNPs with low amounts of data
-  
-  #GL %>%
-  #  filter(abs(freq_A - freq_M) > .95 & abs(freq_A - freq_C) > .95) %>%
-  #  filter(nInd_A >= 5 & nInd_C >= 5 & nInd_M >= 5) %>%
-  #  pivot_longer(data = ., cols = c("freq_A", "freq_C", "freq_M"), 
-  #               names_to = "pop", values_to = "freq") %>%
-  #  ggplot(., aes(x = pos, y = freq, color = pop)) +
-  #  geom_point()
-  
-  
+
+
   # filter for ancestry informative markers
   # A ancestry:
   AIMs_A = GL %>%
     filter(abs(freq_A - freq_M) > .95 & abs(freq_A - freq_C) > .95)
-  
+
   write.table(AIMs_A, paste0("results/AIMs/A/Group", chr, ".ACM.freqs"),
               col.names = T, row.names = F, quote = F, sep = "\t")
   # write sites file for ANGSD
@@ -67,7 +59,7 @@ find_AIMs_by_chr <- function(chr){
     dplyr::select(c("scaffold", "pos", "major", "minor")) %>%
     write.table(., paste0("results/AIMs/M/Group", chr, ".var.sites"),
                 col.names = F, row.names = F, quote = F, sep = "\t")
-  
+
 }
 # create output directories if they don't already exist:
 for (a in ACM){
