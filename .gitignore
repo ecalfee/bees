@@ -1,5 +1,7 @@
 # don't track (large) data files
 data/*
+old_files/*
+pos_snps
 *.out
 *.log
 *.gf
@@ -19,5 +21,6 @@ filtered_bams/fastQ_screen/
 filtered_bams/merged/
 geno_lik_and_SNPs/coverage/
 */Amel4.5_*
+*/*_Amel4.5/
 */plots/
 clines/wc*
