@@ -1,0 +1,68 @@
+# using called SNPs and genotypes for high-coverage bees:
+# ancestry reference pops: Harpur A, C, and M bees
+# admixed bees: Riverside_2014 (n=8)
+# original data: plink format data/bees_new_positions/ALL.bam ALL.fam ALL.map
+# note: data is on old genome and ALL.map has incorrect map positions based on a uniform recomb. rate
+# which I'd want to recalculate using my newer scripts.
+
+# total number of SNPs passing filtering:
+data/bees_new_positions$ wc -l ALL.map
+5781640 ALL.map
+
+# create a file where 3rd column is population label (to filter by in plink)
+data/bees_new_positions$ awk '{print $1, '\t', $2, '\t', $1}' ALL.fam > populations.txt
+
+# get allele frequencies for Harpur A, C and M
+data/bees_new_positions$ for pop in A M C; do plink --bfile ALL --freq --keep-allele-order --filter populations.txt $pop --out $pop; done
+# note that --keep-allele-order preserves original ref/alt allele from ALL.bed (not necessarily related to reference allele in bee reference genome (!))
+# taking out freq. column to stick all pop freqs together
+awk '$1!="CHR" {print $1, '\t', $2, '\t', $3, '\t', $4, '\t', $5}' A.frq > A.frq.temp
+for pop in M C; do awk '$1!="CHR" {print $5}' $pop.frq > $pop.frq.temp; done
+# make header
+echo CHR$'\t'SNP$'\t'A1$'\t'A2$'\t'A$'\t'C$'\t'M > ACM.frq
+# paste them together
+paste A.frq.temp C.frq.temp M.frq.temp -d '\t' >> ACM.frq
+# remove temporary files
+rm *.frq.temp
+#rm [ACM].frq
+
+# positions with under 0.2 minor allele frequency in all 3 populations offer little ancestry information, so I filter those out
+data/bees_new_positions$ awk '$7 >= 0.2 || $6 >= 0.2 || $5 >= 0.2 {print $0}' ACM.frq | wc -l
+# 648636
+# This leaves about 650k SNPs. I did not filter for differences between ancestries because I didn't want to bias my results for SNPs informative C-M but not, for example A-C which has lower Fst
+data/bees_new_positions$ head -n1 ACM.frq > ACM_common.frq
+data/bees_new_positions$ awk '$7 >= 0.2 || $6 >= 0.2 || $5 >= 0.2 {print $0}' ACM.frq >> ACM_common.frq
+
+
+# Then I filter for SNPs with high LD in the A population using plink and a sliding window of 50 SNPs
+# greedily removing SNPs until no pairs in the window have r^2 > .4 , then shifting the window by 10 SNPs
+bees_new_positions$ plink --bfile ALL --indep-pairwise 50 10 0.4 --keep-allele-order --extract ACM_common.frq --filter populations.txt A --out lowLDA4
+
+# this leaves 160k SNPs
+bees_new_positions$ wc -l lowLDA4.prune.in lowLDA4.prune.in
+
+# now I get allele counts for Harpur A C M for those positions (and I put all the lowLD files in a folder) lowLDA4
+data/bees_new_positions$ for pop in A C M; do plink --bfile ALL --freq counts --keep-allele-order --extract lowLDA4/lowLDA4.prune.in --filter populations.txt $pop --out lowLDA4/$pop; done
+
+# now I get allele counts for each individual in Riverside_2014 population for those same alleles.
+# to do this, I first make a new file with 3rd column identifying samples by individual ID
+data/bees_new_positions$ awk '{print $1, '\t', $2, '\t', $2}' populations.txt > individuals.txt
+# then for each individual in riverside_2014, I make an allele counts file
+data/bees_new_positions$ for ind in $(awk '$1 == "Riverside_2014" {print $2}' individuals.txt); do plink --bfile ALL --freq counts --keep-allele-order --extract lowLDA4/lowLDA4.prune.in --filter individuals.txt $ind --out lowLDA4/$ind; done
+# these are now saved as, e.g. SRCD49A.frq.counts where columns C1 and C2 identify counts for allele A1 and A2 and column G0 counts missing genotypes (C1 + C2 + G0 = 2 for each individual)
+
+# then I'd get the corrected map position in a file all.rpos
+data/bees_new_positions/lowLDA4$ awk '{print $3}' A.frq.counts.rmap > all.rpos
+
+# preparing ancestry_hmm input file with reference and admixed counts (admixed = only Riverside_2014 inds)
+# strip header and other information besides allele counts from .frq.counts files
+data/bees_new_positions/lowLDA4$ for i in $(ls *.frq.counts); do awk '$1!="CHR" {print $5"\t"$6}' $i > $i.strp; done
+# paste together stripped files into correct order for ancestry_hmm input file
+# chromosome, position_bp, allele counts A1 in A, allele counts A2 in A, allele counts A1 in C, allele counts A2 in C, allele counts A1 in M, allele counts A2 in M,
+# distance in Morgans between previous marker and this one
+# read counts A1 in sample1, read counts A2 in sample1, read counts A1 in sample2 etc.
+data/bees_new_positions/lowLDA4$ paste all.pos A.frq.counts.strp C.frq.counts.strp M.frq.counts.strp all.rpos \
+$(ls SRCD*frq.counts.strp) -d '\t' > ../../sims_downsample/ancestry_hmm/ACM_Riv2014.counts
+
+# making ancestry_hmm sample file with admixed sample ind's ploidy
+data/bees_new_positions/lowLDA4$ ls SRC*.frq.counts.strp | sed 's/.frq.counts.strp/\t2/' > ../../sims_downsample/ancestry_hmm/Riv2014.ploidy
