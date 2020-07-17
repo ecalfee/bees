@@ -5,7 +5,7 @@
 # then it’s a ‘fail’ and it passes all errors to exit and allows no unset variables
 
 # this script takes in a bed file for the ancestry caller's tracts
-# and outputs a bed file for an individual sample where that sample has 
+# and outputs a bed file for an individual sample where that sample has
 # homozygous ancestry calls above some threshold (0.8) for ancestry ANCESTRY, e.g. C
 # to run: ./getBamsForTracts.sh CA1207 3 C combined_sept19
 

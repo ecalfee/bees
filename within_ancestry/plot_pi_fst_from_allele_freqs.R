@@ -22,82 +22,19 @@ ancestries_Combined <- c(ancestries, "Combined")
 # get bee population meta data
 load("../local_ancestry/results/meta.RData")
 
-###---old SFS----####
-# read in the SFS's that were successfully calculated (for comparison):
-path_sfs_folded <- "results/folded_SFS_incorrect/non-outlier_regions/"
-SFS <- lapply(pops, function(x) 
-  read.table(paste0(path_sfs_folded, "/combined/", x, ".folded.sfs"),
-             stringsAsFactors = F))
-calc_pi_sfs_folded <- function(sfs){
-  n <- 0:(length(sfs) - 1) # number of copies observed
-  p <- n/((length(sfs) - 1)*2) # allele frequency
-  f <- sfs/sum(sfs) # observation frequency of sfs bin
-  het <- 2*p*(1-p)
-  sum(het*f) # take weighted mean of pi across frequency bins
-}
-
-sfs1 <- unlist(read.table(paste0(path_sfs_folded, "/combined/AR01", ".folded.sfs"),
-                   stringsAsFactors = F))
-calc_pi_sfs_folded(sfs1)
-lapply(SFS, calc_pi_sfs_folded)
-thetas <- do.call(rbind,
-                  lapply(ancestries_combined, function(a)
-  data.frame(population = pops,
-             ancestry = a,
-             theta = unlist(lapply(pops, function(x)
-    calc_pi_sfs_folded(read.table(paste0(path_sfs_folded, "/", a, "/", x, ".folded.sfs"),
-                          stringsAsFactors = F)))))))
-# something's not quite right. populations with less positions with data have higher diversity estimates:
-plot(lapply(SFS, sum), thetas[thetas$ancestry=="combined", "theta"], main = "neg. relationship ANGSD estimated pi and number of sites in SFS",
-     xlab = "total sites in SFS", ylab = "theta estimate (combined)")
-
-thetas_ACM <- data.frame(population = ACM,
-                               ancestry = "combined",
-                               theta = unlist(lapply(ACM, function(x)
-                                 calc_pi_sfs_folded(read.table(paste0(path_sfs_folded, "/", "combined", "/", x, ".folded.sfs"),
-                                                               stringsAsFactors = F))))) %>%
-  mutate(ancestry = paste0(population, population))
-
-thetas_test <- data.frame(population = pops,
-                      theta = unlist(lapply(SFS, calc_pi_sfs_folded)),
-                     ancestry = "combined")
-
-thetas %>%
-  left_join(., meta.pop, by = "population") %>%
-  ggplot(., aes(x = abs(lat), y = theta, color = ancestry, shape = factor(year))) +
-  geom_point() +
-  ggtitle("Allelic diversity at known SNPs within ancestries and combined across all ancestries") +
-  xlab("Degrees latitude from the equator") +
-  facet_grid(. ~ zone, scales = "free_x") +
-  geom_abline(data = thetas_ACM, aes(intercept = theta, slope = 0, color = ancestry))
-ggsave("plots/pi_by_latitude_from_folded_SFS.png", device = "png",
-       width = 10, height = 5)
-ggsave("../../bee_manuscript/figures/pi_by_latitude_from_folded_SFS.png", device = "png",
-       width = 10, height = 5)
-  
-####--END old SFS---##########################333
 
 # load new data?
-load_new_data = F
-#load_new_data = T
+load_new_data = T
 
-# read in 1/10th of the allele freq data:
-#n_snp = 10
-
-# I sampled fraction n_snp of all SNPs, so the total fraction of the genome that are SNPs is:
-
-#freqs <- 1 - read.table(paste0("results/allele_freq_all/pops_included_plus_ACM_every", n_snp, "th_SNP.freqs.txt"),
-#                    stringsAsFactors = F, header = T)
+# read in allele freq data:
 if (load_new_data) {
   freqs_pops <- do.call(rbind, 
                    lapply(1:16, function(i) read.table(paste0("results/combined_sept19/combined/allele_freq/Group", i, 
                                                               "/pops_included_every_SNP.freqs.txt"),
-                                                                     #"/pops_included_every", n_snp, "th_SNP.freqs.txt"),
                                                               header = T, stringsAsFactors = F)))
   freqs_ACM <- do.call(rbind, 
                    lapply(1:16, function(i) read.table(paste0("results/combined_sept19/combined/allele_freq/Group", i, 
                                                               "/ACM_every_SNP.freqs.txt"),
-                                                              #"/ACM_every", n_snp, "th_SNP.freqs.txt"),
                                                        header = T, stringsAsFactors = F)))
   freqs <- cbind(freqs_ACM, freqs_pops)
   rm(freqs_ACM, freqs_pops)
@@ -151,7 +88,6 @@ if (load_new_data) {
 } else {
   load("results/freqs_combined.RData")
 }
-#list = c("d_het_small_sample"))
 
 
 # basic Fst A-C-M:
@@ -203,14 +139,11 @@ if (load_new_data){
           do.call(rbind, 
                   lapply(1:16, function(i) read.table(paste0("results/combined_sept19/", a, "/allele_freq/Group", i, 
                                                              "/pops_included_every_SNP.freqs.txt"),
-                                                             #"/pops_included_every", n_snp, "th_SNP.freqs.txt"),
                                                       header = T, stringsAsFactors = F)))))
   hets_by_ancestry <- lapply(freqs_by_ancestry, function(f) 2*f*(1-f))
   het_mean_by_ancestry <- lapply(hets_by_ancestry, function(h)
     apply(h, 2, function(x) mean(x, na.rm = T)*frac_snps))
   rm(hets_by_ancestry)
-  
-  
   
   # how many alleles were sampled at each site?
   ns_by_ancestry <- lapply(ancestries, function(a) 
@@ -241,17 +174,9 @@ if (load_new_data){
   }
   save(list = "hets_small_sample_by_ancestry",
        file = "results/hets_small_sample_by_ancestry.RData")
-  #hets_small_sample_by_ancestry2 <- lapply(1:3, function(a) do.call(cbind, 
-  #                                                                 lapply(1:ncol(freqs_by_ancestry[[a]]), 
-  #                                                                        function(i) het_small_sample_correction(p = freqs_by_ancestry[[a]][ , i], 
-  #                                                                                                                n = ns_by_ancestry[[a]][ , i],
-  #                                                                                                                filter_under_2 = F)))) 
-  
   het_small_sample_mean_by_ancestry <- lapply(hets_small_sample_by_ancestry, function(h) 
     apply(h, 2, function(x) mean(x, na.rm = T)*frac_snps))
   rm(hets_small_sample_by_ancestry)
-  #het_small_sample_mean_by_ancestry2 <- lapply(hets_small_sample_by_ancestry2, function(h) 
-  #  apply(h, 2, function(x) mean(x, na.rm = T)*frac_snps))
   d_het_small_sample <- data.frame(population = ACM_pops,
                                    A = het_small_sample_mean_by_ancestry[[1]],
                                    C = het_small_sample_mean_by_ancestry[[2]],

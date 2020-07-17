@@ -1,6 +1,6 @@
 #!/bin/bash -l
 
-# this script calculates allele frequencies within ancestry for a population and list of bams
+# this script calculates allele frequencies within ancestry for a population, list of bams, and SNP list (with minor & major alleles) for a chromosome
 
 
 # to run: ./allele_freq_within_ancestry.sh AR01 A combined_sept19 ../bee_samples_listed/byPop/AR01.list Group1
