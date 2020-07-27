@@ -1,6 +1,7 @@
 # don't track (large) data files
 data/*
 old_files/*
+*/old_files/*
 pos_snps
 *.out
 *.log
@@ -24,3 +25,6 @@ geno_lik_and_SNPs/coverage/
 */*_Amel4.5/
 */plots/
 clines/wc*
+wing_analysis/best_wing_pics_1.26.20_EC
+# wing data from oberursel
+wing_analysis/reference_samples_scut_car_lig_iber_mell.csv

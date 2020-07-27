@@ -2,82 +2,95 @@
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-library(lmtest)
+library(devtools)
+#source("http://bioconductor.org/biocLite.R")
+#BiocManager::install("SNPRelate")
+#BiocManager::install("SeqArray")
+#devtools::install_github("kegrinde/STEAM")
+library(STEAM)
 
-# get wing lengths for all bees
-wings <- read.table("ALL_Wings_CA_AR.csv",
-                      sep = ",", stringsAsFactors = F, header = T) %>%
-  mutate(Bee_ID = sapply(Label, function(x) strsplit(x, split = "-")[[1]][3]))
+# load bee wing length data and model residuals for fit with latitude from plot_wing_lengths.R
+load("results/wing_fits.RData") #d.wings, m_wing, m_wing_SA
 
-# note: there are some duplicates. one must be mislabelled. may remove the full pair for now.
-View(filter(wings, Bee_ID %in% wings$Bee_ID[duplicated(wings$Bee_ID)]))
+# get individual local ancestry data for bees with wing data:
+# these are A ancestry counts (0,1,2) based on MAP values of the posterior
+A_wings_wide_counts <- do.call(cbind, 
+                               lapply(d.wings$Bee_ID, function(id) 
+                                 read.table(paste0("../local_ancestry/results/ancestry_hmm/combined_sept19/posterior/anc_count/", 
+                                                   id, ".A.count"), stringsAsFactors = F)))
+colnames(A_wings_wide_counts) <- d.wings$Bee_ID
+A_wings_wide_counts <- as.matrix(A_wings_wide_counts)
+save(A_wings_wide_counts, file = "results/A_wings_wide_counts.RData")
+#load("results/A_wings_wide_counts.RData")
 
-# load bee data
-# Bee IDs
-IDs <- read.table(paste0("../bee_samples_listed/byPop/pops_included.IDs"), stringsAsFactors = F,
-                  header = F) %>%
-  data.table::setnames("Bee_ID")
+
+# admixture mapping of residuals after fitting prediction of wing length from global ancestry
+fits_counts <- t(sapply(1:nrow(A_wings_wide_counts), function(i){
+  m <- lm(d.wings$model_residual_cm ~ A_wings_wide_counts[i, ])
+  cf <- summary(m)$coefficients
+  results <- c(cf[2,], cf[1,])
+  names(results) <- c("b", "se", "t.value", "p.value",
+                      "intercept", "intercept_se", 
+                      "intercept_t.value", "intercept_p.value")
+  return(results)
+}))
+
+save(fits_counts, file = "results/ancestry_mapping_wing_length_counts.RData")
+#summary(fits_counts[ , "p.value"])
+#hist(fits_counts[ , "p.value"])
+#load("results/ancestry_mapping_wing_length_counts.RData")
 
 
-# get metadata
-meta.ind <- read.table("../bee_samples_listed/all.meta", header = T, stringsAsFactors = F, sep = "\t") %>%
-  left_join(IDs, ., by = "Bee_ID") %>%
-  filter(Bee_ID %in% wings$Bee_ID) %>%
-  left_join(., wings, by = "Bee_ID")
+# get chromosome and sites data
+chr_lengths <- cbind(read.table("../data/honeybee_genome/chr.names", stringsAsFactors = F),
+                     read.table("../data/honeybee_genome/chr.lengths", stringsAsFactors = F)) %>%
+  data.table::setnames(c("chr", "scaffold", "chr_length")) %>%
+  mutate(chr_n = 1:16) %>%
+  mutate(chr_end = cumsum(chr_length)) %>%
+  mutate(chr_start = chr_end - chr_length) %>%
+  mutate(chr_mid = (chr_start + chr_end)/2)
 
-# local ancestry calls - A ancestry
-# get ancestry frequencies for each population across the genome
-dir_results <- "../local_ancestry/Amel4.5_results/ancestry_hmm/thin1kb_common3/byPop/output_byPop_CMA_ne670000_scaffolds_Amel4.5_noBoot"
-#a <- read.table(paste0(dir_results, "/anc/CA1406.A.anc"), stringsAsFactors = F)
-ind_A <- lapply(IDs$Bee_ID, function(p) read.table(paste0(dir_results, "/anc/", p, ".A.anc"),
-                                            stringsAsFactors = F))
-A_wide <- do.call(cbind, ind_A) %>% # combine and sort to match meta.ind
-  data.table::setnames(IDs$Bee_ID) #%>%
-  #dplyr::select(meta.ind$Bee_ID)
-save(A_wide, file = "A_wide.RData")
+# SNP sites where ancestry was called
+# with physical and cM position based on recombination map
+# sites_rpos created in K_by_recomb_rate.R
+load("../local_ancestry/results/sites_rpos.RData") # sites_rpos
 
-# genomewide mean ancestry for each individual
-meta.ind$alpha <- apply(A_wide, 2, mean)
-alpha <- data.frame(Bee_ID = IDs$Bee_ID, 
-                    alpha = apply(A_wide, 2, mean),
-                    stringsAsFactors = F)
 
-# get sites information:
-sites0 <- read.table("../local_ancestry/Amel4.5_results/SNPs/thin1kb_common3/included_scaffolds.pos", stringsAsFactors = F,
-                     sep = "\t", header = F)
-colnames(sites0) <- c("scaffold", "pos")
-sites <- tidyr::separate(sites0, scaffold, c("chr", "scaffold_n"), remove = F) %>%
-  mutate(scaffold_n = as.numeric(scaffold_n)) %>%
-  mutate(chr_n = as.numeric(substr(chr, 6, 100))) %>%
-  mutate(snp_id = paste0("snp", chr_n, ".", scaffold, ".", pos))
+sites_map <- sites_rpos[ , c("pos_cM", "chr_n")] %>%
+   rename(cM = pos_cM, chr = chr_n)
 
-A <- cbind(sites, A_wide) %>%
-      tidyr::gather(., "Bee_ID", "A", IDs$Bee_ID) %>%
-  left_join(., alpha, by = "Bee_ID") %>%
-  left_join(., wings, by = "Bee_ID") %>%
-  rename(wing_length = Length) %>%
-  dplyr::select(., c("chr", "pos", "snp_id", "Bee_ID", "A", "alpha", "wing_length")) %>%
-  filter(!is.na(wing_length))
+# use R package from Grinde 2019 to get threshold sig. p-value for multiple testing
+pval_thresh <- STEAM::get_thresh_analytic(g = 30,
+                                          type = "pval",
+                                          map = sites_map,
+                                          alpha = 0.05)
 
-# save as R data object so I can retrieve it more easily in the future
-save(A, file = "A.RData")
+# range of thresholds for a range of admixture generations g
+gs <- c(22, 47.65, 60.4, 150) # min, median, mean, max
+pval_threshs <- sapply(gs, function(g) STEAM::get_thresh_analytic(g = g,
+                                                                  type = "pval",
+                                                                  map = sites_map,
+                                                                  alpha = 0.05))
+#pval_threshs
+#-log10(pval_threshs)
 
-a_snp <- filter(A, snp_id == "snp1.Group1.1.2714")
-b_snp <- filter(A, snp_id == "snp16.Group16.8.1214672")
-lma1 <- lm(wing_length ~ alpha + A, data = a_snp)
-lma0 <- lm(wing_length ~ alpha, data = a_snp)
-lrta.byhand <- -2*(as.numeric(logLik(lma0)) - as.numeric(logLik(lma1)))
-lrta <- lrtest(lma0, lma1)
-some_snps <- head(unique(A$snp_id))
-A_small <- filter(A, snp_id %in% some_snps)
-calc_sig <- function(Y, A_snp, A_genome){
-  lm1 <- lm(Y ~ A_snp + A_genome)
-  lm0 <- lm(Y ~ A_genome)
-  lik_ratio_test <- lrtest(lm0, lm1)
-  return(c(coef(lm1)[2:3], chisq = lik_ratio_test[[4]][2], pval = lik_ratio_test[[5]][2]))
-}
-calc_sig(Y = A_small$wing_length[A_small$snp_id == some_snps[1]],
-         A_snp = A_small$A[A_small$snp_id == some_snps[1]],
-         A_genome = A_small$alpha[A_small$snp_id == some_snps[1]])
-A_small
-
+# plot admixture mapping results with
+# threshold based on 47.6 gen. admixture (median across pops)
+cbind(sites_rpos, data.frame(fits_counts, stringsAsFactors = F)) %>%
+  mutate(even_chr = (chr_n %% 2 == 1)) %>%
+  ggplot(., aes(x = cum_pos, y = -log10(p.value), color = even_chr)) +
+  scale_x_continuous(label = chr_lengths$chr_n, breaks = chr_lengths$chr_mid) +
+  geom_point(cex = .2) +
+  theme_classic() +
+  xlab("Chromosome") +
+  ylab(expression('-log'[10]*'('*italic('P')*')')) +
+  geom_hline(yintercept = -log10(pval_threshs[[2]]), 
+             color = "red", lty = "dashed") +
+  scale_color_manual(values = brewer.pal(4,"Paired")) +
+  theme(legend.position = "none")
+ggsave("plots/admixture_mapping_wing_length.png", 
+       height = 3, width = 5.2)
+ggsave("../../bee_manuscript/figures/admixture_mapping_wing_length.png", 
+       height = 3, width = 5.2, dpi = 600)
+ggsave("../../bee_manuscript/figures_supp/admixture_mapping_wing_length.tiff", 
+       height = 3, width = 5.2, dpi = 600)
