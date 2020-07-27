@@ -4,7 +4,6 @@ library(gridExtra)
 library(raster)
 library(bedr)
 library(geosphere)
-#library(rethinking)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
@@ -12,7 +11,6 @@ library(broom)
 library(purrr)
 library(nlstools)
 library(viridisLite)
-#library(betareg) # alternative ML fitting
 library(xtable)
 library(nls.multstart)
 source("../local_ancestry/calc_FDRs.R")
@@ -243,7 +241,7 @@ p_A_cline_loess <- filter(d_A, !is.na(alpha)) %>%
   geom_point(aes(color = continent, 
                  shape = population == "Avalon_2014"), size = 2) +
   xlab("Degrees latitude from the equator") +
-  ylab("Proportion African ancestry") +
+  ylab("Proportion A ancestry") +
   scale_x_continuous(position = "bottom", breaks = c(30, 32, 34, 36, 38), labels = waiver()) +
   scale_color_manual(values = col_NA_SA_both, name = NULL) +
   ylim(c(-0.05, 1)) +
@@ -273,7 +271,7 @@ p_A_cline_loess <- filter(d_A, !is.na(alpha)) %>%
          color = guide_legend(override.aes = list(shape = 15))) +
   theme(legend.position="top")
 p_A_cline_loess
-ggsave("plots/A_cline_prediction_vs_loess.png", height = 3, width = 5.2)
+ggsave("plots/A_cline_prediction_vs_loess.png", p_A_cline_loess, height = 3, width = 5.2)
 
 
 # phenotypic wing clines for comparison:
@@ -346,9 +344,11 @@ p_wing_cline_loess <- d_A %>%
   guides(fill = "none", color = "none") +
   theme(axis.title.x=element_blank())
 p_wing_cline_loess
-ggsave("plots/wing_cline_prediction_vs_loess.png", 
+ggsave("plots/wing_cline_prediction_vs_loess.png",
+       p_wing_cline_loess,
        height = 4, width = 5.2, units = "in", dpi = 600)
 ggsave("../../bee_manuscript/figures/wing_cline_prediction_vs_loess.png", 
+       p_wing_cline_loess,
        height = 4, width = 5.2, units = "in", dpi = 600)
 
 # combine plots -- put genetic and phenotypic (wing) clines together:
@@ -413,11 +413,11 @@ t_all <- do.call(rbind, lapply(1:length(m_all), function(i) glance(m_all[[i]]) %
 t_all
 #xtable(t_all)
 print(xtable(t_all, 
-             caption = "\\color{Gray} \textbf{Cline model comparison} Model rankings between logistic cline fits for African ancestry predicted by climate and distance variables (n = 313 bees).",
+             caption = "\\color{Gray} \textbf{Cline model comparison} Model rankings between logistic cline fits for A ancestry predicted by climate and distance variables (n = 313 bees).",
              label = "AIC_climate_clines",
              type = "latex", 
              latex.environments = NULL), 
-      file = "../../bee_manuscript/tables/AIC_cline_fits_climate.tex")
+      file = "../../bee_manuscript/tables/AIC_cline_fits_climate2.tex")
 
 
 ### --------------------- INDIVIDUAL SNP CLINES --------------------------------- #####
@@ -499,14 +499,15 @@ violin_ind_clines <- d_clines_combined %>%
 violin_ind_clines
 ggsave("plots/violin_ind_snp_clines.png",
        plot = violin_ind_clines,
-       height = 5.2, width = 5.2, units = "in")
+       height = 4, width = 5.2, units = "in")
 # save in figures for manuscript:
 ggsave("../../bee_manuscript/figures/violin_ind_snp_clines.png", 
        plot = violin_ind_clines,
-       height = 5.2, width = 5.2, units = "in", device = "png", dpi = 600)
-ggsave("../../bee_manuscript/figures_supp/violin_ind_snp_clines.tiff", 
+       height = 3, width = 5.2, units = "in", device = "png", dpi = 600)
+ggsave("../../bee_manuscript/figures_supp/violin_ind_snp_clines.tif", 
        plot = violin_ind_clines,
-       height = 5.2, width = 5.2, units = "in", device = "tiff", dpi = 600)
+       height = 3, width = 5.2, units = "in", device = "tiff", dpi = 600,
+       compression = "lzw", type = "cairo")
 
 # --------------- Any individual SNP outliers for cline steepness? ------------------------#
 # what is the FDR? Uses script ../local_ancestry/calc_FDRs.R
