@@ -26,7 +26,6 @@ load("../local_ancestry/results/meta.RData")
 # load genome metadata
 # Compute chromosome sizes
 chr_lengths <- read.table("../data/honeybee_genome/chr.list", sep = "\t", stringsAsFactors = F)
-head(chr_lengths)
 colnames(chr_lengths) <- c("scaffold", "length", "chr_group", "chr_lg")
 chr_lengths <- chr_lengths %>%
   mutate(chr = as.numeric(substr(chr_lg, 3, 100))) %>%
@@ -59,8 +58,8 @@ high.shared2 <- A_AR_CA %>%
   rename(chr = scaffold) %>%
   filter(!is.na(FDR_AR_high) & !is.na(FDR_CA_high)) %>%
   filter(FDR_AR_high <= threshold_extend_region & FDR_CA_high <= threshold_extend_region)
-table(is.valid.region(high.shared2, check.chr = F))
-length(bedr.merge.region(high.shared2, check.chr = F))
+#table(is.valid.region(high.shared2, check.chr = F))
+#length(bedr.merge.region(high.shared2, check.chr = F))
 high.shared.outliers2 <- bedr(
   engine = "bedtools",
   input = list(i = high.shared2),
@@ -71,7 +70,7 @@ high.shared.outliers2 <- bedr(
   mutate(region = rownames(.)) %>%
   data.table::setnames(c("chr", "start", "end", "min_FDR_AR", "min_FDR_CA", "region")) %>%
   filter(min_FDR_AR <= threshold_keep_region & min_FDR_CA <= threshold_keep_region)
-high.shared.outliers2
+#high.shared.outliers2
 
 # low shared outliers (NONE):
 low.shared <- A_AR_CA %>%
@@ -80,7 +79,7 @@ low.shared <- A_AR_CA %>%
   rename(chr = scaffold) %>%
   filter(!is.na(FDR_shared_low)) %>%
   filter(FDR_shared_low <= threshold_extend_region)
-dim(low.shared)
+#dim(low.shared)
 
 # high CA outliers:
 high.CA <- A_AR_CA %>%
@@ -362,7 +361,7 @@ ACM_means <- ACM_AR_CA %>%
   summarise(ancestry_sd = sd(ancestry_freq),
             ancestry_freq = mean(ancestry_freq))
 
-# AIMs for all 3 ancestries
+# Ancestry informative markers (AIMs) for all 3 ancestries
 get_aim_freq <- function(zone, ancestry, chr_n){
   # sites
   s <-  read.table(paste0("../clines/results/AIMs/", ancestry, "/Group", chr_n, ".ACM.freqs"),
@@ -411,7 +410,6 @@ aims <- aims0 %>% # add filter for whether all pops have some coverage/data
   left_join(., A_AR_CA[ , c("scaffold", "pos", "snp_id")], # identify snps also used for ancestry_hmm
             by = c("scaffold", "pos")) %>%
   mutate(hmm_marker = !is.na(snp_id))
-# 
 # nrow(aims)/2 # ~38k
 
 AIMS_ACM_AR_CA <- aims %>%
@@ -465,15 +463,17 @@ p11_outliers <- AIMS_ACM_AR_CA %>%
          color = guide_legend(override.aes = list(linetype = "blank"))) +
   theme_classic() +
   facet_grid(zone_pretty ~ .)
-p11_outliers
+#p11_outliers
 ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM.png",
+       p11_outliers,
        height = 5, width = 7.5, units = "in", device = "png")
 ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM.png",
+       p11_outliers,
        height = 5, width = 7.5, units = "in", dpi = 600, device = "png")
 
 
 # now with AIMs too:
-AIMS_ACM_AR_CA %>%
+p11_aims <- AIMS_ACM_AR_CA %>%
   filter(chr == "Group11") %>%
   filter(., pos > 1.3*10^7 & pos < 1.6*10^7) %>%
   ggplot(.) +
@@ -507,12 +507,16 @@ AIMS_ACM_AR_CA %>%
   facet_grid(type_pretty ~ zone_pretty)
 
 ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr11_outlier_ACM2.png",
+       p11_aims,
        height = 5, width = 7.5, units = "in", device = "png")
 ggsave("../../bee_manuscript/figures_supp/ACM_frequency_plot_AR_CA_FDR_chr11_outlier2.tiff",
+       p11_aims,
        height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff", compression = "lzw", type = "cairo")
 ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr11_outlier2.png",
+       p11_aims,
        height = 5, width = 7.5, units = "in", dpi = 600, device = "png")
 
+# what percentile is the peak for M ancestry in N. America?
 ACM_AR_CA %>%
   filter(chr == "Group11") %>%
   filter(pos > 1.3*10^7 & pos < 1.6*10^7) %>%
@@ -521,7 +525,7 @@ ACM_AR_CA %>%
   summarise(mean = mean(ancestry_freq, na.rm = T),
             max = max(ancestry_freq, na.rm = T),
             min = min(ancestry_freq, na.rm = T))
-# what percentile is the peak for M ancestry in N. America?
+
 # largest peak of M in N. America within selected region in S. America
 ACM_AR_CA %>%
   filter(zone == "AR" & ancestry == "M") %>%
@@ -616,14 +620,14 @@ p1_outliers <- AIMS_ACM_AR_CA %>%
          color = guide_legend(override.aes = list(linetype = "blank"))) +
   theme_classic() +
   facet_grid(zone_pretty ~ .)
-p1_outliers
+#p1_outliers
 ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM.png",
        height = 5, width = 7.5, units = "in", device = "png")
 ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM.png",
        height = 5, width = 7.5, units = "in", dpi = 600, device = "png")
 
 # now plot with AIMs
-AIMS_ACM_AR_CA %>%
+p1_aims <- AIMS_ACM_AR_CA %>%
   filter(chr == "Group1") %>%
   filter(., pos > 1.025*10^7 & pos < 1.225*10^7) %>%
   ggplot(.) +
@@ -666,10 +670,13 @@ AIMS_ACM_AR_CA %>%
   facet_grid(type_pretty ~ zone_pretty)
 
 ggsave("plots/ACM_frequency_plot_AR_CA_FDR_chr1_outlier_ACM2.png",
+       p1_aims,
        height = 5, width = 7.5, units = "in", device = "png")
 ggsave("../../bee_manuscript/figures_supp/ACM_frequency_plot_AR_CA_FDR_chr1_outlier2.tiff",
+       p1_aims,
        height = 5, width = 7.5, units = "in", dpi = 600, device = "tiff", compression = "lzw", type = "cairo")
 ggsave("../../bee_manuscript/figures/ACM_frequency_plot_AR_CA_FDR_chr1_outlier2.png",
+       p1_aims,
        height = 5, width = 7.5, units = "in", dpi = 600, device = "png")
 
 mean_genomewide <- data.frame(A_ancestry = c(mean(meanA_CA), mean(meanA_AR)), zone_pretty = c("N. America", "S. America"))
@@ -686,7 +693,7 @@ p_outliers_genomewide <- ggplot() +
              aes(x = cum_pos, y = A_ancestry,
                  color = color_by), size = .01) +
   xlab("Chromosome") +
-  ylab("African ancestry") +
+  ylab("A ancestry") +
   scale_color_manual(name = NULL,
                       values = col_FDR,
                       limits = c("0.01", "0.05", "0.1"),
@@ -700,11 +707,13 @@ p_outliers_genomewide <- ggplot() +
   theme(legend.position = "top", legend.margin = margin(t = 0, unit='cm')) +
   guides(colour = guide_legend(override.aes = list(size = 2, shape = 15)))
 
-p_outliers_genomewide
+#p_outliers_genomewide
 ggsave("plots/A_frequency_plot_AR_CA_FDR_whole_genome_wide.png",
+       p_outliers_genomewide,
        height = 3, width = 7.5, units = "in", dpi = 600, device = "png")
 ggsave("../../bee_manuscript/figures/A_frequency_plot_AR_CA_FDR_whole_genome_wide.png",
-       height = 3, width = 7.5, units = "in", dpi = 600, device = "png")
+      p_outliers_genomewide,
+      height = 3, width = 7.5, units = "in", dpi = 600, device = "png")
 
 # put genomewide plot together with 2 outlier regions: p_outliers_genomewide
 p_outliers_combined <- arrangeGrob(p_outliers_genomewide + ggtitle("A"),
@@ -928,10 +937,10 @@ p_clines_high_A_shared <- cbind(A, dplyr::select(A_AR_CA, c("scaffold", "pos")))
                mutate(type = "Genomewide mean"), 
              aes(x = abs(lat), y = A), color = "black", pch = 1) +
   labs(shape = "FDR", color = "Shared high A outlier region") +
-  ylab("African ancestry frequency") +
+  ylab("A ancestry frequency") +
   xlab("Degrees latitude from the equator") +
   scale_shape_manual(values = shapes_sig)
-p_clines_high_A_shared
+#p_clines_high_A_shared
 ggsave("plots/outliers_high_shared_top_snp_clines.png", device = "png",
        plot = p_clines_high_A_shared,
        height = 7.5, width = 5.4, units = "in", dpi = 600)
@@ -973,7 +982,7 @@ p_clines_low_A_AR <- cbind(A, dplyr::select(A_AR_CA, c("scaffold", "pos"))) %>%
                mutate(type = "Genomewide mean"), 
              aes(x = abs(lat), y = A), color = "black", pch = 1) +
   labs(shape = "FDR", color = "Low A in S. America outlier region") +
-  ylab("African ancestry frequency") +
+  ylab("A ancestry frequency") +
   xlab("Degrees latitude from the equator") +
   scale_shape_manual(values = shapes_sig)
 p_clines_low_A_AR
@@ -1012,11 +1021,11 @@ top2_snp_clines <- cbind(A, dplyr::select(A_AR_CA, c("scaffold", "pos"))) %>%
   geom_point(data = left_join(meta.pop, A_mean, by = "population") %>%
                mutate(type = "Genomewide mean")) +
   labs(shape = "", fill = "", color = "") +
-  ylab("African ancestry frequency") +
+  ylab("A ancestry frequency") +
   xlab("Degrees latitude from the equator") +
   scale_shape_manual(values = shapes_top2_outliers) +
   scale_color_manual(values = col_top2_outliers)
-top2_snp_clines
+#top2_snp_clines
 ggsave("plots/top_snp_clines.png", device = "png",
        plot = top2_snp_clines,
        height = 5, width = 5.4, units = "in", dpi = 600)
