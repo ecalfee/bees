@@ -1,4 +1,4 @@
-# Local Ancestry
+# Functional Analysis - outlier regions and overlap with genes and QTLs
 ## List of Scripts
 #### Main script for plotting and making tables of outliers, e.g. Fig 6 & 7
 -plot_outliers.R
