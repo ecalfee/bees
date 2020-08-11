@@ -1,7 +1,10 @@
 # don't track (large) data files
 data/*
+*/old/*
 old_files/*
 */old_files/*
+*/old_scripts/*
+backup/
 pos_snps
 *.out
 *.log
