@@ -186,7 +186,7 @@ geno_lik_and_SNPs/results/combined_sept19/variant_sites$ angsd sites index chr.v
 
 # then I use angsd to call genotypes for the high coverage reference panels
 # using known major/minor from sites file, no phred quality cutoff (error rates go into model),
-# and requiring minimum 6 reads to call a genotype. 
+# and requiring minimum 6 reads to call a genotype.
 # I run A, C and M separately because of the HW assumption.
 geno_lik_and_SNPs$ nohup parallel --jobs 4 --noswap --joblog logs/call_genotypes_ACM_combined_sept19.log './call_genotypes.sh {1} combined_sept19 {2}' ::: A C M :::: ../data/honeybee_genome/chr.names &> logs/call_genotypes_ACM_combined_sept19.out &
 [1] 6983 - RUNNING 9.16.19
@@ -203,8 +203,3 @@ geno_lik_and_SNPs$ nohup parallel --noswap --jobs 4 --joblog logs/calc_total_cov
 [1] 19624 - running 2.28.20. UGH. REDO. NEEDS TO BE LINKED NAMES AND REGIONS!
 geno_lik_and_SNPs$ nohup parallel --noswap --jobs 4 --joblog logs/calc_total_coverage_1cM_bins.log 'angsd -r {1} -ref "../data/honeybee_genome/Amel_HAv3.1.fasta" -bam ../bee_samples_listed/combined_sept19.bams -doDepth 1 -out results/coverage_1cM_bins/{2} -doCounts 1 -minMapQ 30 -minQ 20 -minInd 174 -setMaxDepth 5500 -maxDepth 1' :::: results/1cM_bins.regions ::::+ results/1cM_bins.names &> logs/calc_total_coverage_1cM_bins.out &
 [1] 7231 - RUNNING
-
-# Summarise into one file per individual and delete intermediate output files. 
-
-
-
