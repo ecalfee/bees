@@ -3,17 +3,17 @@
 #### Main script for plotting local ancestry results, e.g. Fig 5
 - plotLocalAncestryTracts.R  
 #### Main script for analyzing local ancestry results and running simulations
-- ocal_ancestry_results_and_simulations.R
+- local_ancestry_results_and_simulations.R
 #### Ancestry variance-covariance calculations (K matrix)
 - k_matrix.R
+#### K matrix correlations by recombination rate quintile and chromosome
+- K_by_r_and_chr.R
 #### Calculating false-discovery rates for ancestry outliers
 - calc_FDRs.R
-#### Getting recombination map positions for sites
-- bp_to_r_Wallberg2015.R
-- extend_r_map.R
 #### Scripts to produce input files for ancestry\_hmm
 - countReadsACGT.sh
 - getMajorMinorReadCountsFromACGT.R
+- thin_SNPs_add_genos_ancestry_hmm.R
 #### Ancestry\_hmm
 - see pipeline below for ancestry\_hmm command run
 - coverageLocalAncSites.R # calculates coverage across sites used for ancestry\_hmm
@@ -22,12 +22,8 @@
 - ancestry_sites_to_tracts.R # converts ancestry calls at individual SNPs to a bed windows file
 #### Identifies high confidence homozygous ancestry tracts (> 0.8 posterior)
 -getHighPosteriorTracts.sh
-
-#### Other
-- K_by_recomb_rate.R
+#### Get highest posterior ancestry state (MAP value for ancestry mapping)
 - getHighestPostAncState.R
-- thin_SNPs_add_genos_ancestry_hmm.R
-
 
 ## Record of scripts run
 - commands.txt # includes preliminary analyses not in the paper
