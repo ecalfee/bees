@@ -21,7 +21,7 @@
 - calcAncFromPost.R
 - ancestry_sites_to_tracts.R # converts ancestry calls at individual SNPs to a bed windows file
 #### Identifies high confidence homozygous ancestry tracts (> 0.8 posterior)
--getHighPosteriorTracts.sh
+- getHighPosteriorTracts.sh
 #### Get highest posterior ancestry state (MAP value for ancestry mapping)
 - getHighestPostAncState.R
 
