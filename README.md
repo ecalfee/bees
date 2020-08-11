@@ -21,14 +21,15 @@ https://www.biorxiv.org/content/10.1101/2020.03.17.994632v2
 - wing_analysis/
 #### Ancestry outlier regions and overlap with genes and QTLs
 - functional_analysis/
-#### Within ancestry diversity (pi, F_{ST}, PCA)
+#### Within ancestry diversity (pi, FST, PCA)
 - within_ancestry/ # includes Fig 4
 #### Mitochondria SNPs and clines
-- mitochondria/
+- clines/
 #### Ancestry informative markers (AIMs)
 - clines/
 #### Other
 - maps/ # additional scripts for mapping samples
 - labwork/ # notes taken during labwork
 - sims_downsample/ # preliminary analysis for depth of sequencing needed for local ancestry inference
+- mitochrondria/ # attempted tree analysis for mtDNA (insufficient coverage to recover complete mtDNA haplotypes)
 - colors.R # color palettes used in plots
