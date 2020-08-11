@@ -6,6 +6,9 @@
 -calc_GL_all_SNPs.sh
 #### Get genotypes for reference bees at called SNPs (for input to ancestry\_hmm)
 -call_genotypes.sh
+#### Get cM position for all variant sites
+-bp_to_r_WallbergHAv3.sh
+-extend_r_map.R
 
 ## Record of scripts run
 - commands.txt # includes preliminary analyses not in the paper
