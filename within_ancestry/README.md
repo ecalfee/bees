@@ -1,47 +1,26 @@
-# Within ancestry diversity (and overall pi)
+# Within ancestry diversity analyses
 ## List of Scripts
-
-#### Main R script to make plots of diversity genomewide (e.g. Fig 4)
-- plot_pi_fst_from_allele_freqs.R
-
-#### Get individual bams for high-confidence homozygous ancestry regions
-Using local_ancestry scripts I called high confidence AA/CC/MM HOMOZYGOUS ANCESTRY tracts for all bees using local_ancestry/getHighPosteriorTracts.sh, e.g. local_ancestry/results/tracts/combined_sept19/A/CA1207.bed. The script below filters bams to only save reads that overlap these tracts.
+#### Main script to plot diversity genomewide
+- plot_pi_genomewide.R # Fig 4 and S25
+#### Run block bootstrap of pi within ancestry
+- block_bootstrap_pi_within.R # note: geno_lik_and_SNPs/bp_to_r_WallbergHAv3.sh returns 1cM bins across genome
+#### Script to plot Fst across outlier regions (supporting figs)
+- plot_fst_outliers.R
+#### Script to create new bams that only include reads overlapping high confidence AA, CC, MM ancestry tracts
 - getBamsForTracts.sh
-
-#### Estimate allele frequencies at all SNPs on a chromosome
-Note this uses a sites file for all SNPs created in *** and has no output if there are no reads covering a SNP.
-##### For high-confidence homozygous ancestry tracts (within ancestry)
+#### Scripts to calculate population allele frequencies
+- allele_freq_within_ancestry_outliers.sh
 - allele_freq_within_ancestry.sh
-##### For all regions (uses full original bams)
-- allele_freq.sh
-
-#### Create one file per population that combines allele frequencies from all sites and all chromosomes
-- combine_pop_allele_freqs.R
-
-#### Estimate bootstrap uncertainty around pi estimates
-- block_bootstrap_pi_within.R
-- bootstrap_pi_within.R
-
-#### Pi and Fst within outlier regions:
-
+- allele_freq.sh # ignores ancestry state ('Combined')
+- combine_pop_allele_freqs.sh # ensures every site has an allele freq (can be NA for no data)
+#### Run and plot PCA analysis (PCAngsd) within ancestry
+- calc_GL_within_ancestry_4PCA.sh
+- runPCAngsd_within_ancestry.sh
+- plotPCA_within_ancestry.R
+#### Functions for Fst and pi (small sample size correction)
+- het_fst_functions.R
+#### Calculates total mappable sites in the genome (used in denominator for pi)
+- calc_frac_snps.R
 
 ## Record of scripts run
 - commands.txt # includes preliminary analyses not in the paper
-
-
-## Other scripts
--allele_freq.sh
--allele_freq_within_ancestry.sh
--allele_freq_within_ancestry_outliers.sh
--calc_GL_within_ancestry_4PCA.sh
--calc_pairwise_fst.sh
--calc_theta_random_background.sh
--calc_theta_regions.sh
--calc_tehta_regions_within_ancestry.sh
--combine_pop_allele_freqs.R
-extepected_drift_ancestry.R
-pi.sh
-pi_within_ancestry.sh
-plotPCA_within_ancestry.R
-plot_pi_fst_outliers.R
-runPCAngsd_within_ancestry.sh

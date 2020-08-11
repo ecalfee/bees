@@ -7,7 +7,7 @@
 #### Get genotypes for reference bees at called SNPs (for input to ancestry\_hmm)
 - call_genotypes.sh
 #### Get cM position for all variant sites
-- bp_to_r_WallbergHAv3.sh
+- bp_to_r_WallbergHAv3.sh # also returns 1cM bins across genome (for block bootstrap of pi)
 - extend_r_map.R
 
 ## Record of scripts run

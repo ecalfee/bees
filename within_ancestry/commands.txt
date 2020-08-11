@@ -253,7 +253,7 @@ bees/within_ancestry$ for anc in A C M combined; do for j in {1..16}; do paste $
 # ACM reference individuals:
 bees/within_ancestry$ for type in nInd freqs.txt; do for j in {1..16}; do paste $(for i in A C M; do echo results/combined_sept19/combined/allele_freq/Group$j/$i.$type; done) | awk 'NR == 1 || NR % 100 == 0' > results/combined_sept19/combined/allele_freq/Group$j/ACM_every100th_SNP.$type; done; done
 bees/within_ancestry$ for type in nInd freqs.txt; do for j in {1..16}; do paste $(for i in A C M; do echo results/combined_sept19/combined/allele_freq/Group$j/$i.$type; done) | awk 'NR == 1 || NR % 10 == 0' > results/combined_sept19/combined/allele_freq/Group$j/ACM_every10th_SNP.$type; done; done
-# I will combine across chromosomes in the R script plot_pi_fst_from_allele_freqs.R
+# I will combine across chromosomes in the R script plot_pi_genomewide.R
 
 
 # Now also calculate allele freqs for NA and SA as groups within each ancestry, and also for all reads, regardless of ancestry:
@@ -300,7 +300,7 @@ I CONCATENATE TOGETHER D1D2 -> D and ABCDE:
 within_ancestry$ for i in SA.A SA.C SA.M; do (zcat results/combined_sept19/outliers/outlier1_chr1_A/$i.mafs.gz; for j in B C D1 D2 E; do zcat results/combined_sept19/outliers/outlier1_chr1_$j/$i.mafs.gz | tail -n +2; done) | bgzip > results/combined_sept19/outliers/outlier1_chr1/$i.mafs.gz; done
 within_ancestry$ for i in SA.A SA.C SA.M; do (zcat results/combined_sept19/outliers/outlier2_chr11_A/$i.mafs.gz; for j in B C D; do zcat results/combined_sept19/outliers/outlier2_chr11_$j/$i.mafs.gz | tail -n +2; done) | bgzip > results/combined_sept19/outliers/outlier2_chr11/$i.mafs.gz; done
 
-I LOAD THE RESULTING FILES AND ALLELE FREQ FILES FOR REFERENCE PANELS INTO R SCRIPT:  plot_pi_fst_outliers
+I LOAD THE RESULTING FILES AND ALLELE FREQ FILES FOR REFERENCE PANELS INTO R SCRIPT:  plot_fst_outliers.R
 
 # TO COMPLEMENT THIS ANALYSIS, go back to calculating pi the angsd way. chr3 has no outliers. So I'll start by making pi priors from 1Mb within chr3 and known sites:
 # Get random regions: 1000 regions, each 1kb long = 1Mb
